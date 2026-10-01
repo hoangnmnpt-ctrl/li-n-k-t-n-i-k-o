@@ -1,0 +1,237 @@
+Attribute VB_Name = "Module1"
+Sub XuatNoiLuc_MaxMin_TuongUng_FixNutDau()
+    Dim myHelper As Object, mySapObject As Object, SapModel As Object
+    Dim ret As Long
+    
+    ' 1. Toi uu toc do Excel
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+    
+    ' 2. Ket noi SAP2000
+    On Error Resume Next
+    Set myHelper = CreateObject("CSiAPIv1.Helper")
+    Set mySapObject = myHelper.GetObject("CSI.SAP2000.API.SapObject")
+    On Error GoTo Cleanup
+    
+    If mySapObject Is Nothing Then
+        MsgBox "Khong tim thay SAP2000 v25 dang chay!", vbCritical
+        GoTo Cleanup
+    End If
+    Set SapModel = mySapObject.SapModel
+    
+    ' 3. Lay danh sach thanh chon
+    Dim NumberItems As Long, ObjectType() As Long, ObjectName() As String
+    ret = SapModel.SelectObj.GetSelected(NumberItems, ObjectType, ObjectName)
+    If NumberItems = 0 Or ret <> 0 Then
+        MsgBox "Ban chua quet chon thanh (Frame) nao!", vbExclamation
+        GoTo Cleanup
+    End If
+    
+    ' 4. TUY CHON 1: Nguon Tai Trong
+    Dim SrcOpt As String
+    SrcOpt = InputBox("CHON NGUON TAI TRONG CAN XUAT:" & vbCrLf & _
+                      "1: Load Patterns" & vbCrLf & _
+                      "2: Load Cases" & vbCrLf & _
+                      "3: Load Combinations", "Tuy Chon Nguon Tai", "3")
+    If SrcOpt <> "1" And SrcOpt <> "2" And SrcOpt <> "3" Then GoTo Cleanup
+    
+    ' 5. TUY CHON 2: Vi Tri Nut
+    Dim NodeOpt As String
+    NodeOpt = InputBox("CHON VI TRI NUT CAN XUAT:" & vbCrLf & _
+                       "1: Chi xuat Nut Dau" & vbCrLf & _
+                       "2: Chi xuat Nut Cuoi" & vbCrLf & _
+                       "3: Xuat CA HAI nut", "Tuy Chon Vi Tri Nut", "3")
+    If NodeOpt <> "1" And NodeOpt <> "2" And NodeOpt <> "3" Then GoTo Cleanup
+    
+    ' Thiet lap nguon tai xuat ket qua
+    Call SapModel.Results.Setup.DeselectAllCasesAndCombosForOutput
+    Dim NumItems As Long, ItemNames() As String, k As Long
+    Select Case SrcOpt
+        Case "1"
+            Call SapModel.LoadPatterns.GetNameList(NumItems, ItemNames)
+            For k = 0 To NumItems - 1: Call SapModel.Results.Setup.SetCaseSelectedForOutput(ItemNames(k), True): Next k
+        Case "2"
+            Call SapModel.LoadCases.GetNameList(NumItems, ItemNames)
+            For k = 0 To NumItems - 1: Call SapModel.Results.Setup.SetCaseSelectedForOutput(ItemNames(k), True): Next k
+        Case "3"
+            Call SapModel.RespCombo.GetNameList(NumItems, ItemNames)
+            For k = 0 To NumItems - 1: Call SapModel.Results.Setup.SetComboSelectedForOutput(ItemNames(k), True): Next k
+    End Select
+    
+    ' 6. Tao Sheet ket qua
+    Dim ws As Worksheet
+    On Error Resume Next
+    Set ws = Worksheets("NoiLuc_Bao_TuongUng")
+    On Error GoTo 0
+    If ws Is Nothing Then
+        Set ws = Worksheets.Add: ws.Name = "NoiLuc_Bao_TuongUng"
+    Else
+        ws.Cells.Clear
+    End If
+    
+    ws.Range("A1:K1").Value = Array("Ten Thanh", "Tiet Dien", "Chieu Dai (m)", "Vi Tri Nut", "Loai Cuc Tri", "Nguon Tai (Combo/Case)", "P (kN)", "V2 (kN)", "V3 (kN)", "M2 (kNm)", "M3 (kNm)")
+    ws.Range("A1:K1").Font.Bold = True
+    Call SapModel.SetPresentUnits(6) ' kN_m_C
+    
+    Dim ResultData() As Variant
+    ReDim ResultData(1 To 50000, 1 To 11)
+    Dim RowCount As Long: RowCount = 0
+    
+    Dim i As Long
+    For i = 0 To NumberItems - 1
+        If ObjectType(i) = 2 Then
+            Dim FrameName As String: FrameName = ObjectName(i)
+            Dim PropName As String, SPropName As String
+            Call SapModel.FrameObj.GetSection(FrameName, PropName, SPropName)
+            
+            ' Tinh chieu dai chuan tu toa do 3D
+            Dim Pt1 As String, Pt2 As String
+            Dim x1 As Double, y1 As Double, z1 As Double, x2 As Double, y2 As Double, z2 As Double
+            Dim Length As Double
+            Call SapModel.FrameObj.GetPoints(FrameName, Pt1, Pt2)
+            Call SapModel.PointObj.GetCoordCartesian(Pt1, x1, y1, z1)
+            Call SapModel.PointObj.GetCoordCartesian(Pt2, x2, y2, z2)
+            Length = Sqr((x2 - x1) ^ 2 + (y2 - y1) ^ 2 + (z2 - z1) ^ 2)
+            
+            Dim NumberResults As Long
+            Dim Obj() As String, ObjSta() As Double, Elm() As String, ElmSta() As Double
+            Dim LoadCase() As String, StepType() As String, StepNum() As Double
+            Dim P() As Double, V2() As Double, V3() As Double, T() As Double, M2() As Double, M3() As Double
+            
+            ret = SapModel.Results.FrameForce(FrameName, 0, NumberResults, Obj, ObjSta, Elm, ElmSta, LoadCase, StepType, StepNum, P, V2, V3, T, M2, M3)
+            
+            If ret = 0 And NumberResults > 0 Then
+                
+                ' TU DONG BAT VI TRI STATION DAU VA CUOI THUC TE
+                Dim MinStation As Double: MinStation = 1E+15
+                Dim MaxStation As Double: MaxStation = -1E+15
+                Dim j As Long
+                For j = 0 To NumberResults - 1
+                    If ObjSta(j) < MinStation Then MinStation = ObjSta(j)
+                    If ObjSta(j) > MaxStation Then MaxStation = ObjSta(j)
+                Next j
+                
+                Dim LocIndex As Long
+                For LocIndex = 1 To 2
+                    Dim ProcessThisNode As Boolean: ProcessThisNode = False
+                    If LocIndex = 1 And (NodeOpt = "1" Or NodeOpt = "3") Then ProcessThisNode = True
+                    If LocIndex = 2 And (NodeOpt = "2" Or NodeOpt = "3") Then ProcessThisNode = True
+                    
+                    If ProcessThisNode Then
+                        Dim TargetSta As Double, NutName As String
+                        If LocIndex = 1 Then
+                            TargetSta = MinStation
+                            NutName = "Nut Dau (" & Format(Round(MinStation, 2), "0.00") & "m)"
+                        Else
+                            TargetSta = MaxStation
+                            NutName = "Nut Cuoi (L = " & Format(Round(Length, 2), "0.00") & "m)"
+                        End If
+                        
+                        Dim idxMaxP As Long, idxMinP As Long
+                        Dim idxMaxAbsV2 As Long
+                        Dim idxMaxAbsV3 As Long
+                        Dim idxMaxM2 As Long, idxMinM2 As Long
+                        Dim idxMaxM3 As Long, idxMinM3 As Long
+                        
+                        Dim maxP As Double: maxP = -1E+15: Dim minP As Double: minP = 1E+15
+                        Dim maxAbsV2 As Double: maxAbsV2 = -1
+                        Dim maxAbsV3 As Double: maxAbsV3 = -1
+                        Dim maxM2 As Double: maxM2 = -1E+15: Dim minM2 As Double: minM2 = 1E+15
+                        Dim maxM3 As Double: maxM3 = -1E+15: Dim minM3 As Double: minM3 = 1E+15
+                        
+                        idxMaxP = -1: idxMinP = -1
+                        idxMaxAbsV2 = -1
+                        idxMaxAbsV3 = -1
+                        idxMaxM2 = -1: idxMinM2 = -1
+                        idxMaxM3 = -1: idxMinM3 = -1
+                        
+                        For j = 0 To NumberResults - 1
+                            If Abs(ObjSta(j) - TargetSta) < 0.05 Then
+                                ' P
+                                If P(j) > maxP Then maxP = P(j): idxMaxP = j
+                                If P(j) < minP Then minP = P(j): idxMinP = j
+                                
+                                ' V2 (Abs)
+                                If Abs(V2(j)) > maxAbsV2 Then maxAbsV2 = Abs(V2(j)): idxMaxAbsV2 = j
+                                
+                                ' V3 (Abs)
+                                If Abs(V3(j)) > maxAbsV3 Then maxAbsV3 = Abs(V3(j)): idxMaxAbsV3 = j
+                                
+                                ' M2 (Max / Min)
+                                If M2(j) > maxM2 Then maxM2 = M2(j): idxMaxM2 = j
+                                If M2(j) < minM2 Then minM2 = M2(j): idxMinM2 = j
+                                
+                                ' M3 (Max / Min)
+                                If M3(j) > maxM3 Then maxM3 = M3(j): idxMaxM3 = j
+                                If M3(j) < minM3 Then minM3 = M3(j): idxMinM3 = j
+                            End If
+                        Next j
+                        
+                        ' Mang gom 10 muc cuc tri (them Min M2)
+                        Dim ExtNames As Variant
+                        ExtNames = Array("Max P", "Min P", "Max V2 (Abs)", "Max V3 (Abs)", "Max M2", "Min M2", "Max M3", "Min M3")
+                        Dim ExtIndices As Variant
+                        ExtIndices = Array(idxMaxP, idxMinP, idxMaxAbsV2, idxMaxAbsV3, idxMaxM2, idxMinM2, idxMaxM3, idxMinM3)
+                        
+                        Dim n As Integer
+                        For n = 0 To 7
+                            Dim targetIdx As Long
+                            targetIdx = ExtIndices(n)
+                            If targetIdx <> -1 Then
+                                RowCount = RowCount + 1
+                                ResultData(RowCount, 1) = FrameName
+                                ResultData(RowCount, 2) = PropName
+                                ResultData(RowCount, 3) = Round(Length, 3)
+                                ResultData(RowCount, 4) = NutName
+                                ResultData(RowCount, 5) = ExtNames(n)
+                                ResultData(RowCount, 6) = LoadCase(targetIdx)
+                                ResultData(RowCount, 7) = Round(P(targetIdx), 2)
+                                ResultData(RowCount, 8) = Round(V2(targetIdx), 2)
+                                ResultData(RowCount, 9) = Round(V3(targetIdx), 2)
+                                ResultData(RowCount, 10) = Round(M2(targetIdx), 2)
+                                ResultData(RowCount, 11) = Round(M3(targetIdx), 2)
+                            End If
+                        Next n
+                        
+                    End If
+                Next LocIndex
+            End If
+        End If
+    Next i
+    
+    If RowCount > 0 Then
+        ws.Range("A2").Resize(RowCount, 11).Value = ResultData
+        ws.Columns("A:K").AutoFit
+        
+        ' TO MAU CHINH XÁC THEO HÌNH M?U M?I NH?T
+        Dim r As Long
+        Dim loaiCucTri As String
+        For r = 2 To RowCount + 1
+            loaiCucTri = ws.Cells(r, 5).Value
+            
+            Select Case loaiCucTri
+                Case "Max P", "Min P"
+                    ws.Cells(r, 7).Interior.Color = RGB(189, 215, 238) ' Xanh duong nh?t
+                Case "Max V2 (Abs)"
+                    ws.Cells(r, 8).Interior.Color = RGB(146, 208, 80)  ' Xanh lá nh?t
+                Case "Max V3 (Abs)"
+                    ws.Cells(r, 9).Interior.Color = RGB(252, 228, 214) ' Cam/H?ng nh?t
+                Case "Max M2", "Min M2"
+                    ws.Cells(r, 10).Interior.Color = RGB(255, 242, 204) ' Vàng nh?t
+                Case "Max M3", "Min M3"
+                    ws.Cells(r, 11).Interior.Color = RGB(248, 203, 173) ' Cam d?m
+            End Select
+        Next r
+        
+        MsgBox "Xuat thanh cong " & RowCount & " dong! Da to mau dung chuan mau mau.", vbInformation, "Thanh Cong"
+    Else
+        MsgBox "Khong tim thay du lieu! Vui long kiem tra lai SAP2000.", vbExclamation
+    End If
+
+Cleanup:
+    Application.ScreenUpdating = True
+    Application.Calculation = xlCalculationAutomatic
+End Sub
+
+
+

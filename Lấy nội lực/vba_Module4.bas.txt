@@ -1,0 +1,1826 @@
+Attribute VB_Name = "Module4"
+Option Explicit
+
+'====================================================================
+' TEN SHEET DU LIEU NOI LUC
+'====================================================================
+Private Const SHEET_NOILUC As String = "NoiLuc_NhieuViTri"
+
+'====================================================================
+' TEN SHEET KIEM TRA XOAN PURLIN
+'====================================================================
+Private Const SHEET_TORSION As String = "torsional purlin check"
+
+'====================================================================
+' TEN NAM RANGE CHO DROPDOWN
+'====================================================================
+Private Const NAME_VITRI_LIST As String = "TorsionalPurlinViTriList"
+
+
+'====================================================================
+' MAIN MACRO
+'
+' CHUC NANG:
+'   1. Chon nhieu vi tri trong SAP2000
+'   2. Chon nguon tai
+'   3. Lay noi luc cac Frame da chon
+'   4. Noi suy noi luc tai vi tri yeu cau
+'   5. Xuat Max/Min P, V2, V3, M2, M3
+'   6. Tao sheet "torsional purlin check"
+'   7. Tao Dropdown ViTri
+'   8. Tim M3 min theo ViTri
+'   9. Lay dong du lieu tuong ung voi M3 min
+'
+' LUU Y:
+'   KHONG tao dong tong hop tren sheet NoiLuc_NhieuViTri
+'====================================================================
+Public Sub SubXuatNoiLuc_NhieuViTri()
+
+    Dim myHelper As Object
+    Dim mySapObject As Object
+    Dim SapModel As Object
+    Dim ret As Long
+
+    '================================================================
+    ' 1. NHAP CAC VI TRI
+    '================================================================
+    Dim userInput As String
+
+    userInput = InputBox( _
+        "NHAP CAC VI TRI CAN LAY NOI LUC" & vbCrLf & _
+        "(Cach nhau boi dau phay, don vi: m)" & vbCrLf & vbCrLf & _
+        "Vi du: 1.0, 3.0, 5.5", _
+        "Tuy Chon Nhieu Vi Tri", _
+        "2.0, 4.0")
+
+    If Trim(userInput) = "" Then
+
+        MsgBox "Ban da huy thao tac!", vbExclamation
+
+        Exit Sub
+
+    End If
+
+    '================================================================
+    ' 2. TACH CHUOI VI TRI
+    '================================================================
+    Dim arrInput() As String
+    Dim arrKhoangCach() As Double
+
+    arrInput = Split(userInput, ",")
+
+    Dim countKC As Long
+    Dim k As Long
+    Dim valStr As String
+
+    countKC = 0
+
+    ReDim arrKhoangCach(0 To UBound(arrInput))
+
+    For k = 0 To UBound(arrInput)
+
+        valStr = Trim(arrInput(k))
+
+        If IsNumeric(valStr) And valStr <> "" Then
+
+            arrKhoangCach(countKC) = CDbl(valStr)
+
+            countKC = countKC + 1
+
+        End If
+
+    Next k
+
+    If countKC = 0 Then
+
+        MsgBox _
+            "Ban chua nhap dung dinh dang so!", _
+            vbCritical
+
+        Exit Sub
+
+    End If
+
+    ReDim Preserve arrKhoangCach(0 To countKC - 1)
+
+    '================================================================
+    ' 3. TOI UU EXCEL
+    '================================================================
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+    Application.EnableEvents = False
+
+    On Error GoTo Cleanup
+
+
+    '================================================================
+    ' 4. KET NOI SAP2000
+    '================================================================
+    On Error Resume Next
+
+    Set myHelper = CreateObject("CSiAPIv1.Helper")
+
+    Set mySapObject = _
+        myHelper.GetObject("CSI.SAP2000.API.SapObject")
+
+    On Error GoTo Cleanup
+
+    If mySapObject Is Nothing Then
+
+        MsgBox _
+            "Khong tim thay SAP2000 dang chay!", _
+            vbCritical
+
+        GoTo Cleanup
+
+    End If
+
+    Set SapModel = mySapObject.SapModel
+
+
+    '================================================================
+    ' 5. LAY CAC FRAME DANG DUOC CHON
+    '================================================================
+    Dim NumberItems As Long
+
+    Dim ObjectType() As Long
+    Dim ObjectName() As String
+
+    ret = SapModel.SelectObj.GetSelected( _
+                NumberItems, _
+                ObjectType, _
+                ObjectName)
+
+    If NumberItems = 0 Or ret <> 0 Then
+
+        MsgBox _
+            "Ban chua quet chon thanh (Frame) nao!", _
+            vbExclamation
+
+        GoTo Cleanup
+
+    End If
+
+
+    '================================================================
+    ' 6. CHON NGUON TAI
+    '================================================================
+    Dim SrcOpt As String
+
+    SrcOpt = InputBox( _
+        "CHON NGUON TAI TRONG CAN XUAT:" & vbCrLf & _
+        "1: Load Patterns" & vbCrLf & _
+        "2: Load Cases" & vbCrLf & _
+        "3: Load Combinations", _
+        "Tuy Chon Nguon Tai", _
+        "3")
+
+    If SrcOpt <> "1" And _
+       SrcOpt <> "2" And _
+       SrcOpt <> "3" Then
+
+        MsgBox _
+            "Lua chon nguon tai khong hop le!", _
+            vbExclamation
+
+        GoTo Cleanup
+
+    End If
+
+
+    '================================================================
+    ' 7. CHON OUTPUT CASE / COMBO
+    '================================================================
+    Call SapModel.Results.Setup.DeselectAllCasesAndCombosForOutput
+
+    Dim NumItems As Long
+    Dim ItemNames() As String
+
+    Select Case SrcOpt
+
+        Case "1"
+
+            Call SapModel.LoadPatterns.GetNameList( _
+                    NumItems, _
+                    ItemNames)
+
+            For k = 0 To NumItems - 1
+
+                Call SapModel.Results.Setup. _
+                    SetCaseSelectedForOutput( _
+                        ItemNames(k), _
+                        True)
+
+            Next k
+
+
+        Case "2"
+
+            Call SapModel.LoadCases.GetNameList( _
+                    NumItems, _
+                    ItemNames)
+
+            For k = 0 To NumItems - 1
+
+                Call SapModel.Results.Setup. _
+                    SetCaseSelectedForOutput( _
+                        ItemNames(k), _
+                        True)
+
+            Next k
+
+
+        Case "3"
+
+            Call SapModel.RespCombo.GetNameList( _
+                    NumItems, _
+                    ItemNames)
+
+            For k = 0 To NumItems - 1
+
+                Call SapModel.Results.Setup. _
+                    SetComboSelectedForOutput( _
+                        ItemNames(k), _
+                        True)
+
+            Next k
+
+    End Select
+
+
+    '================================================================
+    ' 8. TAO / LAM MOI SHEET NOI LUC
+    '================================================================
+    Dim ws As Worksheet
+
+    On Error Resume Next
+
+    Set ws = Worksheets(SHEET_NOILUC)
+
+    On Error GoTo Cleanup
+
+    If ws Is Nothing Then
+
+        Set ws = Worksheets.Add( _
+                    After:=Worksheets(Worksheets.Count))
+
+        ws.Name = SHEET_NOILUC
+
+    Else
+
+        ws.Cells.Clear
+
+        On Error Resume Next
+        ws.Cells.Validation.Delete
+        On Error GoTo Cleanup
+
+    End If
+
+
+    '================================================================
+    ' 9. TIEU DE SHEET NOI LUC
+    '================================================================
+    ws.Range("A1:O1").Value = Array( _
+        "Ten Thanh", _
+        "Tiet Dien", _
+        "htb (mm)", _
+        "tw (mm)", _
+        "bf (mm)", _
+        "tf (mm)", _
+        "Chieu Dai (m)", _
+        "Vi Tri", _
+        "Loai Cuc Tri", _
+        "Nguon Tai (Combo/Case)", _
+        "P (kN)", _
+        "V2 (kN)", _
+        "V3 (kN)", _
+        "M2 (kNm)", _
+        "M3 (kNm)")
+
+    ws.Range("A1:O1").Font.Bold = True
+
+
+    '================================================================
+    ' 10. DON VI SAP2000
+    '================================================================
+    Call SapModel.SetPresentUnits(6)
+
+
+    '================================================================
+    ' 11. MANG DU LIEU
+    '================================================================
+    Dim ResultData() As Variant
+
+    ReDim ResultData(1 To 100000, 1 To 15)
+
+    Dim RowCount As Long
+    RowCount = 0
+
+    Dim i As Long
+
+
+    '================================================================
+    ' 12. DUYET TUNG FRAME
+    '================================================================
+    For i = 0 To NumberItems - 1
+
+        If ObjectType(i) = 2 Then
+
+            On Error GoTo SkipFrame
+
+            '--------------------------------------------------------
+            ' TEN FRAME
+            '--------------------------------------------------------
+            Dim FrameName As String
+
+            FrameName = ObjectName(i)
+
+
+            '--------------------------------------------------------
+            ' TIET DIEN
+            '--------------------------------------------------------
+            Dim PropName As String
+            Dim SPropName As String
+            Dim ActualProp As String
+
+            Call SapModel.FrameObj.GetSection( _
+                    FrameName, _
+                    PropName, _
+                    SPropName)
+
+            If SPropName <> "" Then
+
+                ActualProp = SPropName
+
+            Else
+
+                ActualProp = PropName
+
+            End If
+
+
+            '--------------------------------------------------------
+            ' LAY 2 DAU FRAME
+            '--------------------------------------------------------
+            Dim Pt1 As String
+            Dim Pt2 As String
+
+            Dim x1 As Double
+            Dim y1 As Double
+            Dim z1 As Double
+
+            Dim x2 As Double
+            Dim y2 As Double
+            Dim z2 As Double
+
+            Dim Length As Double
+
+            Call SapModel.FrameObj.GetPoints( _
+                    FrameName, _
+                    Pt1, _
+                    Pt2)
+
+            Call SapModel.PointObj.GetCoordCartesian( _
+                    Pt1, _
+                    x1, _
+                    y1, _
+                    z1)
+
+            Call SapModel.PointObj.GetCoordCartesian( _
+                    Pt2, _
+                    x2, _
+                    y2, _
+                    z2)
+
+            Length = Sqr( _
+                        (x2 - x1) ^ 2 + _
+                        (y2 - y1) ^ 2 + _
+                        (z2 - z1) ^ 2)
+
+
+            '--------------------------------------------------------
+            ' KHAI BAO KET QUA FRAME FORCE
+            '--------------------------------------------------------
+            Dim NumberResults As Long
+
+            Dim Obj() As String
+            Dim ObjSta() As Double
+
+            Dim Elm() As String
+            Dim ElmSta() As Double
+
+            Dim LoadCase() As String
+            Dim StepType() As String
+            Dim StepNum() As Double
+
+            Dim P() As Double
+            Dim V2() As Double
+            Dim V3() As Double
+            Dim T() As Double
+            Dim M2() As Double
+            Dim M3() As Double
+
+
+            '--------------------------------------------------------
+            ' LAY NOI LUC
+            '--------------------------------------------------------
+            ret = SapModel.Results.FrameForce( _
+                        FrameName, _
+                        0, _
+                        NumberResults, _
+                        Obj, _
+                        ObjSta, _
+                        Elm, _
+                        ElmSta, _
+                        LoadCase, _
+                        StepType, _
+                        StepNum, _
+                        P, _
+                        V2, _
+                        V3, _
+                        T, _
+                        M2, _
+                        M3)
+
+
+            If ret = 0 And NumberResults > 0 Then
+
+                '====================================================
+                ' DUYET CAC VI TRI CAN XUAT
+                '====================================================
+                Dim idxKC As Long
+
+                For idxKC = 0 To UBound(arrKhoangCach)
+
+                    Dim KhoangCach As Double
+
+                    KhoangCach = _
+                        arrKhoangCach(idxKC)
+
+
+                    '================================================
+                    ' KIEM TRA VI TRI
+                    '================================================
+                    If Length >= KhoangCach Then
+
+                        '----------------------------------------------
+                        ' LAY TIET DIEN TAI VI TRI
+                        '----------------------------------------------
+                        Dim htb As Double
+                        Dim tw As Double
+                        Dim bf As Double
+                        Dim tf As Double
+
+                        Call GetSectionPropsAtStation( _
+                                SapModel, _
+                                ActualProp, _
+                                Length, _
+                                KhoangCach, _
+                                htb, _
+                                tw, _
+                                bf, _
+                                tf)
+
+
+                        '----------------------------------------------
+                        ' TARGET STATION
+                        '----------------------------------------------
+                        Dim TargetSta As Double
+
+                        TargetSta = KhoangCach
+
+
+                        Dim ViTriName As String
+
+                        ViTriName = _
+                            "Cach nut dau " & _
+                            Format(KhoangCach, "0.00") & _
+                            "m"
+
+
+                        '================================================
+                        ' DICTIONARY CAC CASE / COMBO
+                        '================================================
+                        Dim dictCases As Object
+
+                        Set dictCases = _
+                            CreateObject("Scripting.Dictionary")
+
+                        Dim j As Long
+
+                        For j = 0 To NumberResults - 1
+
+                            If Not dictCases.Exists(LoadCase(j)) Then
+
+                                dictCases.Add _
+                                    LoadCase(j), _
+                                    1
+
+                            End If
+
+                        Next j
+
+
+                        '================================================
+                        ' MANG NOI SUY
+                        '
+                        ' 1 = Case/Combo
+                        ' 2 = P
+                        ' 3 = V2
+                        ' 4 = V3
+                        ' 5 = M2
+                        ' 6 = M3
+                        '================================================
+                        Dim colInterpolated() As Variant
+
+                        ReDim colInterpolated( _
+                                1 To dictCases.Count, _
+                                1 To 6)
+
+                        Dim cIdx As Long
+
+                        cIdx = 0
+
+
+                        '================================================
+                        ' DUYET TUNG CASE / COMBO
+                        '================================================
+                        Dim varCase As Variant
+
+                        For Each varCase In dictCases.Keys
+
+                            Dim cName As String
+
+                            cName = CStr(varCase)
+
+
+                            Dim staLow As Double
+                            Dim staHigh As Double
+
+                            staLow = -1
+                            staHigh = -1
+
+
+                            Dim pLow As Double
+                            Dim pHigh As Double
+
+                            Dim v2Low As Double
+                            Dim v2High As Double
+
+                            Dim v3Low As Double
+                            Dim v3High As Double
+
+                            Dim m2Low As Double
+                            Dim m2High As Double
+
+                            Dim m3Low As Double
+                            Dim m3High As Double
+
+
+                            '------------------------------------------------
+                            ' TIM DIEM DUOI VA TREN TARGET
+                            '------------------------------------------------
+                            For j = 0 To NumberResults - 1
+
+                                If LoadCase(j) = cName Then
+
+                                    Dim curSta As Double
+
+                                    curSta = ObjSta(j)
+
+
+                                    '------------------------------------
+                                    ' TRUNG TARGET
+                                    '------------------------------------
+                                    If Abs(curSta - TargetSta) < 0.0001 Then
+
+                                        staLow = TargetSta
+                                        staHigh = TargetSta
+
+                                        pLow = P(j)
+                                        pHigh = P(j)
+
+                                        v2Low = V2(j)
+                                        v2High = V2(j)
+
+                                        v3Low = V3(j)
+                                        v3High = V3(j)
+
+                                        m2Low = M2(j)
+                                        m2High = M2(j)
+
+                                        m3Low = M3(j)
+                                        m3High = M3(j)
+
+                                        Exit For
+
+
+                                    '------------------------------------
+                                    ' PHIA TRUOC TARGET
+                                    '------------------------------------
+                                    ElseIf _
+                                        curSta <= TargetSta And _
+                                        (curSta > staLow Or _
+                                         staLow = -1) Then
+
+                                        staLow = curSta
+
+                                        pLow = P(j)
+                                        v2Low = V2(j)
+                                        v3Low = V3(j)
+                                        m2Low = M2(j)
+                                        m3Low = M3(j)
+
+
+                                    '------------------------------------
+                                    ' PHIA SAU TARGET
+                                    '------------------------------------
+                                    ElseIf _
+                                        curSta >= TargetSta And _
+                                        (curSta < staHigh Or _
+                                         staHigh = -1) Then
+
+                                        staHigh = curSta
+
+                                        pHigh = P(j)
+                                        v2High = V2(j)
+                                        v3High = V3(j)
+                                        m2High = M2(j)
+                                        m3High = M3(j)
+
+                                    End If
+
+                                End If
+
+                            Next j
+
+
+                            '================================================
+                            ' NEU CHI CO DIEM CAO HON
+                            '================================================
+                            If staLow = -1 And _
+                               staHigh <> -1 Then
+
+                                staLow = staHigh
+
+                                pLow = pHigh
+                                v2Low = v2High
+                                v3Low = v3High
+                                m2Low = m2High
+                                m3Low = m3High
+
+                            End If
+
+
+                            '================================================
+                            ' NEU CHI CO DIEM THAP HON
+                            '================================================
+                            If staHigh = -1 And _
+                               staLow <> -1 Then
+
+                                staHigh = staLow
+
+                                pHigh = pLow
+                                v2High = v2Low
+                                v3High = v3Low
+                                m2High = m2Low
+                                m3High = m3Low
+
+                            End If
+
+
+                            '================================================
+                            ' NOI SUY
+                            '================================================
+                            If staLow <> -1 And _
+                               staHigh <> -1 Then
+
+                                Dim interP As Double
+                                Dim interV2 As Double
+                                Dim interV3 As Double
+                                Dim interM2 As Double
+                                Dim interM3 As Double
+
+                                If staLow = staHigh Then
+
+                                    interP = pLow
+                                    interV2 = v2Low
+                                    interV3 = v3Low
+                                    interM2 = m2Low
+                                    interM3 = m3Low
+
+                                Else
+
+                                    Dim ratioData As Double
+
+                                    ratioData = _
+                                        (TargetSta - staLow) / _
+                                        (staHigh - staLow)
+
+                                    interP = _
+                                        pLow + _
+                                        (pHigh - pLow) * _
+                                        ratioData
+
+                                    interV2 = _
+                                        v2Low + _
+                                        (v2High - v2Low) * _
+                                        ratioData
+
+                                    interV3 = _
+                                        v3Low + _
+                                        (v3High - v3Low) * _
+                                        ratioData
+
+                                    interM2 = _
+                                        m2Low + _
+                                        (m2High - m2Low) * _
+                                        ratioData
+
+                                    interM3 = _
+                                        m3Low + _
+                                        (m3High - m3Low) * _
+                                        ratioData
+
+                                End If
+
+
+                                '--------------------------------------------
+                                ' LUU KET QUA
+                                '--------------------------------------------
+                                cIdx = cIdx + 1
+
+                                colInterpolated(cIdx, 1) = cName
+
+                                colInterpolated(cIdx, 2) = interP
+
+                                colInterpolated(cIdx, 3) = interV2
+
+                                colInterpolated(cIdx, 4) = interV3
+
+                                colInterpolated(cIdx, 5) = interM2
+
+                                colInterpolated(cIdx, 6) = interM3
+
+                            End If
+
+                        Next varCase
+
+
+                        '================================================
+                        ' TIM MAX / MIN
+                        '================================================
+                        If cIdx > 0 Then
+
+                            Dim valP_Max As Double
+                            Dim valP_Min As Double
+
+                            Dim valV2_Max As Double
+                            Dim valV2_Min As Double
+
+                            Dim valV3_Max As Double
+                            Dim valV3_Min As Double
+
+                            Dim valM2_Max As Double
+                            Dim valM2_Min As Double
+
+                            Dim valM3_Max As Double
+                            Dim valM3_Min As Double
+
+
+                            valP_Max = -1E+15
+                            valP_Min = 1E+15
+
+                            valV2_Max = -1E+15
+                            valV2_Min = 1E+15
+
+                            valV3_Max = -1E+15
+                            valV3_Min = 1E+15
+
+                            valM2_Max = -1E+15
+                            valM2_Min = 1E+15
+
+                            valM3_Max = -1E+15
+                            valM3_Min = 1E+15
+
+
+                            Dim cMaxP As String
+                            Dim cMinP As String
+
+                            Dim cMaxV2 As String
+                            Dim cMinV2 As String
+
+                            Dim cMaxV3 As String
+                            Dim cMinV3 As String
+
+                            Dim cMaxM2 As String
+                            Dim cMinM2 As String
+
+                            Dim cMaxM3 As String
+                            Dim cMinM3 As String
+
+
+                            '================================================
+                            ' DUYET TIM CUC TRI
+                            '================================================
+                            For j = 1 To cIdx
+
+                                If CDbl(colInterpolated(j, 2)) >= valP_Max Then
+
+                                    valP_Max = _
+                                        colInterpolated(j, 2)
+
+                                    cMaxP = _
+                                        colInterpolated(j, 1)
+
+                                End If
+
+
+                                If CDbl(colInterpolated(j, 2)) <= valP_Min Then
+
+                                    valP_Min = _
+                                        colInterpolated(j, 2)
+
+                                    cMinP = _
+                                        colInterpolated(j, 1)
+
+                                End If
+
+
+                                If CDbl(colInterpolated(j, 3)) >= valV2_Max Then
+
+                                    valV2_Max = _
+                                        colInterpolated(j, 3)
+
+                                    cMaxV2 = _
+                                        colInterpolated(j, 1)
+
+                                End If
+
+
+                                If CDbl(colInterpolated(j, 3)) <= valV2_Min Then
+
+                                    valV2_Min = _
+                                        colInterpolated(j, 3)
+
+                                    cMinV2 = _
+                                        colInterpolated(j, 1)
+
+                                End If
+
+
+                                If CDbl(colInterpolated(j, 4)) >= valV3_Max Then
+
+                                    valV3_Max = _
+                                        colInterpolated(j, 4)
+
+                                    cMaxV3 = _
+                                        colInterpolated(j, 1)
+
+                                End If
+
+
+                                If CDbl(colInterpolated(j, 4)) <= valV3_Min Then
+
+                                    valV3_Min = _
+                                        colInterpolated(j, 4)
+
+                                    cMinV3 = _
+                                        colInterpolated(j, 1)
+
+                                End If
+
+
+                                If CDbl(colInterpolated(j, 5)) >= valM2_Max Then
+
+                                    valM2_Max = _
+                                        colInterpolated(j, 5)
+
+                                    cMaxM2 = _
+                                        colInterpolated(j, 1)
+
+                                End If
+
+
+                                If CDbl(colInterpolated(j, 5)) <= valM2_Min Then
+
+                                    valM2_Min = _
+                                        colInterpolated(j, 5)
+
+                                    cMinM2 = _
+                                        colInterpolated(j, 1)
+
+                                End If
+
+
+                                If CDbl(colInterpolated(j, 6)) >= valM3_Max Then
+
+                                    valM3_Max = _
+                                        colInterpolated(j, 6)
+
+                                    cMaxM3 = _
+                                        colInterpolated(j, 1)
+
+                                End If
+
+
+                                If CDbl(colInterpolated(j, 6)) <= valM3_Min Then
+
+                                    valM3_Min = _
+                                        colInterpolated(j, 6)
+
+                                    cMinM3 = _
+                                        colInterpolated(j, 1)
+
+                                End If
+
+                            Next j
+
+
+                            '================================================
+                            ' TAO 10 DONG CUC TRI
+                            '================================================
+                            Dim Pairs As Variant
+
+                            Pairs = Array( _
+                                Array("Max P", cMaxP), _
+                                Array("Min P", cMinP), _
+                                Array("Max V2", cMaxV2), _
+                                Array("Min V2", cMinV2), _
+                                Array("Max V3", cMaxV3), _
+                                Array("Min V3", cMinV3), _
+                                Array("Max M2", cMaxM2), _
+                                Array("Min M2", cMinM2), _
+                                Array("Max M3", cMaxM3), _
+                                Array("Min M3", cMinM3))
+
+
+                            Dim n As Long
+
+                            For n = 0 To 9
+
+                                Dim cExtName As String
+                                Dim cCase As String
+
+                                cExtName = Pairs(n)(0)
+
+                                cCase = Pairs(n)(1)
+
+
+                                If cCase <> "" Then
+
+                                    For j = 1 To cIdx
+
+                                        If colInterpolated(j, 1) = cCase Then
+
+                                            RowCount = _
+                                                RowCount + 1
+
+
+                                            ResultData( _
+                                                RowCount, 1) = _
+                                                FrameName
+
+
+                                            ResultData( _
+                                                RowCount, 2) = _
+                                                ActualProp
+
+
+                                            ResultData( _
+                                                RowCount, 3) = _
+                                                Round(htb, 3)
+
+
+                                            ResultData( _
+                                                RowCount, 4) = _
+                                                Round(tw, 2)
+
+
+                                            ResultData( _
+                                                RowCount, 5) = _
+                                                Round(bf, 2)
+
+
+                                            ResultData( _
+                                                RowCount, 6) = _
+                                                Round(tf, 2)
+
+
+                                            ResultData( _
+                                                RowCount, 7) = _
+                                                Round(Length, 3)
+
+
+                                            ResultData( _
+                                                RowCount, 8) = _
+                                                ViTriName
+
+
+                                            ResultData( _
+                                                RowCount, 9) = _
+                                                cExtName
+
+
+                                            ResultData( _
+                                                RowCount, 10) = _
+                                                cCase
+
+
+                                            ResultData( _
+                                                RowCount, 11) = _
+                                                Round( _
+                                                    CDbl( _
+                                                        colInterpolated( _
+                                                            j, 2)), 2)
+
+
+                                            ResultData( _
+                                                RowCount, 12) = _
+                                                Round( _
+                                                    CDbl( _
+                                                        colInterpolated( _
+                                                            j, 3)), 2)
+
+
+                                            ResultData( _
+                                                RowCount, 13) = _
+                                                Round( _
+                                                    CDbl( _
+                                                        colInterpolated( _
+                                                            j, 4)), 2)
+
+
+                                            ResultData( _
+                                                RowCount, 14) = _
+                                                Round( _
+                                                    CDbl( _
+                                                        colInterpolated( _
+                                                            j, 5)), 2)
+
+
+                                            ResultData( _
+                                                RowCount, 15) = _
+                                                Round( _
+                                                    CDbl( _
+                                                        colInterpolated( _
+                                                            j, 6)), 2)
+
+                                            Exit For
+
+                                        End If
+
+                                    Next j
+
+                                End If
+
+                            Next n
+
+                        End If
+
+                    End If
+
+                Next idxKC
+
+            End If
+
+        End If
+
+SkipFrame:
+
+        Err.Clear
+
+        On Error GoTo Cleanup
+
+    Next i
+
+
+    '================================================================
+    ' 13. GHI DU LIEU RA SHEET NOI LUC
+    '
+    ' KHONG TAO DONG TONG HOP O DAY
+    '================================================================
+    If RowCount > 0 Then
+
+        ws.Range("A2").Resize( _
+                RowCount, _
+                15).Value = ResultData
+
+        ws.Columns("A:O").AutoFit
+
+
+        '============================================================
+        ' 14. TAO SHEET TORSIONAL PURLIN CHECK
+        '============================================================
+        Call TaoSheetTorsionalPurlinCheck(ws, RowCount)
+
+
+        MsgBox _
+            "Da xuat thanh cong noi luc!" & vbCrLf & vbCrLf & _
+            "Sheet du lieu: " & SHEET_NOILUC & vbCrLf & _
+            "Sheet kiem tra: " & SHEET_TORSION, _
+            vbInformation, _
+            "Thanh Cong"
+
+
+    Else
+
+        MsgBox _
+            "Khong tim thay du lieu phu hop hoac chieu dai thanh nho hon vi tri xuat!", _
+            vbExclamation
+
+    End If
+
+
+Cleanup:
+
+    Application.ScreenUpdating = True
+    Application.Calculation = xlCalculationAutomatic
+    Application.EnableEvents = True
+
+End Sub
+
+
+'====================================================================
+' TAO SHEET TORSIONAL PURLIN CHECK
+'
+' Cau truc:
+'
+' A1:O1 = Tieu de
+'
+' A3:O3 = Header
+'
+' A4:O4 = Dong ket qua
+'
+' H4 = Dropdown ViTri
+'
+' O4 = M3 MIN
+'
+' P4 = Cot phu tim dong
+'
+' Q = Danh sach ViTri
+'====================================================================
+Private Sub TaoSheetTorsionalPurlinCheck( _
+            ByVal wsSource As Worksheet, _
+            ByVal RowCount As Long)
+
+    Dim wsCheck As Worksheet
+
+    Dim lastSourceRow As Long
+
+    lastSourceRow = RowCount + 1
+
+
+    '================================================================
+    ' 1. TAO / LAY SHEET
+    '================================================================
+    On Error Resume Next
+
+    Set wsCheck = Worksheets(SHEET_TORSION)
+
+    On Error GoTo 0
+
+
+    If wsCheck Is Nothing Then
+
+        Set wsCheck = Worksheets.Add( _
+                        After:=Worksheets(Worksheets.Count))
+
+        wsCheck.Name = SHEET_TORSION
+
+    Else
+
+        wsCheck.Cells.Clear
+
+        On Error Resume Next
+
+        wsCheck.Cells.Validation.Delete
+
+        On Error GoTo 0
+
+    End If
+
+
+    '================================================================
+    ' 2. XOA NAME CU
+    '================================================================
+    On Error Resume Next
+
+    ThisWorkbook.Names(NAME_VITRI_LIST).Delete
+
+    On Error GoTo 0
+
+
+    '================================================================
+    ' 3. TAO TIEU DE
+    '================================================================
+    With wsCheck.Range("A1:O1")
+
+        .Merge
+
+        .Value = SHEET_TORSION
+
+        .Font.Bold = True
+
+        .Font.Size = 14
+
+        .HorizontalAlignment = xlCenter
+
+        .VerticalAlignment = xlCenter
+
+    End With
+
+    wsCheck.Rows(1).RowHeight = 25
+
+
+    '================================================================
+    ' 4. TAO HEADER
+    '================================================================
+    wsCheck.Range("A3:O3").Value = Array( _
+        "Ten Thanh", _
+        "Tiet Dien", _
+        "htb (mm)", _
+        "tw (mm)", _
+        "bf (mm)", _
+        "tf (mm)", _
+        "Chieu Dai (m)", _
+        "Vi Tri", _
+        "Loai Cuc Tri", _
+        "Nguon Tai (Combo/Case)", _
+        "P (kN)", _
+        "V2 (kN)", _
+        "V3 (kN)", _
+        "M2 (kNm)", _
+        "M3 (kNm)")
+
+
+    With wsCheck.Range("A3:O3")
+
+        .Font.Bold = True
+
+        .HorizontalAlignment = xlCenter
+
+        .VerticalAlignment = xlCenter
+
+        .Borders.LineStyle = xlContinuous
+
+    End With
+
+
+    '================================================================
+    ' 5. LAY DANH SACH VI TRI DUY NHAT TU SHEET NOI LUC
+    '================================================================
+    Dim dict As Object
+
+    Set dict = CreateObject("Scripting.Dictionary")
+
+    Dim r As Long
+
+    Dim viTri As String
+
+    For r = 2 To lastSourceRow
+
+        viTri = Trim( _
+            CStr(wsSource.Cells(r, "H").Value))
+
+        If viTri <> "" Then
+
+            If Not dict.Exists(viTri) Then
+
+                dict.Add viTri, 1
+
+            End If
+
+        End If
+
+    Next r
+
+
+    If dict.Count = 0 Then
+
+        MsgBox _
+            "Khong tim thay ViTri trong sheet " & _
+            SHEET_NOILUC & "!", _
+            vbExclamation
+
+        Exit Sub
+
+    End If
+
+
+    '================================================================
+    ' 6. GHI DANH SACH VITRI VAO COT Q
+    '================================================================
+    Dim idx As Long
+
+    idx = 4
+
+    Dim key As Variant
+
+    For Each key In dict.Keys
+
+        wsCheck.Cells(idx, "Q").Value = CStr(key)
+
+        idx = idx + 1
+
+    Next key
+
+
+    '================================================================
+    ' 7. TAO NAM RANGE CHO DROPDOWN
+    '
+    ' DUNG NAM RANGE DE KHONG BI LOI DATA VALIDATION
+    ' KHI DANH SACH NAM TREN SHEET KHAC
+    '================================================================
+    ThisWorkbook.Names.Add _
+        Name:=NAME_VITRI_LIST, _
+        RefersTo:="='" & _
+                  Replace( _
+                      wsCheck.Name, _
+                      "'", _
+                      "''") & _
+                  "'!$Q$4:$Q$" & _
+                  idx - 1
+
+
+    '================================================================
+    ' 8. TAO DONG KET QUA
+    '================================================================
+    Dim resultRow As Long
+
+    resultRow = 4
+
+
+    '================================================================
+    ' 9. DROPDOWN TAI H4
+    '================================================================
+    With wsCheck.Cells(resultRow, "H").Validation
+
+        .Delete
+
+        .Add _
+            Type:=xlValidateList, _
+            AlertStyle:=xlValidAlertStop, _
+            Operator:=xlBetween, _
+            Formula1:="=" & NAME_VITRI_LIST
+
+        .IgnoreBlank = False
+
+        .InCellDropdown = True
+
+        .ShowInput = True
+
+        .ShowError = True
+
+        .ErrorTitle = "ViTri khong hop le"
+
+        .ErrorMessage = _
+            "Vui long chon ViTri trong danh sach."
+
+    End With
+
+
+    '================================================================
+    ' 10. GIA TRI MAC DINH
+    '================================================================
+    wsCheck.Cells(resultRow, "H").Value = _
+        wsCheck.Cells(4, "Q").Value
+
+
+    '================================================================
+    ' 11. O4 = M3 MIN THEO VITRI
+    '
+    ' O la cot M3 cua sheet NOI LUC
+    '
+    ' Chi xet cac dong:
+    ' H = ViTri dang chon
+    '
+    ' Sau do tim gia tri M3 nho nhat
+    '================================================================
+    Dim sourceName As String
+
+    sourceName = _
+        Replace(wsSource.Name, "'", "''")
+
+
+    wsCheck.Cells(resultRow, "O").Formula = _
+        "=IF($H$4="""",""""," & _
+        "IFERROR(" & _
+        "AGGREGATE(" & _
+        "15,6," & _
+        "'" & sourceName & "'!$O$2:$O$" & lastSourceRow & _
+        "/(" & _
+        "'" & sourceName & "'!$H$2:$H$" & lastSourceRow & _
+        "=$H$4" & _
+        "),1)," & _
+        """""))"
+
+
+    '================================================================
+    ' 12. P4 = STT DONG CO M3 MIN
+    '
+    ' P4 la cot phu.
+    '
+    ' Vi du:
+    '
+    ' P4 = 15
+    '
+    ' thi dong can lay la dong:
+    '
+    ' 2 + 15 - 1 = 16
+    '================================================================
+    wsCheck.Cells(resultRow, "P").Formula = _
+        "=IF($H$4="""",""""," & _
+        "IFERROR(" & _
+        "AGGREGATE(" & _
+        "15,6," & _
+        "(ROW('" & sourceName & "'!$A$2:$A$" & _
+        lastSourceRow & ")-ROW('" & sourceName & "'!$A$2)+1)/" & _
+        "((" & _
+        "'" & sourceName & "'!$H$2:$H$" & _
+        lastSourceRow & "=$H$4)*(" & _
+        "'" & sourceName & "'!$O$2:$O$" & _
+        lastSourceRow & "=$O$4)" & _
+        "),1)," & _
+        """""))"
+
+
+    '================================================================
+    ' 13. CAC COT A:G
+    '
+    ' LAY TU DONG CO M3 MIN
+    '================================================================
+    Dim c As Long
+
+    For c = 1 To 7
+
+        wsCheck.Cells(resultRow, c).Formula = _
+            "=IF($P$4="""",""""," & _
+            "INDEX(" & _
+            "'" & sourceName & "'!" & _
+            wsSource.Cells(2, c).Address(False, False) & ":" & _
+            wsSource.Cells(lastSourceRow, c).Address(False, False) & _
+            ",$P$4))"
+
+    Next c
+
+
+    '================================================================
+    ' 14. COT H
+    '
+    ' H4 KHONG DUNG INDEX
+    ' H4 GIU NGUYEN DROPDOWN
+    '================================================================
+
+
+    '================================================================
+    ' 15. CAC COT I:N
+    '
+    ' LAY DUNG DONG CO M3 MIN
+    '================================================================
+    For c = 9 To 14
+
+        wsCheck.Cells(resultRow, c).Formula = _
+            "=IF($P$4="""",""""," & _
+            "INDEX(" & _
+            "'" & sourceName & "'!" & _
+            wsSource.Cells(2, c).Address(False, False) & ":" & _
+            wsSource.Cells(lastSourceRow, c).Address(False, False) & _
+            ",$P$4))"
+
+    Next c
+
+
+    '================================================================
+    ' 16. DINH DANG DONG KET QUA
+    '================================================================
+    With wsCheck.Range("A4:O4")
+
+        .Font.Bold = True
+
+        .Borders.LineStyle = xlContinuous
+
+        .VerticalAlignment = xlCenter
+
+    End With
+
+
+    '================================================================
+    ' 17. TO MAU H4 - O LUA CHON
+    '================================================================
+    With wsCheck.Range("H4")
+
+        .Interior.Color = RGB(198, 239, 206)
+
+        .Font.Bold = True
+
+        .HorizontalAlignment = xlCenter
+
+    End With
+
+
+    '================================================================
+    ' 18. TO MAU O4 - M3 MIN
+    '================================================================
+    With wsCheck.Range("O4")
+
+        .Interior.Color = RGB(255, 199, 206)
+
+        .Font.Bold = True
+
+        .HorizontalAlignment = xlCenter
+
+        .NumberFormat = "0.00"
+
+    End With
+
+
+    '================================================================
+    ' 19. TIEU DE PHU
+    '================================================================
+    wsCheck.Range("A2").Value = _
+        "Chon ViTri tai o H4 -> tu dong tim M3 MIN va lay dong tuong ung"
+
+    wsCheck.Range("A2:O2").Merge
+
+    wsCheck.Range("A2").Font.Italic = True
+
+
+    '================================================================
+    ' 20. HIDDEN COT PHU
+    '================================================================
+    wsCheck.Columns("P:Q").Hidden = True
+
+
+    '================================================================
+    ' 21. AUTOFIT
+    '================================================================
+    wsCheck.Columns("A:O").AutoFit
+
+
+    '================================================================
+    ' 22. CANH GIUA MOT SO COT
+    '================================================================
+    wsCheck.Range("C4:F4").HorizontalAlignment = xlCenter
+
+    wsCheck.Range("H4:J4").HorizontalAlignment = xlCenter
+
+    wsCheck.Range("K4:O4").HorizontalAlignment = xlCenter
+
+
+    '================================================================
+    ' 23. ACTIVE SHEET
+    '================================================================
+    wsCheck.Activate
+
+    wsCheck.Range("H4").Select
+
+End Sub
+
+
+'====================================================================
+' LAY THONG SO TIET DIEN TAI STATION
+'====================================================================
+Private Sub GetSectionPropsAtStation( _
+            SapModel As Object, _
+            ByVal PropName As String, _
+            ByVal L_total As Double, _
+            ByVal Station As Double, _
+            ByRef htb As Double, _
+            ByRef tw As Double, _
+            ByRef bf As Double, _
+            ByRef tf As Double)
+
+    On Error GoTo ParseStringFallback
+
+
+    '================================================================
+    ' LAY LOAI SECTION TU SAP2000
+    '================================================================
+    Dim PropType As Long
+
+    Call SapModel.PropFrame.GetTypeOAPI( _
+            PropName, _
+            PropType)
+
+
+    Dim FileName As String
+    Dim MatProp As String
+
+    Dim T3 As Double
+    Dim T2 As Double
+    Dim tf_ As Double
+    Dim tw_ As Double
+    Dim t2b As Double
+    Dim tfb As Double
+
+
+    '================================================================
+    ' I-SECTION
+    '================================================================
+    If PropType = 1 Then
+
+        Call SapModel.PropFrame.GetISection( _
+                PropName, _
+                FileName, _
+                MatProp, _
+                T3, _
+                T2, _
+                tf_, _
+                tw_, _
+                t2b, _
+                tfb)
+
+        htb = T3 * 1000#
+        tw = tw_ * 1000#
+        bf = T2 * 1000#
+        tf = tf_ * 1000#
+
+        Exit Sub
+
+    End If
+
+
+ParseStringFallback:
+
+    '================================================================
+    ' FALLBACK:
+    ' DOC TEN TIET DIEN
+    '
+    ' VI DU:
+    '
+    ' (300-650)-5/150-8
+    '
+    ' h = noi suy tu 300 den 650
+    ' tw = 5
+    ' bf = 150
+    ' tf = 8
+    '================================================================
+    Dim cleanName As String
+
+    cleanName = UCase(Trim(PropName))
+
+
+    If InStr(cleanName, "(") > 0 And _
+       InStr(cleanName, "-") > 0 Then
+
+        Dim pOpen As Long
+        Dim pClose As Long
+
+        pOpen = InStr(cleanName, "(")
+        pClose = InStr(cleanName, ")")
+
+
+        If pClose > pOpen Then
+
+            Dim hPart As String
+            Dim subPart As String
+
+            hPart = Mid( _
+                        cleanName, _
+                        pOpen + 1, _
+                        pClose - pOpen - 1)
+
+            subPart = Mid( _
+                        cleanName, _
+                        pClose + 1)
+
+
+            Dim hArr() As String
+
+            hArr = Split(hPart, "-")
+
+
+            If UBound(hArr) >= 1 Then
+
+                Dim hStart As Double
+                Dim hEnd As Double
+
+                hStart = CDbl(Trim(hArr(0)))
+                hEnd = CDbl(Trim(hArr(1)))
+
+
+                '====================================================
+                ' NOI SUY CHIEU CAO
+                '====================================================
+                If L_total > 0 Then
+
+                    htb = _
+                        hStart + _
+                        (hEnd - hStart) * _
+                        (Station / L_total)
+
+                Else
+
+                    htb = hStart
+
+                End If
+
+
+                '====================================================
+                ' DOC CAC KICH THUOC CON LAI
+                '====================================================
+                subPart = _
+                    Replace(subPart, "/", "-")
+
+
+                Dim restArr() As String
+
+                restArr = _
+                    Split(subPart, "-")
+
+
+                Dim idx As Long
+
+                idx = 0
+
+
+                Dim vals(1 To 3) As Double
+
+                Dim vItem As Variant
+
+
+                For Each vItem In restArr
+
+                    If Trim(vItem) <> "" And _
+                       IsNumeric(Trim(vItem)) Then
+
+                        idx = idx + 1
+
+                        If idx <= 3 Then
+
+                            vals(idx) = _
+                                CDbl(Trim(vItem))
+
+                        End If
+
+                    End If
+
+                Next vItem
+
+
+                If idx >= 3 Then
+
+                    tw = vals(1)
+                    bf = vals(2)
+                    tf = vals(3)
+
+                    Exit Sub
+
+                End If
+
+            End If
+
+        End If
+
+    End If
+
+
+    '================================================================
+    ' FALLBACK CHO SECTION I / H
+    '================================================================
+    If InStr(cleanName, "I") > 0 Or _
+       InStr(cleanName, "H") > 0 Then
+
+        cleanName = Replace(cleanName, "I", "")
+        cleanName = Replace(cleanName, "H", "")
+
+        cleanName = Replace(cleanName, "/", "-")
+
+
+        Dim parts() As String
+
+        parts = Split(cleanName, "-")
+
+
+        If UBound(parts) >= 3 Then
+
+            htb = _
+                CDbl(Trim(parts(0)))
+
+            tw = _
+                CDbl(Trim(parts(1)))
+
+            bf = _
+                CDbl(Trim(parts(2)))
+
+            tf = _
+                CDbl(Trim(parts(3)))
+
+            Exit Sub
+
+        End If
+
+    End If
+
+
+    '================================================================
+    ' KHONG DOC DUOC
+    '================================================================
+    htb = 0
+    tw = 0
+    bf = 0
+    tf = 0
+
+End Sub
+

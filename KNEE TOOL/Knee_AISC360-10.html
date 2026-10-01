@@ -1,0 +1,1799 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knee Kèo AISC 360-10</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef1f5; --panel:#ffffff; --panel2:#f6f8fb; --ink:#18212f; --ink2:#5b6777; --line:#d9dfe8;
+  --acc:#e0701c; --acc2:#1f6feb; --ok:#1a9e5a; --warn:#d99a00; --bad:#d23b3b;
+  --steel:#8fa3b8; --steel2:#5f7489; --plate:#e7a44b; --bolt:#303a46; --weld:#ff8a1f; --web:#dfe6ee;
+  --hl:#ff2d95; --grid:#e6ebf1; --shadow:0 1px 2px rgba(20,30,50,.06),0 4px 16px rgba(20,30,50,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f141b; --panel:#171e28; --panel2:#1d2531; --ink:#e6ebf2; --ink2:#95a3b5; --line:#2a3544;
+    --steel:#6d8096; --steel2:#9fb1c5; --plate:#c98a38; --bolt:#dbe3ec; --web:#243040; --grid:#1f2835;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f141b; --panel:#171e28; --panel2:#1d2531; --ink:#e6ebf2; --ink2:#95a3b5; --line:#2a3544;
+  --steel:#6d8096; --steel2:#9fb1c5; --plate:#c98a38; --bolt:#dbe3ec; --web:#243040; --grid:#1f2835;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Be Vietnam Pro',system-ui,Segoe UI,Arial,sans-serif;font-size:13.5px}
+.mono{font-family:'JetBrains Mono',Consolas,monospace}
+header{position:sticky;top:0;z-index:20;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:8px 16px;flex-wrap:wrap;box-shadow:var(--shadow)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;letter-spacing:.2px}
+.brand small{display:block;font-weight:500;color:var(--ink2);font-size:11.5px}
+.logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--acc),#f5a623);display:grid;place-items:center}
+.seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;color:var(--ink2);padding:6px 12px;border-radius:7px;cursor:pointer;font:inherit;font-weight:600;display:flex;align-items:center;gap:6px}
+.seg button.on{background:var(--acc);color:#fff;box-shadow:0 2px 8px rgba(224,112,28,.35)}
+.seg svg{width:20px;height:20px}
+.tools{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:6px 11px;border-radius:8px;cursor:pointer;font:inherit;font-weight:500}
+.btn:hover{border-color:var(--acc)}
+.btn.pri{background:var(--acc2);border-color:var(--acc2);color:#fff}
+select,input{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+input[type=number]{width:100%;text-align:right}
+input:focus,select:focus{outline:2px solid color-mix(in srgb,var(--acc2) 40%,transparent);border-color:var(--acc2)}
+main{display:grid;grid-template-columns:340px minmax(0,1fr) 380px;gap:12px;padding:12px;align-items:start}
+@media (max-width:1280px){main{grid-template-columns:320px minmax(0,1fr)} #right{grid-column:1/-1}}
+@media (max-width:820px){main{grid-template-columns:minmax(0,1fr);padding:8px 16px} header{padding:8px 16px;position:static}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+#left{max-height:calc(100vh - 80px);overflow:auto;position:sticky;top:64px}
+@media (max-width:820px){#left{position:static;max-height:none}}
+details{border-bottom:1px solid var(--line)}
+details:last-child{border-bottom:0}
+summary{cursor:pointer;padding:10px 12px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:'▸';color:var(--acc);transition:transform .15s}
+details[open]>summary::before{transform:rotate(90deg)}
+summary .tag{margin-left:auto;font-size:11px;color:var(--ink2);font-weight:500}
+.fields{padding:2px 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+.f{display:flex;flex-direction:column;gap:2px;min-width:0}
+.f.w2{grid-column:1/-1}
+.f label{font-size:11.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.f .u{position:relative}
+.f .u input{padding-right:34px}
+.f .u span{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--ink2);pointer-events:none}
+.f.chk{flex-direction:row;align-items:center;gap:6px}
+.f.chk label{white-space:normal;color:var(--ink)}
+.sub{grid-column:1/-1;font-size:11.5px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.5px;margin-top:6px;border-top:1px dashed var(--line);padding-top:6px}
+.hint{grid-column:1/-1;font-size:11.5px;color:var(--ink2);background:var(--panel2);border-radius:6px;padding:6px 8px}
+.parsed{grid-column:1/-1;font-size:11.5px;color:var(--ok)}
+.parsed.err{color:var(--bad)}
+#center{display:flex;flex-direction:column;gap:12px;min-width:0}
+.tabs{display:flex;gap:4px;padding:8px 8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tabs button{border:0;background:transparent;padding:8px 12px;cursor:pointer;color:var(--ink2);font:inherit;font-weight:600;border-bottom:2px solid transparent}
+.tabs button.on{color:var(--acc);border-bottom-color:var(--acc)}
+.draw-wrap{position:relative;height:560px}
+@media (max-width:820px){.draw-wrap{height:420px}}
+.draw-wrap svg{width:100%;height:100%;display:block}
+.draw-bar{display:flex;gap:10px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);flex-wrap:wrap;font-size:12px;color:var(--ink2)}
+.legend{display:flex;gap:10px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+/* SVG styles */
+.s-steel{fill:var(--steel);stroke:var(--steel2);stroke-width:2.2;vector-effect:non-scaling-stroke}
+svg *{vector-effect:non-scaling-stroke}
+.s-web{fill:var(--web);stroke:var(--steel2);stroke-width:.6}
+.s-plate{fill:var(--plate);stroke:#9a6421;stroke-width:1}
+.s-bolt{fill:var(--bolt)}
+.s-weld{fill:var(--weld)}
+.s-stiff{fill:#6aa0d8;stroke:#2f5f94;stroke-width:1}
+.s-panel{fill:rgba(31,111,235,.08);stroke:var(--acc2);stroke-dasharray:6 4;stroke-width:1}
+.s-dim{stroke:var(--ink2);stroke-width:.8;fill:none}
+.s-dimt{fill:var(--ink2);font-size:11px;font-family:'JetBrains Mono',monospace}
+.s-lbl{fill:var(--ink);font-size:12px;font-weight:600}
+.s-axis{stroke:var(--ink2);stroke-dasharray:10 4 2 4;stroke-width:.7;fill:none}
+.s-yl{stroke:var(--bad);stroke-width:1.6;stroke-dasharray:7 4;fill:none;animation:dash 1.2s linear infinite}
+.f-arrow{stroke-width:3;fill:none;stroke-dasharray:10 6;animation:dash .9s linear infinite}
+.f-t{stroke:var(--bad)} .f-c{stroke:var(--acc2)}
+.f-head-t{fill:var(--bad)} .f-head-c{fill:var(--acc2)}
+.f-txt{font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace}
+@keyframes dash{to{stroke-dashoffset:-32}}
+[data-tag]{transition:filter .2s,opacity .2s}
+svg.hlmode [data-tag]{opacity:.35}
+svg.hlmode [data-tag].hl{opacity:1;filter:drop-shadow(0 0 4px var(--hl)) drop-shadow(0 0 2px var(--hl))}
+svg.hlmode .keep{opacity:1}
+.pulse{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{filter:drop-shadow(0 0 7px var(--hl))}}
+/* Results */
+#right{display:flex;flex-direction:column;gap:12px}
+.sumcard{padding:14px;display:grid;grid-template-columns:130px 1fr;gap:12px;align-items:center}
+.gauge text{font-family:'JetBrains Mono',monospace}
+.status{font-size:20px;font-weight:700}
+.status.ok{color:var(--ok)} .status.bad{color:var(--bad)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:12px;color:var(--ink2)}
+.kv b{color:var(--ink);font-weight:600}
+.warns{padding:10px 12px;font-size:12px;color:var(--warn);display:flex;flex-direction:column;gap:4px}
+.warns div::before{content:'⚠ '}
+.grp{padding:8px 12px 10px}
+.grp h4{margin:6px 0;font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--ink2);display:flex;justify-content:space-between}
+.crow{display:grid;grid-template-columns:1fr 58px;gap:2px 8px;padding:6px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.crow:hover{background:var(--panel2)}
+.crow.sel{border-color:var(--hl);background:color-mix(in srgb,var(--hl) 8%,transparent)}
+.crow .nm{font-size:12.5px}
+.crow .rt{font-family:'JetBrains Mono',monospace;font-weight:700;text-align:right;font-size:12.5px}
+.crow .bar{grid-column:1/-1;height:6px;background:var(--grid);border-radius:4px;overflow:hidden}
+.crow .bar i{display:block;height:100%;border-radius:4px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.crow .mt{grid-column:1/-1;font-size:11px;color:var(--ink2);display:flex;justify-content:space-between;gap:6px}
+.crow.info{opacity:.55}
+.ok-c{background:var(--ok)} .warn-c{background:var(--warn)} .bad-c{background:var(--bad)}
+.t-ok{color:var(--ok)} .t-warn{color:var(--warn)} .t-bad{color:var(--bad)}
+.detail{margin:6px 0 2px;padding:8px 10px;background:var(--panel2);border-left:3px solid var(--acc);border-radius:6px;font-size:12px;line-height:1.55;font-family:'JetBrains Mono',monospace;white-space:pre-wrap;word-break:break-word}
+/* tables */
+.tbl-wrap{overflow:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{background:var(--panel2);color:var(--ink2);font-weight:600;position:sticky;top:0}
+td:first-child,th:first-child{text-align:left}
+td.l,th.l{text-align:left;white-space:normal}
+tr.gh td{background:color-mix(in srgb,var(--acc) 10%,transparent);font-weight:700;text-align:left;color:var(--acc)}
+tbody tr:hover td{background:var(--panel2)}
+.loads input{width:78px;text-align:right;padding:3px 5px}
+.loads input.nm{width:90px;text-align:left}
+.loads td{padding:3px 4px}
+.pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;color:#fff}
+.section-pad{padding:10px 12px}
+.foot{font-size:11.5px;color:var(--ink2);padding:10px 16px 30px;text-align:center}
+.x{border:0;background:transparent;color:var(--bad);cursor:pointer;font-size:15px}
+.errbox{padding:12px;color:var(--bad);font-weight:600}
+/* print */
+.print-only{display:none}
+@media print{
+  header .tools,header .seg,#left,.draw-bar .no-print,.tabs,.no-print{display:none!important}
+  body{background:#fff;color:#000;font-size:11px}
+  main{display:block;padding:0}
+  .card{box-shadow:none;border:1px solid #bbb;break-inside:avoid;margin-bottom:8px}
+  #right{display:block}
+  .print-only{display:block}
+  .draw-wrap{height:420px}
+  .tabpane{display:block!important}
+  .detail{display:block!important;background:#f7f7f7}
+  th{position:static}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 21V5h4v8l9-6 3 3-12 8v3z" fill="#fff"/></svg></div>
+    <div>KNEE CONNECTION <small>AISC 360-10 LRFD · DG4 / DG16 / DG39 — bản đầu bu lông</small></div></div>
+  <div class="seg" id="typeSeg">
+    <button data-type="dung" title="Knee đứng — bản đầu áp vào cánh cột"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="6" height="17" fill="currentColor" opacity=".5"/><rect x="9.2" y="3" width="1.8" height="12" fill="currentColor"/><path d="M11 5l10-3v6l-10 5z" fill="currentColor" opacity=".8"/></svg>Knee đứng</button>
+    <button data-type="ngang" title="Knee ngang — bản nằm ngang trên đỉnh cột"><svg viewBox="0 0 24 24"><rect x="4" y="12" width="7" height="10" fill="currentColor" opacity=".5"/><rect x="3" y="10.2" width="10" height="1.8" fill="currentColor"/><path d="M2 3h6l14-1v5L9 10H2z" fill="currentColor" opacity=".8"/></svg>Knee ngang</button>
+    <button data-type="xien" title="Knee xiên — bản theo đường phân giác / vát"><svg viewBox="0 0 24 24"><path d="M3 22V8l6-5v19z" fill="currentColor" opacity=".5"/><path d="M9.5 2.5l1.5 1.2-6 7-1.5-1.2z" fill="currentColor"/><path d="M11 4l11-2v6L6 12z" fill="currentColor" opacity=".8"/></svg>Knee xiên</button>
+  </div>
+  <div class="tools">
+    <select id="preset" title="Mẫu dữ liệu">
+      <option value="">— Nạp mẫu —</option>
+      <option value="dung">Mẫu knee đứng (PEB)</option>
+      <option value="ngang">Mẫu knee ngang</option>
+      <option value="xien">Mẫu knee xiên (phân giác)</option>
+      <option value="ram11">Đối chứng RAM #11 (MEP_KNEE_BCF_PERPENDICULAR)</option>
+    </select>
+    <button class="btn" id="bSave">💾 Lưu JSON</button>
+    <button class="btn" id="bOpen">📂 Mở JSON</button>
+    <input type="file" id="fOpen" accept=".json" hidden>
+    <button class="btn pri" id="bPrint">🖨 In báo cáo</button>
+    <button class="btn" id="bTheme" title="Sáng / tối">◐</button>
+  </div>
+</header>
+
+<main>
+  <aside id="left" class="card"></aside>
+
+  <section id="center">
+    <div class="card">
+      <div class="tabs no-print" id="drawTabs">
+        <button data-v="elev" class="on">Mặt đứng knee</button>
+        <button data-v="face">Mặt bản đầu & bu lông</button>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:0 6px 6px;font-size:12px;color:var(--ink2)">Tổ hợp hiển thị <select id="comboSel"></select></span>
+      </div>
+      <div class="draw-wrap"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+      <div class="draw-bar">
+        <div class="legend">
+          <span><i style="background:var(--steel)"></i>Thép hình</span>
+          <span><i style="background:var(--plate)"></i>Bản đầu / bản gối</span>
+          <span><i style="background:var(--bolt)"></i>Bu lông</span>
+          <span><i style="background:var(--weld)"></i>Hàn</span>
+          <span><i style="background:#6aa0d8"></i>Sườn</span>
+          <span><i style="background:var(--bad)"></i>Kéo</span>
+          <span><i style="background:var(--acc2)"></i>Nén</span>
+        </div>
+        <span id="drawInfo" style="margin-left:auto" class="mono"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="tabs no-print" id="repTabs">
+        <button data-v="checks" class="on">Bảng kiểm tra</button>
+        <button data-v="demands">Nội lực quy đổi</button>
+        <button data-v="geo">Kiểm tra cấu tạo</button>
+        <button data-v="loads">Tổ hợp tải trọng</button>
+      </div>
+      <div class="tabpane" id="p-checks"></div>
+      <div class="tabpane" id="p-demands" hidden></div>
+      <div class="tabpane" id="p-geo" hidden></div>
+      <div class="tabpane no-print" id="p-loads" hidden></div>
+    </div>
+  </section>
+
+  <aside id="right">
+    <div class="card sumcard" id="summary"></div>
+    <div class="card" id="warns" hidden></div>
+    <div class="card" id="quick"></div>
+  </aside>
+</main>
+<div class="foot">Công cụ hỗ trợ kỹ sư — kết quả cần được kỹ sư có chuyên môn kiểm tra. Phương pháp: AISC 360-10 LRFD; bản đầu theo DG16 §2.5 (yield-line + Kennedy hiệu chỉnh), phía cột theo DG4 Table 3.4 & DG39 Phụ lục A; J10 cho bụng cột / vùng panel.</div>
+
+<script>
+/* =====================================================================
+ * KNEE ENGINE — Liên kết knee kèo bản đầu bu lông
+ * AISC 360-10 (LRFD) + AISC Design Guide 4 (2003), Design Guide 16 (2002),
+ * Design Guide 39 (2023, phụ lục A — Yc phía gối).
+ * Đơn vị nội bộ: N, mm, MPa (N/mm²). Hiển thị: kN, kN·m.
+ * ===================================================================== */
+(function (root) {
+  'use strict';
+
+  const E = 200000;          // MPa
+  const IN = 25.4;           // mm / in
+  const D2R = Math.PI / 180;
+  const cosd = (a) => Math.cos(a * D2R);
+  const sind = (a) => Math.sin(a * D2R);
+
+  /* ---------------- Thư viện vật liệu ---------------- */
+  const MATERIALS = {
+    'Q345':      { Fy: 345, Fu: 470 },
+    'Q235':      { Fy: 235, Fu: 370 },
+    'SS400':     { Fy: 245, Fu: 400 },
+    'SM490':     { Fy: 325, Fu: 490 },
+    'CCT34':     { Fy: 220, Fu: 340 },
+    'CCT38':     { Fy: 240, Fu: 380 },
+    'CCT42':     { Fy: 260, Fu: 420 },
+    'A36':       { Fy: 250, Fu: 400 },
+    'A572 Gr50': { Fy: 345, Fu: 450 },
+    'A992':      { Fy: 345, Fu: 450 },
+  };
+
+  // Bu lông: 8.8 ≈ A325M, 10.9 ≈ A490M (AISC 360-10 Table J3.2, giá trị ksi quy đổi)
+  const BOLT_GRADES = {
+    '8.8':  { Fnt: 620.5, FnvN: 372.3, FnvX: 468.8, pre: 'A325', label: 'Cấp 8.8 (≈ A325M)' },
+    '10.9': { Fnt: 779.1, FnvN: 468.8, FnvX: 579.2, pre: 'A490', label: 'Cấp 10.9 (≈ A490M)' },
+    'A325': { Fnt: 620.5, FnvN: 372.3, FnvX: 468.8, pre: 'A325', label: 'ASTM A325M' },
+    'A490': { Fnt: 779.1, FnvN: 468.8, FnvX: 579.2, pre: 'A490', label: 'ASTM A490M' },
+  };
+  const BOLT_DIAS = [16, 20, 22, 24, 27, 30, 36];
+  // Lực căng trước tối thiểu Tb (kN) — AISC 360-10 Table J3.1M
+  const PRETENSION = {
+    A325: { 16: 91, 20: 142, 22: 176, 24: 205, 27: 267, 30: 326, 36: 475 },
+    A490: { 16: 114, 20: 179, 22: 221, 24: 257, 27: 334, 30: 408, 36: 595 },
+  };
+  // Lỗ tiêu chuẩn (mm) — Table J3.3M
+  const HOLE_STD = { 16: 18, 20: 22, 22: 24, 24: 27, 27: 30, 30: 33, 36: 39 };
+  // Khoảng cách mép tối thiểu (mm) — Table J3.4M [mép cắt, mép cán/cắt nhiệt]
+  const EDGE_MIN = { 16: [28, 22], 20: [34, 26], 22: [38, 28], 24: [42, 30], 27: [48, 34], 30: [52, 38], 36: [64, 46] };
+  const ELECTRODES = { 'E60XX': 413.7, 'E70XX': 482.6, 'E80XX': 551.6 };
+
+  const holeDia = (db) => HOLE_STD[db] || db + 3;
+  const edgeMin = (db, sheared) => {
+    const r = EDGE_MIN[db];
+    if (r) return sheared ? r[0] : r[1];
+    return (sheared ? 1.75 : 1.25) * db;
+  };
+  // Kích thước hàn góc tối thiểu — Table J2.4 (theo phần mỏng hơn)
+  const weldMin = (t) => (t <= 6 ? 3 : t <= 13 ? 5 : t <= 19 ? 6 : 8);
+
+  function material(name, custom) {
+    if (name === 'Tùy chọn' && custom) return { name: 'Tùy chọn', Fy: +custom.Fy, Fu: +custom.Fu };
+    const m = MATERIALS[name] || MATERIALS['Q345'];
+    return { name: MATERIALS[name] ? name : 'Q345', Fy: m.Fy, Fu: m.Fu };
+  }
+
+  /* ---------------- Tiết diện theo quy cách "I (h1-h2)-tw/bf-tf" ---------------- */
+  function isNum(s) { return s !== '' && s != null && !isNaN(+s); }
+  function parseSection(str) {
+    const clean = String(str || '').trim().toUpperCase();
+    if (!clean) return { ok: false };
+    const po = clean.indexOf('('), pc = clean.indexOf(')');
+    if (po >= 0 && pc > po && clean.indexOf('-') >= 0) {
+      const hs = clean.slice(po + 1, pc).split('-').map((x) => x.trim());
+      const nums = clean.slice(pc + 1).replace(/\//g, '-').split('-').map((x) => x.trim()).filter(isNum).map(Number);
+      if (hs.length >= 2 && isNum(hs[0]) && isNum(hs[1]) && nums.length >= 3)
+        return { ok: true, h1: +hs[0], h2: +hs[1], tw: nums[0], bf: nums[1], tf: nums[2], tapered: +hs[0] !== +hs[1] };
+    }
+    if (clean.indexOf('I') >= 0 || clean.indexOf('H') >= 0 || /^[\d.\s\-\/]+$/.test(clean)) {
+      const nums = clean.replace(/[IH]/g, '').replace(/\//g, '-').split('-').map((x) => x.trim()).filter(isNum).map(Number);
+      if (nums.length >= 4) return { ok: true, h1: nums[0], h2: nums[0], tw: nums[1], bf: nums[2], tf: nums[3], tapered: false };
+    }
+    return { ok: false };
+  }
+
+  function memberAtJoint(m, label) {
+    const p = parseSection(m.sec);
+    if (!p.ok) throw new Error('Không đọc được tiết diện ' + label + ': "' + m.sec + '". Quy cách: I (h1-h2)-tw/bf-tf hoặc I h-tw/bf-tf');
+    const d = m.jointEnd === 'end' ? p.h2 : p.h1;
+    const L = Math.max(+m.L || 0, 1);
+    const beta = Math.atan(Math.abs(p.h1 - p.h2) / L) / D2R;
+    const A = 2 * p.bf * p.tf + (d - 2 * p.tf) * p.tw;
+    return { label, sec: m.sec, d, tw: p.tw, bf: p.bf, tf: p.tf, beta, L, A, mat: material(m.mat, m.matCustom), h1: p.h1, h2: p.h2, tapered: p.tapered };
+  }
+
+  function fold(a) { let y = Math.abs(a) % 180; if (y > 90) y = 180 - y; return y; }
+
+  /* ---------------- Yield-line Y cho bản đầu (DG16) ---------------- */
+  // h: đo từ mặt ngoài cánh nén (DG16). Trả về {Y, formula, config}
+  function endPlateY(cfg, o) {
+    const { bp, g, pfi, pfo, pb, h0, h, de } = o; // h = mảng h hàng trong (từ ngoài vào)
+    const s = 0.5 * Math.sqrt(bp * g);
+    const pf = Math.min(pfi, s);
+    let Y, f;
+    switch (cfg) {
+      case '2FU':
+        Y = bp / 2 * (h[0] * (1 / pf + 1 / s) - 0.5) + 2 / g * (h[0] * (pf + s));
+        f = 'Y = bp/2·[h1(1/pf + 1/s) − 1/2] + 2/g·[h1(pf + s)]   (DG16 Table 3-2)';
+        break;
+      case '4FU':
+        Y = bp / 2 * (h[0] / pf + h[1] / s - 0.5) + 2 / g * (h[0] * (pf + 0.75 * pb) + h[1] * (s + 0.25 * pb)) + g / 2;
+        f = 'Y = bp/2·[h1/pf + h2/s − 1/2] + 2/g·[h1(pf + 0.75pb) + h2(s + 0.25pb)] + g/2   (DG16 Table 3-3)';
+        break;
+      case '4E':
+        Y = bp / 2 * (h[0] * (1 / pf + 1 / s) + h0 / pfo - 0.5) + 2 / g * (h[0] * (pf + s));
+        f = 'Y = bp/2·[h1(1/pf,i + 1/s) + h0(1/pf,o) − 1/2] + 2/g·[h1(pf,i + s)]   (DG16 Table 4-2)';
+        break;
+      case '4ES':
+        if (s < de) {
+          Y = bp / 2 * (h[0] * (1 / pf + 1 / s) + h0 * (1 / s + 1 / pfo)) + 2 / g * (h[0] * (pf + s) + h0 * (s + pfo));
+          f = 'Case 1 (s < de): Y = bp/2·[h1(1/pf,i + 1/s) + h0(1/s + 1/pf,o)] + 2/g·[h1(pf,i + s) + h0(s + pf,o)]   (DG16 Table 4-3)';
+        } else {
+          Y = bp / 2 * (h[0] * (1 / pf + 1 / s) + h0 * (1 / pfo + 1 / (2 * de))) + 2 / g * (h[0] * (pf + s) + h0 * (de + pfo));
+          f = 'Case 2 (s ≥ de): Y = bp/2·[h1(1/pf,i + 1/s) + h0(1/pf,o + 1/(2de))] + 2/g·[h1(pf,i + s) + h0(de + pf,o)]   (DG16 Table 4-3)';
+        }
+        break;
+      case 'MRE 1/2':
+        Y = bp / 2 * (h[0] / pf + h[1] / s + h0 / pfo - 0.5) + 2 / g * (h[0] * (pf + 0.75 * pb) + h[1] * (s + 0.25 * pb)) + g / 2;
+        f = 'Y = bp/2·[h1/pf,i + h2/s + h0/pf,o − 1/2] + 2/g·[h1(pf,i + 0.75pb) + h2(s + 0.25pb)] + g/2   (DG16 Table 4-4)';
+        break;
+      case 'MRE 1/3':
+        Y = bp / 2 * (h[0] / pf + h[2] / s + h0 / pfo - 0.5) + 2 / g * (h[0] * (pf + 1.5 * pb) + h[2] * (s + 0.5 * pb)) + g / 2;
+        f = 'Y = bp/2·[h1/pf,i + h3/s + h0/pf,o − 1/2] + 2/g·[h1(pf,i + 1.5pb) + h3(s + 0.5pb)] + g/2   (DG16 Table 4-5)';
+        break;
+      default:
+        throw new Error('Cấu hình bu lông không hỗ trợ: ' + cfg);
+    }
+    return { Y, s, pf, formula: f };
+  }
+
+  /* ---------------- Yield-line Yc phía gối (DG4 Table 3.4 / DG39 App. A) ---------------- */
+  // rows: [{d, s}] hàng chịu kéo; d đo từ tâm cánh nén (DG4/DG39)
+  function supportYc(cond, o) {
+    const { b, g, rows, psiRaw, psoRaw, pcpRaw, de } = o;
+    const s = 0.5 * Math.sqrt(b * g);
+    const cap = (x) => Math.max(Math.min(x, s), 1);
+    let Y, f, note = '';
+    if (rows.length === 1) {
+      const h1 = rows[0].d;
+      switch (cond) {
+        case 'cont_unstiff':
+          Y = b * h1 / s + 4 * h1 * s / g;
+          f = 'Yc = bcf·h1/s + 4h1·s/g   (DG39 Table A-1a)'; break;
+        case 'cont_stiff': {
+          const psi = cap(psiRaw);
+          Y = b / 2 * h1 * (1 / psi + 1 / s) + 2 / g * h1 * (psi + s);
+          f = 'Yc = bcf/2·h1(1/psi + 1/s) + 2/g·h1(psi + s)   (DG39 Table A-1b), psi = ' + psi.toFixed(1); break;
+        }
+        case 'top_unstiff':
+          Y = b / 2 * (h1 / s - 0.5) + 2 / g * h1 * (s + de) + g / 4;
+          f = 'Yc = bcf/2·[h1/s − 1/2] + 2/g·h1(s + de) + g/4   (DG39 Table A-1c), de = ' + de.toFixed(1); break;
+        case 'top_cap': {
+          const pcp = cap(pcpRaw);
+          Y = b / 2 * h1 * (1 / pcp + 1 / s) + 2 / g * h1 * (pcp + s);
+          f = 'Yc = bcf/2·h1(1/pcp + 1/s) + 2/g·h1(pcp + s)   (DG39 Table A-1d), pcp = ' + pcp.toFixed(1); break;
+        }
+        default: throw new Error('Điều kiện gối không hợp lệ: ' + cond);
+      }
+    } else {
+      // 2 hàng: hàng "gần" (near) là hàng gần sườn/đỉnh; ho = hàng xa tâm nén nhất
+      const sorted = rows.slice().sort((a, c) => c.d - a.d);
+      const ho = sorted[0].d, hi = sorted[1].d;
+      const c = Math.abs(sorted[0].s - sorted[1].s);
+      if (rows.length > 2) note = 'Có > 2 hàng kéo: Yc chỉ tính với 2 hàng ngoài cùng (thiên về an toàn).';
+      switch (cond) {
+        case 'cont_unstiff':
+          Y = b / 2 * (hi / s + ho / s) + 2 / g * (hi * (s + 0.75 * c) + ho * (s + 0.25 * c) + c * c / 2) + g / 2;
+          f = 'Yc = bcf/2·[h1/s + h0/s] + 2/g·[h1(s + 3c/4) + h0(s + c/4) + c²/2] + g/2   (DG4 Table 3.4), c = ' + c.toFixed(1); break;
+        case 'cont_stiff': {
+          const psi = cap(psiRaw), pso = cap(psoRaw);
+          if (o.stiffBetween) {
+            Y = b / 2 * (hi * (1 / s + 1 / psi) + ho * (1 / s + 1 / pso)) + 2 / g * (hi * (s + psi) + ho * (s + pso));
+            f = 'Yc = bcf/2·[h1(1/s + 1/psi) + h0(1/s + 1/pso)] + 2/g·[h1(s + psi) + h0(s + pso)]   (DG4 Table 3.4 có sườn), psi = ' + psi.toFixed(1) + ', pso = ' + pso.toFixed(1);
+          } else {
+            // sườn nằm phía ngoài 2 hàng (flush 4 bu lông) — DG39 Table A-2b [VERIFY thứ tự hệ số c]
+            Y = b / 2 * (ho / psi + hi / s) + 2 / g * (ho * (psi + 0.25 * c) + hi * (s + 0.75 * c)) + g / 2;
+            f = 'Yc = bcf/2·[hn/psi + hf/s] + 2/g·[hn(psi + c/4) + hf(s + 3c/4)] + g/2   (DG39 Table A-2b) [VERIFY]';
+          }
+          break;
+        }
+        case 'top_unstiff':
+          Y = b / 2 * (hi / s - 0.5) + 2 / g * (ho * (de + 0.25 * c) + hi * (s + 0.75 * c)) + 3 * g / 4;
+          f = 'Yc = bcf/2·[h1/s − 1/2] + 2/g·[h0(de + c/4) + h1(s + 3c/4)] + 3g/4   (DG39 Table A-2d) [VERIFY], de = ' + de.toFixed(1); break;
+        case 'top_cap': {
+          const pcp = cap(pcpRaw);
+          Y = b / 2 * (ho / pcp + hi / s) + 2 / g * (ho * (pcp + 0.25 * c) + hi * (s + 0.75 * c)) + g / 2;
+          f = 'Yc = bcf/2·[h0/pcp + h1/s] + 2/g·[h0(pcp + c/4) + h1(s + 3c/4)] + g/2   (DG39 Table A-2e) [VERIFY], pcp = ' + pcp.toFixed(1); break;
+        }
+        default: throw new Error('Điều kiện gối không hợp lệ: ' + cond);
+      }
+    }
+    return { Y, s, formula: f, note };
+  }
+
+  /* ---------------- Lực bu lông có nhổ (Kennedy hiệu chỉnh, DG16) ---------------- */
+  function kennedy(o) {
+    const { t, Fy, b, db, Fnt, pfi, pfo, edgeOut } = o;
+    const wc = b / 2 - (db + IN / 16);
+    const a = Math.max(IN * (3.682 * Math.pow(t / db, 3) - 0.085), 0.1);
+    const Fi = (t * t * Fy * (0.85 * b / 2 + 0.8 * wc) + Math.PI * Math.pow(db, 3) * Fnt / 8) / (4 * pfi);
+    const radI = Fy * Fy - 3 * Math.pow(Fi / (wc * t), 2);
+    const Qi = radI > 0 ? wc * t * t / (4 * a) * Math.sqrt(radI) : NaN;
+    let ao = null, Fo = null, Qo = null;
+    if (pfo) {
+      ao = Math.min(a, edgeOut);
+      Fo = Fi * pfi / pfo;
+      const radO = Fy * Fy - 3 * Math.pow(Fo / (wc * t), 2);
+      Qo = radO > 0 ? wc * t * t / (4 * ao) * Math.sqrt(radO) : NaN;
+    }
+    return { wc, a, Fi, Qi, ao, Fo, Qo };
+  }
+
+  function boltMoments(cfgExt, rowsD, Pt, Tb, Qi, Qo) {
+    // rowsD: {d0 (ngoài) | null, inner: [d1, d2, d3]}
+    const inner = rowsD.inner;
+    const sumD = (rowsD.d0 || 0) + inner.reduce((x, y) => x + y, 0);
+    const Mnp = 2 * Pt * sumD;
+    let cases;
+    if (cfgExt) {
+      const d0 = rowsD.d0, d1 = inner[0] || 0, d2 = inner[1] || 0, d3 = inner[2] || 0;
+      const po = Pt - Qo, pi = Pt - Qi;
+      cases = [
+        { v: 2 * po * d0 + 2 * pi * (d1 + d3) + 2 * Tb * d2, t: '2(Pt−Qo)d0 + 2(Pt−Qi)(d1+d3) + 2Tb·d2' },
+        { v: 2 * po * d0 + 2 * Tb * (d1 + d2 + d3), t: '2(Pt−Qo)d0 + 2Tb(d1+d2+d3)' },
+        { v: 2 * pi * (d1 + d3) + 2 * Tb * (d0 + d2), t: '2(Pt−Qi)(d1+d3) + 2Tb(d0+d2)' },
+        { v: 2 * Tb * (d0 + d1 + d2 + d3), t: '2Tb(d0+d1+d2+d3)' },
+      ];
+    } else {
+      const ds = inner.reduce((x, y) => x + y, 0);
+      cases = [
+        { v: 2 * (Pt - Qi) * ds, t: '2(Pt−Qi)Σd' },
+        { v: 2 * Tb * ds, t: '2Tb·Σd' },
+      ];
+    }
+    // Qmax = NaN (căn âm) → bản phá hoại do uốn + cắt kết hợp: không có khả năng Mq
+    const bad = isNaN(Qi) || (cfgExt && isNaN(Qo));
+    let best = cases[0];
+    cases.forEach((c) => { if (c.v > best.v) best = c; });
+    return { Mnp, Mq: bad ? NaN : best.v, cases, best, sumD };
+  }
+
+  /* ---------------- Mô hình hình học ---------------- */
+  function buildGeometry(inp) {
+    const W = [];
+    const beam = memberAtJoint(inp.beam, 'kèo');
+    const col = memberAtJoint(inp.col, 'cột');
+    const type = inp.type;
+    const a = +inp.beam.slope || 0;
+    const colInnerTilt = inp.col.innerStraight ? 0 : col.beta;   // độ nghiêng cánh trong cột
+    const colOuterTilt = inp.col.innerStraight ? col.beta : 0;
+    let M1, M2, thN, phiE, phiI, phiCE = null, phiCI = null;
+    if (type === 'dung') {
+      M1 = beam; M2 = col;
+      thN = -colInnerTilt;                      // pháp tuyến bản (hướng vào kèo)
+      phiE = fold(a - thN); phiI = fold(a + beam.beta - thN);
+    } else if (type === 'ngang') {
+      M1 = col; M2 = beam;
+      thN = -90;                                 // bản nằm ngang, pháp tuyến hướng xuống cột
+      phiE = fold(colOuterTilt); phiI = fold(colInnerTilt);
+    } else {
+      M1 = beam; M2 = col;
+      const mode = inp.plate.mitre || 'bisector';
+      thN = mode === 'bisector' ? (90 + a) / 2 : mode === 'perp' ? a + beam.beta / 2 : +inp.plate.theta;
+      phiE = fold(a - thN); phiI = fold(a + beam.beta - thN);
+      phiCE = fold(90 - colOuterTilt - thN); phiCI = fold(90 - colInnerTilt - thN);
+    }
+    [phiE, phiI].forEach((p) => { if (p > 60) throw new Error('Góc giữa cánh và pháp tuyến bản quá lớn (' + p.toFixed(1) + '°) — kiểm tra góc dốc / kiểu knee.'); });
+
+    const pl = inp.plate;
+    const cE = cosd(phiE), cI = cosd(phiI);
+    const dp = M1.d / cE;                  // chiều cao tiết diện đo dọc bản
+    const tfe = M1.tf / cE, tfi = M1.tf / cI;
+    const dm = dp - tfe / 2 - tfi / 2;      // khoảng cách tâm 2 cánh dọc bản
+    const phiA = (phiE + phiI) / 2;
+
+    const rowsE = [], rowsI = [];
+    if (pl.extE) rowsE.push({ s: -pl.pfoE, outer: true, grp: 'E' });
+    for (let k = 0; k < pl.nE; k++) rowsE.push({ s: tfe + pl.pfiE + k * pl.pbE, outer: false, grp: 'E' });
+    if (pl.extI) rowsI.push({ s: dp + pl.pfoI, outer: true, grp: 'I' });
+    for (let k = 0; k < pl.nI; k++) rowsI.push({ s: dp - tfi - pl.pfiI - k * pl.pbI, outer: false, grp: 'I' });
+    const sTop = pl.extE ? -(pl.pfoE + pl.Lev) : -pl.flushExt;
+    const sBot = pl.extI ? dp + pl.pfoI + pl.Lev : dp + pl.flushExt;
+    const bp = pl.g + 2 * pl.Leh;
+
+    // Phía gối (M2) khi là bản đầu (knee xiên)
+    let dpc = null, tfce = null, tfci = null, dmc = null;
+    if (phiCE != null) {
+      dpc = M2.d / cosd(phiCE); tfce = M2.tf / cosd(phiCE); tfci = M2.tf / cosd(phiCI);
+      dmc = dpc - tfce / 2 - tfci / 2;
+      if ((inp.sup.condE === 'endplate' || inp.sup.condI === 'endplate') && Math.abs(dpc - dp) / dp > 0.05)
+        W.push('Knee xiên: chiều cao cột đo dọc bản (' + dpc.toFixed(0) + ' mm) lệch > 5% so với kèo (' + dp.toFixed(0) + ' mm) — vị trí cánh hai phía không trùng nhau, xem lại góc bản / tiết diện.');
+    }
+    return { W, type, beam, col, M1, M2, a, thN, phiE, phiI, phiA, phiCE, phiCI, dp, tfe, tfi, dm, rowsE, rowsI, sTop, sBot, bp, dpc, tfce, tfci, dmc, colInnerTilt, colOuterTilt };
+  }
+
+  /* ---------------- Phân tích tĩnh cho từng phía chịu kéo ---------------- */
+  function sideStatic(G, inp, side, bolt) {
+    const pl = inp.plate, sup = inp.sup;
+    const T = side === 'E';
+    const rows = (T ? G.rowsE : G.rowsI).map((r) => Object.assign({}, r));
+    const ext = T ? pl.extE : pl.extI;
+    const n = T ? pl.nE : pl.nI;
+    const pfo = T ? pl.pfoE : pl.pfoI, pfi = T ? pl.pfiE : pl.pfiI, pb = T ? pl.pbE : pl.pbI;
+    const compFace = T ? G.dp : 0;
+    const compCtr = T ? G.dp - G.tfi / 2 : G.tfe / 2;
+    rows.forEach((r) => { r.h = Math.abs(compFace - r.s); r.d = Math.abs(compCtr - r.s); });
+    const outer = rows.find((r) => r.outer) || null;
+    const inner = rows.filter((r) => !r.outer);
+    const W = [];
+    let stiff = !!(T ? pl.stiffE && pl.stiffE.on : pl.stiffI && pl.stiffI.on) && ext;
+    let cfg;
+    if (ext) {
+      cfg = n === 1 ? (stiff ? '4ES' : '4E') : n === 2 ? 'MRE 1/2' : n === 3 ? 'MRE 1/3' : null;
+      if (stiff && n > 1) { W.push('Sườn bản đầu chỉ hỗ trợ cho cấu hình 4ES — bỏ qua sườn với ' + cfg + '.'); stiff = false; }
+    } else {
+      cfg = n === 1 ? '2FU' : n === 2 ? '4FU' : null;
+    }
+    if (!cfg) throw new Error('Nhóm bu lông ' + (T ? 'cánh ngoài' : 'cánh trong') + ': cấu hình không hỗ trợ (flush tối đa 2 hàng, extended tối đa 3 hàng trong).');
+
+    const gam = ext ? 1.0 : 1.25;
+    const Fpy = G.plMat.Fy;
+    const bpE = Math.min(G.bp, G.M1.bf + IN);
+    const Yr = endPlateY(cfg, { bp: bpE, g: pl.g, pfi, pfo, pb, h0: outer ? outer.h : 0, h: inner.map((r) => r.h), de: pl.Lev });
+    const phiMpl = 0.9 * Fpy * pl.tp * pl.tp * Yr.Y;
+    const ken = kennedy({ t: pl.tp, Fy: Fpy, b: bpE, db: bolt.db, Fnt: bolt.Fnt, pfi, pfo: ext ? pfo : null, edgeOut: pl.Lev });
+    const bm = boltMoments(ext, { d0: outer ? outer.d : null, inner: inner.map((r) => r.d) }, bolt.Pt, bolt.Tb, ken.Qi, ken.Qo);
+    const phiMnp = 0.75 * bm.Mnp, phiMq = 0.75 * bm.Mq;
+    const thick = phiMnp < 0.9 * phiMpl;
+
+    // ---- Phía gối
+    const cond = T ? sup.condE : sup.condI;
+    const ts = sup.useFlange ? G.M2.tf : sup.t;
+    const bs = sup.useFlange ? G.M2.bf : sup.b;
+    const sMat = sup.useFlange ? G.M2.mat : G.supMat;
+    let S = { cond, ts, bs, mat: sMat };
+    if (cond === 'endplate') {
+      const bsE = Math.min(bs, G.M2.bf + IN);
+      const Ys = endPlateY(cfg, { bp: bsE, g: pl.g, pfi, pfo, pb, h0: outer ? outer.h : 0, h: inner.map((r) => r.h), de: pl.Lev });
+      S.Y = Ys; S.bEff = bsE;
+      S.phiM = 0.9 * sMat.Fy * ts * ts * Ys.Y / gam;
+      S.ref = 'DG16 Sec 2.5';
+    } else {
+      const fc = T ? G.tfe / 2 : G.dp - G.tfi / 2;        // tâm cánh chịu kéo (vị trí sườn)
+      const stS = T ? sup.stE : sup.stI;
+      const tst = stS && stS.on ? stS.ts : 0;
+      const innerRow = inner[0];
+      const psiRaw = Math.abs(innerRow.s - fc) - tst / 2;
+      const psoRaw = outer ? Math.abs(outer.s - fc) - tst / 2 : psiRaw;
+      const sEnd = G.sTop - (+sup.topOffset || 0);        // đỉnh cấu kiện gối (dọc bản)
+      const nearest = rows.slice().sort((x, y) => Math.abs(x.s - sEnd) - Math.abs(y.s - sEnd))[0];
+      const pcpRaw = Math.abs(nearest.s - (sEnd + (+sup.tcap || 0)));
+      const de = Math.abs(nearest.s - sEnd);
+      if (cond === 'cont_stiff' && !(stS && stS.on)) W.push('Chọn "cột liên tục có sườn" nhưng chưa khai báo sườn ngang tại cánh ' + (T ? 'ngoài' : 'trong') + '.');
+      const Ys = supportYc(cond, { b: bs, g: pl.g, rows, psiRaw: T && !outer ? psiRaw : psiRaw, psoRaw, pcpRaw, de, stiffBetween: !!outer });
+      if (Ys.note) W.push(Ys.note);
+      S.Y = Ys; S.bEff = bs;
+      S.phiM = 0.9 * sMat.Fy * ts * ts * Ys.Y;
+      S.ref = 'DG4 Eq. 3.21';
+    }
+    S.ken = kennedy({ t: ts, Fy: sMat.Fy, b: S.bEff, db: bolt.db, Fnt: bolt.Fnt, pfi, pfo: ext ? pfo : null, edgeOut: pl.Lev });
+    S.bm = boltMoments(ext, { d0: outer ? outer.d : null, inner: inner.map((r) => r.d) }, bolt.Pt, bolt.Tb, S.ken.Qi, S.ken.Qo);
+    S.phiMq = 0.75 * S.bm.Mq;
+    S.thick = phiMnp < 0.9 * S.phiM * (cond === 'endplate' ? gam : 1);
+
+    return { side, T, cfg, ext, n, rows, outer, inner, pfo, pfi, pb, gam, Fpy, bpE, Yr, phiMpl, ken, bm, phiMnp, phiMq, thick, stiff, S, W };
+  }
+
+  /* ---------------- Tiện ích ---------------- */
+  const kN = (x) => x / 1e3;
+  const kNm = (x) => x / 1e6;
+  const f1 = (x) => (x == null || isNaN(x) ? '—' : Number(x).toFixed(1));
+  const f2 = (x) => (x == null || isNaN(x) ? '—' : Number(x).toFixed(2));
+  const f3 = (x) => (x == null || isNaN(x) ? '—' : Number(x).toFixed(3));
+
+  /* =====================================================================
+   * TÍNH TOÁN CHÍNH
+   * ===================================================================== */
+  function compute(inp) {
+    const G = buildGeometry(inp);
+    const W = G.W;
+    const pl = inp.plate, sup = inp.sup;
+    G.plMat = material(pl.mat, pl.matCustom);
+    G.supMat = material(sup.mat, sup.matCustom);
+    const bg = BOLT_GRADES[inp.bolt.grade] || BOLT_GRADES['8.8'];
+    const db = +inp.bolt.d;
+    const Ab = Math.PI * db * db / 4;
+    let Tb = (PRETENSION[bg.pre][db] || 0.7 * bg.Fnt / 0.75 * 0.7 * Ab / 1e3) * 1e3;
+    let snugF = 1;
+    if (inp.bolt.snug) {
+      snugF = db <= 16 ? 0.75 : db <= 20 ? 0.5 : db <= 22 ? 0.375 : 0.25;
+      Tb *= snugF;
+      if (bg.pre === 'A490') W.push('Bu lông cường độ cao cấp A490/10.9 không được phép siết sơ bộ (snug-tight) theo RCSC — DG16 §2.5.3.');
+    }
+    const bolt = { grade: inp.bolt.grade, bg, db, Ab, Fnt: bg.Fnt, Fnv: inp.bolt.thread === 'X' ? bg.FnvX : bg.FnvN, Pt: bg.Fnt * Ab, Tb, snugF, dh: holeDia(db) };
+    G.bolt = bolt;
+    const weldF = ELECTRODES[inp.weld.electrode] || 482.6;
+    const dirFactor = inp.opt.directional ? 1.5 : 1.0;
+
+    const sides = {};
+    ['E', 'I'].forEach((sd) => {
+      try { sides[sd] = sideStatic(G, inp, sd, bolt); sides[sd].W.forEach((w) => W.push(w)); }
+      catch (e) { sides[sd] = { error: e.message }; W.push(e.message); }
+    });
+
+    const checks = {};
+    const order = [];
+    function add(id, grp, name, unit, ref, cap, dem, combo, detail, tags, info) {
+      const ratio = cap > 0 ? Math.abs(dem) / cap : (dem > 0 ? Infinity : 0);
+      let c = checks[id];
+      if (!c) { c = checks[id] = { id, grp, name, unit, ref, cap, dem, ratio: -1, combo, detail: [], tags: tags || [], info: !!info }; order.push(id); }
+      if (ratio > c.ratio || isNaN(ratio)) {
+        Object.assign(c, { cap, dem, ratio: isNaN(ratio) ? Infinity : ratio, combo, detail: typeof detail === 'function' ? detail() : detail || [] });
+      }
+    }
+
+    const combos = (inp.loads || []).filter((l) => l && l.name !== undefined);
+    const demands = [];
+    const M1 = G.M1, M2 = G.M2;
+    const tp = pl.tp;
+    const Fpu = G.plMat.Fu;
+    const phiA = G.phiA;
+
+    // Tĩnh: bảng bu lông cho nhóm
+    const nBoltsE = 2 * G.rowsE.length, nBoltsI = 2 * G.rowsI.length;
+
+    // Ép mặt: tính cho từng hàng của nhóm, hai chiều lực cắt → lấy chiều bất lợi
+    function bearingGroup(rows, allRows, t, Fu, sLo, sHi) {
+      const s = allRows.map((r) => r.s).sort((a, b) => a - b);
+      let total = 0; const lines = [];
+      rows.forEach((r) => {
+        const idx = s.indexOf(r.s);
+        const up = idx > 0 ? s[idx] - s[idx - 1] - bolt.dh : r.s - sLo - bolt.dh / 2;
+        const dn = idx < s.length - 1 ? s[idx + 1] - s[idx] - bolt.dh : sHi - r.s - bolt.dh / 2;
+        const lc = Math.max(Math.min(up, dn), 0);
+        const rn = Math.min(1.2 * lc * t * Fu, 2.4 * db * t * Fu);
+        total += 2 * rn;
+        lines.push('Hàng s = ' + f1(r.s) + ' mm: lc = ' + f1(lc) + ' mm → Rn/bu lông = min(1.2·lc·t·Fu; 2.4·d·t·Fu) = ' + f1(kN(rn)) + ' kN');
+      });
+      return { phiRn: 0.75 * total, lines };
+    }
+    const allRows = G.rowsE.concat(G.rowsI);
+    const tsSup = sup.useFlange ? M2.tf : sup.t;
+    const supMatEff = sup.useFlange ? M2.mat : G.supMat;
+    const bearE_p = bearingGroup(G.rowsE, allRows, tp, Fpu, G.sTop, G.sBot), bearI_p = bearingGroup(G.rowsI, allRows, tp, Fpu, G.sTop, G.sBot);
+    // Bản gối: nếu là cánh cấu kiện liên tục → không có mép tự do (trừ đầu cấu kiện khi điều kiện "đỉnh")
+    let sLoS = G.sTop, sHiS = G.sBot;
+    if (sup.useFlange) {
+      const topC = /^top_/.test(sup.condE) || /^top_/.test(sup.condI);
+      sLoS = topC ? G.sTop - (+sup.topOffset || 0) : -1e9;
+      sHiS = 1e9;
+    }
+    const bearE_s = bearingGroup(G.rowsE, allRows, tsSup, supMatEff.Fu, sLoS, sHiS), bearI_s = bearingGroup(G.rowsI, allRows, tsSup, supMatEff.Fu, sLoS, sHiS);
+
+    // J10 (phía gối là cánh + bụng cấu kiện M2)
+    const flangeSupport = (G.type !== 'xien') || (sup.condE !== 'endplate' && sup.condI !== 'endplate');
+    const tf2 = sup.useFlange ? M2.tf : Math.max(M2.tf, sup.t);
+    const k2 = tf2 + (+sup.kw || 0);
+    const h2 = M2.d - 2 * M2.tf;
+    const tw2 = M2.tw;
+    const Fy2 = M2.mat.Fy;
+    const sEnd = G.sTop - (+sup.topOffset || 0);
+    const fcE = G.tfe / 2, fcI = G.dp - G.tfi / 2;
+    function flangeFacts(f) {
+      const wfl = f === 'E' ? inp.weld.flE : inp.weld.flI;
+      const tfp = f === 'E' ? G.tfe : G.tfi;
+      const N = tfp + (wfl.type === 'fillet' ? 2 * wfl.w : 0);
+      const dist = (f === 'E' ? fcE : fcI) - sEnd;
+      return { N, dist, tfp };
+    }
+    function webYield(f) {
+      const { N, dist } = flangeFacts(f);
+      const Ct = dist < M2.d ? 0.5 : 1.0;
+      const Rn = Ct * (6 * k2 + N + 2 * tp) * Fy2 * tw2;
+      return { phiRn: 1.0 * Rn, Ct, N, dist, txt: 'φRn = φ·Ct·(6k + N + 2tp)·Fy·tw = 1.0·' + Ct + '·(6·' + f1(k2) + ' + ' + f1(N) + ' + 2·' + f1(tp) + ')·' + Fy2 + '·' + f1(tw2) };
+    }
+    function webCrip(f) {
+      const { N, dist } = flangeFacts(f);
+      const r = Math.pow(tw2 / tf2, 1.5);
+      const root = Math.sqrt(E * Fy2 * tf2 / tw2);
+      let Rn, t;
+      if (dist >= M2.d / 2) { Rn = 0.80 * tw2 * tw2 * (1 + 3 * (N / M2.d) * r) * root; t = '0.80·tw²·[1 + 3(N/d)(tw/tf)^1.5]·√(E·Fy·tf/tw)  (J10-4)'; }
+      else if (N / M2.d <= 0.2) { Rn = 0.40 * tw2 * tw2 * (1 + 3 * (N / M2.d) * r) * root; t = '0.40·tw²·[1 + 3(N/d)(tw/tf)^1.5]·√(E·Fy·tf/tw)  (J10-5a)'; }
+      else { Rn = 0.40 * tw2 * tw2 * (1 + (4 * N / M2.d - 0.2) * r) * root; t = '0.40·tw²·[1 + (4N/d − 0.2)(tw/tf)^1.5]·√(E·Fy·tf/tw)  (J10-5b)'; }
+      return { phiRn: 0.75 * Rn, txt: 'φRn = 0.75·' + t };
+    }
+    function webBuck(f) {
+      const { dist } = flangeFacts(f);
+      const coef = dist >= M2.d / 2 ? 24 : 12;
+      const Rn = coef * Math.pow(tw2, 3) * Math.sqrt(E * Fy2) / h2;
+      return { phiRn: 0.9 * Rn, txt: 'φRn = 0.9·' + coef + '·tw³·√(E·Fy)/h  (J10-8' + (coef === 12 ? ', gần đầu cấu kiện ×0.5' : '') + '), h = ' + f1(h2) };
+    }
+
+    // Sườn ngang phía gối
+    function stiffCap(f) {
+      const st = f === 'E' ? sup.stE : sup.stI;
+      if (!st || !st.on) return null;
+      const stMat = material(st.mat, st.matCustom);
+      const bn = st.bs - st.clip;
+      const Ast = 2 * bn * st.ts;
+      const phiT = 0.9 * stMat.Fy * Ast;
+      // nén: J10.8 — cột gồm 2 sườn + 25tw bụng (12tw nếu gần đầu)
+      const { dist } = flangeFacts(f);
+      const Lw = (dist < M2.d ? 12 : 25) * tw2;
+      const A = 2 * st.bs * st.ts + Lw * tw2;
+      const I = st.ts * Math.pow(2 * st.bs + tw2, 3) / 12;
+      const r = Math.sqrt(I / A);
+      const KL = 0.75 * h2;
+      const lam = KL / r;
+      let Pn, pt;
+      if (lam <= 25) { Pn = Math.min(stMat.Fy, Fy2) * A; pt = 'KL/r = ' + f1(lam) + ' ≤ 25 → Pn = Fy·A (J4.4)'; }
+      else {
+        const Fe = Math.PI * Math.PI * E / (lam * lam);
+        const Fy = Math.min(stMat.Fy, Fy2);
+        const Fcr = lam <= 4.71 * Math.sqrt(E / Fy) ? Math.pow(0.658, Fy / Fe) * Fy : 0.877 * Fe;
+        Pn = Fcr * A; pt = 'KL/r = ' + f1(lam) + ' > 25 → Fcr theo E3 = ' + f1(Fcr) + ' MPa';
+      }
+      const phiC = 0.9 * Pn;
+      const wf = st.wf, ww = st.ww;
+      const qf = 0.75 * 0.6 * weldF * 0.707 * wf * dirFactor;          // N/mm mỗi đường
+      const phiWF = qf * 2 * 2 * bn;
+      const Lst = st.fullDepth ? h2 : h2 / 2;
+      const qw = 0.75 * 0.6 * weldF * 0.707 * ww;
+      const phiWW = qw * 2 * 2 * Math.max(Lst - 2 * st.clip, 0);
+      return { st, stMat, bn, Ast, phiT, phiC, pt, A, Lw, phiWF, phiWW, Lst };
+    }
+
+    // Panel zone
+    const Ag2 = M2.A;
+    const diag = sup.diag || {};
+
+    // ====== duyệt tổ hợp ======
+    combos.forEach((cb, ci) => {
+      const isNgang = G.type === 'ngang';
+      const N = (isNgang ? +cb.Nc : +cb.Nb) * 1e3;
+      const V = (isNgang ? +cb.Vc : +cb.Vb) * 1e3;
+      const M = (isNgang ? +cb.Mc : +cb.Mb) * 1e6;
+      const N2 = (isNgang ? +cb.Nb : +cb.Nc) * 1e3;
+      const V2 = (isNgang ? +cb.Vb : +cb.Vc) * 1e3;
+      const nm = cb.name || ('TH' + (ci + 1));
+      const Nn = N * cosd(phiA) + Math.abs(V) * sind(phiA);
+      const Vt = Math.abs(N) * sind(phiA) + Math.abs(V) * cosd(phiA);
+      const FnE = -M / G.dm + Nn / 2;
+      const FnI = M / G.dm + Nn / 2;
+      const Nrel = inp.opt.axialRelief ? Nn : Math.max(Nn, 0);
+      const Mu = Math.max(Math.abs(M) + Nrel * G.dm / 2, 0);
+      const side = M < 0 ? 'E' : M > 0 ? 'I' : null;
+      const Vpz = Math.max(Math.abs(FnE), Math.abs(FnI)) - (inp.opt.pzSubtractShear ? Math.abs(V2) : 0);
+      demands.push({ name: nm, V: kN(V), N: kN(N), M: kNm(M), Nn: kN(Nn), Vt: kN(Vt), FnE: kN(FnE), FnI: kN(FnI), Mu: kNm(Mu), side, Vpz: kN(Vpz), N2: kN(N2), V2: kN(V2) });
+
+      // ---------- Bản đầu + bu lông (phía chịu kéo) ----------
+      if (side && sides[side] && !sides[side].error) {
+        const S = sides[side];
+        const gname = side === 'E' ? 'Bản đầu — nhóm cánh ngoài' : 'Bản đầu — nhóm cánh trong';
+        const tg = ['plate', 'bolts' + side];
+        const common = () => [
+          'Cấu hình: ' + S.cfg + ' (' + (S.ext ? 'extended' : 'flush') + '),  γr = ' + S.gam,
+          'Mu,eq = |M| + Nn·dm/2 = ' + f2(kNm(Math.abs(M))) + ' + ' + f2(kN(Nrel)) + '·' + f1(G.dm) + '/2/1000 = ' + f2(kNm(Mu)) + ' kN·m',
+          'Hàng bu lông kéo (h từ mặt ngoài cánh nén; d từ tâm cánh nén): ' + S.rows.map((r) => (r.outer ? 'ngoài' : 'trong') + ' h=' + f1(r.h) + ', d=' + f1(r.d)).join(' | '),
+        ];
+        add('pl_flex_' + side, gname, 'Chảy dẻo uốn bản đầu', 'kN·m', 'DG16 Sec 2.5', kNm(S.phiMpl / S.gam), kNm(Mu), nm, () => common().concat([
+          'bp,eff = min(bp; bf + 25.4) = min(' + f1(G.bp) + '; ' + f1(M1.bf + IN) + ') = ' + f1(S.bpE) + ' mm,  s = ½√(bp·g) = ' + f1(S.Yr.s) + ' mm',
+          S.Yr.formula,
+          'Y = ' + f1(S.Yr.Y) + ' mm',
+          'φb·Mpl = 0.9·Fpy·tp²·Y = 0.9·' + S.Fpy + '·' + tp + '²·' + f1(S.Yr.Y) + ' = ' + f2(kNm(S.phiMpl)) + ' kN·m',
+          'Khả năng = φb·Mpl/γr = ' + f2(kNm(S.phiMpl / S.gam)) + ' kN·m',
+          'Ứng xử bản: ' + (S.thick ? 'BẢN DÀY (φMnp < 0.9φbMpl) — không nhổ' : 'BẢN MỎNG (φMnp ≥ 0.9φbMpl) — có lực nhổ'),
+          'tp,req (bản mỏng) = √(γr·Mu/(φb·Fpy·Y)) = ' + f1(Math.sqrt(S.gam * Mu / (0.9 * S.Fpy * S.Yr.Y))) + ' mm',
+        ]), tg);
+        add('bolt_np_' + side, gname, 'Đứt bu lông không nhổ (φMnp)', 'kN·m', 'DG16 Sec 2.5 / DG4 Eq. 3.7', kNm(S.phiMnp), kNm(Mu), nm, () => common().concat([
+          'Pt = Fnt·Ab = ' + bg.Fnt + '·' + f1(Ab) + ' = ' + f1(kN(bolt.Pt)) + ' kN',
+          'Σd = ' + f1(S.bm.sumD) + ' mm',
+          'φMnp = 0.75·2·Pt·Σd = ' + f2(kNm(S.phiMnp)) + ' kN·m',
+          'db,req = √(2Mu/(π·φ·Fnt·Σd)) = ' + f1(Math.sqrt(2 * Mu / (Math.PI * 0.75 * bolt.Fnt * S.bm.sumD))) + ' mm',
+        ]), ['bolts' + side]);
+        add('bolt_q_' + side, gname, 'Đứt bu lông có lực nhổ (φMq)', 'kN·m', 'DG16 Sec 2.5 (Kennedy hiệu chỉnh)', kNm(S.phiMq), kNm(Mu), nm, () => common().concat([
+          'w\' = bp/2 − (db + 1/16") = ' + f1(S.ken.wc) + ' mm;  ai = 3.682(tp/db)³ − 0.085 [in] = ' + f2(S.ken.a) + ' mm',
+          'F\'i = [tp²·Fpy(0.85bp/2 + 0.8w\') + π·db³·Fnt/8]/(4pf,i) = ' + f1(kN(S.ken.Fi)) + ' kN',
+          'Qmax,i = w\'tp²/(4ai)·√(Fpy² − 3(F\'i/(w\'tp))²) = ' + f1(kN(S.ken.Qi)) + ' kN',
+          S.ext ? ('ao = min(ai; pext − pf,o) = ' + f2(S.ken.ao) + ' mm;  F\'o = F\'i·pf,i/pf,o = ' + f1(kN(S.ken.Fo)) + ' kN;  Qmax,o = ' + f1(kN(S.ken.Qo)) + ' kN') : 'Flush: không có hàng ngoài',
+          'Pt = ' + f1(kN(bolt.Pt)) + ' kN;  Tb = ' + f1(kN(bolt.Tb)) + ' kN' + (inp.bolt.snug ? ' (siết sơ bộ ×' + bolt.snugF + ')' : ''),
+        ]).concat(S.bm.cases.map((c) => '  ' + c.t + ' = ' + f2(kNm(c.v)) + ' kN·m')).concat([
+          'φMq = 0.75·max(...) = ' + f2(kNm(S.phiMq)) + ' kN·m' + (isNaN(S.phiMq) ? '  → căn âm: bản bị phá hoại do uốn + cắt kết hợp, cần tăng tp' : ''),
+        ]), ['bolts' + side, 'plate']);
+
+        // phía gối
+        const Sg = S.S;
+        const sgname = 'Phía gối (' + (G.type === 'ngang' ? 'kèo' : 'cột') + ') — ' + (side === 'E' ? 'cánh ngoài' : 'cánh trong');
+        add('sup_flex_' + side, sgname, Sg.cond === 'endplate' ? 'Chảy dẻo uốn bản đầu cột' : 'Chảy dẻo uốn cánh/bản gối', 'kN·m', Sg.ref, kNm(Sg.phiM), kNm(Mu), nm, () => [
+          'Điều kiện: ' + condLabel(Sg.cond) + ';  t = ' + f1(Sg.ts) + ' mm; b = ' + f1(Sg.bEff) + ' mm; Fy = ' + Sg.mat.Fy + ' MPa',
+          Sg.Y.formula, 'Y = ' + f1(Sg.Y.Y) + ' mm',
+          Sg.cond === 'endplate' ? ('φMpl/γr = 0.9·Fy·t²·Y/γr = ' + f2(kNm(Sg.phiM)) + ' kN·m') : ('φMcf = 0.9·Fyc·tcf²·Yc = ' + f2(kNm(Sg.phiM)) + ' kN·m'),
+          'Mu,eq = ' + f2(kNm(Mu)) + ' kN·m',
+        ], ['support' + side]);
+        add('sup_q_' + side, sgname, 'Đứt bu lông có lực nhổ (phía gối)', 'kN·m', 'DG16 Sec 2.5', kNm(Sg.phiMq), kNm(Mu), nm, () => [
+          't = ' + f1(Sg.ts) + ' mm, b = ' + f1(Sg.bEff) + ' mm, Fy = ' + Sg.mat.Fy,
+          'Qmax,i = ' + f1(kN(Sg.ken.Qi)) + ' kN' + (S.ext ? ';  Qmax,o = ' + f1(kN(Sg.ken.Qo)) + ' kN' : ''),
+        ].concat(Sg.bm.cases.map((c) => '  ' + c.t + ' = ' + f2(kNm(c.v)) + ' kN·m')).concat(['φMq = ' + f2(kNm(Sg.phiMq)) + ' kN·m']), ['support' + side, 'bolts' + side]);
+
+        // Bu lông kéo tuyệt đối không vượt Pt: đã nằm trong Mnp
+      }
+
+      // ---------- Cắt / ép mặt bu lông ----------
+      {
+        const grp = side === 'E' ? 'I' : side === 'I' ? 'E' : 'A';
+        const nB = inp.opt.shearAll || grp === 'A' ? nBoltsE + nBoltsI : grp === 'E' ? nBoltsE : nBoltsI;
+        const phiRv = 0.75 * bolt.Fnv * Ab * nB;
+        const gn = inp.opt.shearAll || grp === 'A' ? 'Bu lông (toàn bộ)' : grp === 'E' ? 'Bản đầu — nhóm cánh ngoài' : 'Bản đầu — nhóm cánh trong';
+        const idg = inp.opt.shearAll || grp === 'A' ? 'A' : grp;
+        add('bolt_v_' + idg, gn, 'Bu lông chịu cắt', 'kN', 'AISC J3.6 (Table J3.2)', kN(phiRv), kN(Vt), nm, () => [
+          'Lực cắt dọc bản Vt = |N|·sinφ + |V|·cosφ = ' + f2(kN(Vt)) + ' kN  (φ = ' + f1(phiA) + '°)',
+          'Bu lông chịu cắt: ' + (inp.opt.shearAll ? 'toàn bộ' : 'nhóm phía nén') + ', n = ' + nB,
+          'φRn = 0.75·Fnv·Ab·n = 0.75·' + f1(bolt.Fnv) + '·' + f1(Ab) + '·' + nB + ' = ' + f2(kN(phiRv)) + ' kN',
+        ], ['bolts' + (idg === 'A' ? 'E' : idg), 'bolts' + (idg === 'A' ? 'I' : idg)]);
+        const useE = idg === 'E' || idg === 'A', useI = idg === 'I' || idg === 'A';
+        const capP = (useE ? bearE_p.phiRn : 0) + (useI ? bearI_p.phiRn : 0);
+        const capS = (useE ? bearE_s.phiRn : 0) + (useI ? bearI_s.phiRn : 0);
+        add('bear_p_' + idg, gn, 'Ép mặt / xé bu lông trên bản đầu', 'kN', 'AISC Eq. J3-6', kN(capP), kN(Vt), nm, () => ['t = tp = ' + tp + ' mm, Fu = ' + Fpu + ' MPa (lc lấy theo chiều bất lợi)']
+          .concat(useE ? bearE_p.lines : []).concat(useI ? bearI_p.lines : []).concat(['φRn = 0.75·Σ(2·Rn) = ' + f2(kN(capP)) + ' kN']), ['plate']);
+        add('bear_s_' + idg, gn.replace('Bản đầu', 'Phía gối'), 'Ép mặt / xé bu lông trên bản gối', 'kN', 'AISC Eq. J3-6', kN(capS), kN(Vt), nm, () => ['t = ' + tsSup + ' mm, Fu = ' + supMatEff.Fu + ' MPa']
+          .concat(useE ? bearE_s.lines : []).concat(useI ? bearI_s.lines : []).concat(['φRn = ' + f2(kN(capS)) + ' kN']), ['supportE', 'supportI']);
+      }
+
+      // ---------- Cắt bản đầu tại cánh (DG4 Eq. 3.12, 3.13) ----------
+      ['E', 'I'].forEach((f) => {
+        const Fn = f === 'E' ? FnE : FnI;
+        const gname = f === 'E' ? 'Bản đầu — nhóm cánh ngoài' : 'Bản đầu — nhóm cánh trong';
+        const Rv = 0.9 * 0.6 * G.plMat.Fy * G.bp * tp;
+        add('pl_vy_' + f, gname, 'Cắt chảy bản đầu (Ffu/2)', 'kN', 'DG4 Eq. 3.12', kN(Rv), kN(Math.abs(Fn) / 2), nm, () => [
+          'Ffu = |M|/dm ± Nn/2 = ' + f2(kN(Math.abs(Fn))) + ' kN',
+          'φRn = 0.9·0.6·Fpy·bp·tp = 0.9·0.6·' + G.plMat.Fy + '·' + f1(G.bp) + '·' + tp + ' = ' + f2(kN(Rv)) + ' kN',
+        ], ['plate']);
+        const extF = f === 'E' ? pl.extE : pl.extI;
+        if (extF && Fn > 0 && !(f === 'E' ? sides.E.stiff : sides.I.stiff)) {
+          const An = (G.bp - 2 * (bolt.dh + 2)) * tp;
+          const Rr = 0.75 * 0.6 * Fpu * An;
+          add('pl_vr_' + f, gname, 'Cắt đứt phần bản nhô (Ffu/2)', 'kN', 'DG4 Eq. 3.13', kN(Rr), kN(Fn / 2), nm, () => [
+            'An = [bp − 2(dh + 2)]·tp = [' + f1(G.bp) + ' − 2(' + bolt.dh + ' + 2)]·' + tp + ' = ' + f1(An) + ' mm²',
+            'φRn = 0.75·0.6·Fpu·An = ' + f2(kN(Rr)) + ' kN',
+          ], ['plate']);
+        }
+      });
+
+      // ---------- Hàn & bụng cấu kiện M1 ----------
+      function memberWelds(mem, key, dmL, FE, FI, phE, phI, dpL, tfeL, tfiL, label, tagm) {
+        const wcfg = inp.weld;
+        ['E', 'I'].forEach((f) => {
+          const Fn = f === 'E' ? FE : FI;
+          if (Fn <= 0) return;
+          const ph = f === 'E' ? phE : phI;
+          const w = f === 'E' ? wcfg.flE : wcfg.flI;
+          let Ff = Fn / cosd(ph);
+          const Fmin = 0.6 * mem.mat.Fy * mem.bf * mem.tf;
+          if (inp.opt.flangeWeldMin) Ff = Math.max(Ff, Fmin);
+          const nm2 = 'Hàn cánh ' + (f === 'E' ? 'ngoài' : 'trong') + ' — bản đầu';
+          if (w.type === 'cjp') {
+            const cap = 0.9 * mem.mat.Fy * mem.bf * mem.tf;
+            add(key + '_wf_' + f, label, nm2 + ' (CJP)', 'kN', 'AISC Table J2.5 / J4.1', kN(cap), kN(Ff), nm, () => [
+              'Hàn thấu CJP: khả năng = φ·Fy·bf·tf = 0.9·' + mem.mat.Fy + '·' + mem.bf + '·' + mem.tf + ' = ' + f2(kN(cap)) + ' kN',
+              'Lực cánh theo phương cánh = Fn/cosφ = ' + f2(kN(Fn)) + '/cos' + f1(ph) + '° = ' + f2(kN(Fn / cosd(ph))) + ' kN' + (inp.opt.flangeWeldMin ? ' (≥ 0.6FyAf = ' + f2(kN(Fmin)) + ')' : ''),
+            ], [tagm + 'weld' + f]);
+          } else {
+            const Lw = 2 * mem.bf - mem.tw;
+            const cap = 0.75 * 0.6 * weldF * dirFactor * 0.707 * w.w * Lw;
+            add(key + '_wf_' + f, label, nm2 + ' (hàn góc)', 'kN', 'AISC Eq. J2-4, J2-5', kN(cap), kN(Ff), nm, () => [
+              'Lw = 2bf − tw = ' + f1(Lw) + ' mm;  w = ' + w.w + ' mm (' + f1(w.w / IN * 16) + '/16"),  FEXX = ' + weldF + ' MPa',
+              'φRn = 0.75·0.6·FEXX·' + dirFactor + '·0.707·w·Lw = ' + f2(kN(cap)) + ' kN',
+              'Lực cánh theo phương cánh = Fn/cosφ = ' + f2(kN(Ff)) + ' kN',
+            ], [tagm + 'weld' + f]);
+          }
+        });
+        const ww = inp.weld.web.w;
+        const qdem = 0.9 * mem.mat.Fy * mem.tw;          // N/mm — phát triển chảy bụng (DG16 §2.5.3 item 9)
+        const qcap = 2 * 0.75 * 0.6 * weldF * 0.707 * ww * dirFactor;
+        if (Math.abs(M) > 0)
+          add(key + '_ww_t', label, 'Hàn bụng vùng kéo (phát triển chảy bụng)', 'kN/m', 'AISC Eq. J2-4; J4-1', qcap, qdem, nm, () => [
+            'Yêu cầu = φ·Fy·tw = 0.9·' + mem.mat.Fy + '·' + mem.tw + ' = ' + f1(qdem) + ' N/mm (kN/m)',
+            'Khả năng 2 đường hàn góc: 2·0.75·0.6·FEXX·0.707·w·' + dirFactor + ' = ' + f1(qcap) + ' N/mm',
+          ], [tagm + 'webweld']);
+        // hàn bụng chịu cắt
+        const sd = side || 'E';
+        const Sx = sides[sd] && !sides[sd].error ? sides[sd] : null;
+        let Lws = dpL / 2 - (sd === 'E' ? tfiL : tfeL);
+        if (Sx) {
+          const innerLast = Sx.inner[Sx.inner.length - 1];
+          const compInner = sd === 'E' ? dpL - tfiL : tfeL;
+          Lws = Math.min(Lws, Math.abs(compInner - innerLast.s) - 2 * db);
+        }
+        Lws = Math.max(Lws, 0);
+        const capV = 2 * 0.75 * 0.6 * weldF * 0.707 * ww * Lws;
+        add(key + '_ww_v', label, 'Hàn bụng chịu cắt', 'kN', 'AISC Eq. J2-4', kN(capV), kN(Vt), nm, () => [
+          'Chiều dài hàn hiệu quả (DG16 §2.5.3 item 10): min(d/2 − tf,c ; khoảng từ hàng kéo trong + 2db tới cánh nén) = ' + f1(Lws) + ' mm',
+          'φRn = 2·0.75·0.6·FEXX·0.707·w·L = ' + f2(kN(capV)) + ' kN',
+        ], [tagm + 'webweld']);
+        const capWV = 1.0 * 0.6 * mem.mat.Fy * dpL * mem.tw;
+        add(key + '_wv', label, 'Chảy cắt bụng ' + (key === 'm1' ? 'cấu kiện' : 'cột') + ' tại bản', 'kN', 'AISC Eq. J4-3', kN(capWV), kN(Vt), nm, () => [
+          'φRn = 1.0·0.6·Fy·d·tw = 0.6·' + mem.mat.Fy + '·' + f1(dpL) + '·' + mem.tw + ' = ' + f2(kN(capWV)) + ' kN',
+        ], [tagm + 'web']);
+      }
+      memberWelds(M1, 'm1', G.dm, FnE, FnI, G.phiE, G.phiI, G.dp, G.tfe, G.tfi, (G.type === 'ngang' ? 'Cột' : 'Kèo') + ' (cấu kiện có bản đầu)', 'm1');
+      if (G.type === 'xien' && (sup.condE === 'endplate' || sup.condI === 'endplate')) {
+        const FcE = -M / G.dmc + Nn / 2, FcI = M / G.dmc + Nn / 2;
+        memberWelds(M2, 'm2', G.dmc, FcE, FcI, G.phiCE, G.phiCI, G.dpc, G.tfce, G.tfci, 'Cột (bản đầu phía cột)', 'm2');
+      }
+
+      // ---------- J10 phía gối, panel, sườn ----------
+      if (flangeSupport) {
+        const glab = 'Bụng cấu kiện gối (' + (G.type === 'ngang' ? 'kèo' : 'cột') + ')';
+        ['E', 'I'].forEach((f) => {
+          const Fn = f === 'E' ? FnE : FnI;
+          const Fa = Math.abs(Fn);
+          if (Fa <= 0) return;
+          const stc = stiffCap(f);
+          const fl = f === 'E' ? 'cánh ngoài' : 'cánh trong';
+          const wy = webYield(f);
+          const caps = [{ n: 'chảy cục bộ bụng', v: wy.phiRn }];
+          add('j10y_' + f, glab, 'Chảy cục bộ bụng tại ' + fl, 'kN', 'AISC J10.2 / DG4 Eq. 3.24', kN(wy.phiRn), kN(Fa), nm, () => [
+            'Khoảng cách tới đầu cấu kiện = ' + f1(wy.dist) + ' mm → Ct = ' + wy.Ct + ';  k = tf + hàn = ' + f1(k2) + ' mm;  N = ' + f1(wy.N) + ' mm',
+            wy.txt + ' = ' + f2(kN(wy.phiRn)) + ' kN',
+            'Lực cánh Ffu = ' + f2(kN(Fa)) + ' kN' + (stc ? '  (có sườn → kiểm tra sườn bên dưới)' : ''),
+          ], ['sup' + f + 'web'], !!stc);
+          if (Fn < 0) {
+            const wc = webCrip(f), wb = webBuck(f);
+            caps.push({ n: 'oằn nhàu', v: wc.phiRn }, { n: 'oằn nén bụng', v: wb.phiRn });
+            add('j10c_' + f, glab, 'Oằn nhàu bụng tại ' + fl + ' (nén)', 'kN', 'AISC J10.3 / DG4 Eq. 3.29–3.31', kN(wc.phiRn), kN(Fa), nm, () => [wc.txt, '= ' + f2(kN(wc.phiRn)) + ' kN'], ['sup' + f + 'web'], !!stc);
+            if (inp.opt.webBuckling)
+              add('j10b_' + f, glab, 'Oằn nén bụng tại ' + fl + ' (nén)', 'kN', 'AISC J10.5 / DG4 Eq. 3.26', kN(wb.phiRn), kN(Fa), nm, () => [wb.txt, '= ' + f2(kN(wb.phiRn)) + ' kN'], ['sup' + f + 'web'], !!stc);
+          } else if (sides[f] && !sides[f].error && side === f) {
+            const Sx = sides[f];
+            if (Sx.S.cond !== 'endplate') caps.push({ n: 'uốn cánh gối', v: Sx.S.phiM / (G.dm) });
+          }
+          const minCap = caps.reduce((x, y) => (y.v < x.v ? y : x));
+          const Fsu = Math.max(Fa - minCap.v, 0);
+          if (stc) {
+            const sn = 'Sườn ngang gối tại ' + fl;
+            const capAx = Fn < 0 ? stc.phiC : stc.phiT;
+            add('st_ax_' + f, sn, Fn < 0 ? 'Sườn chịu nén (J10.8 + J4.4)' : 'Sườn chịu kéo — chảy (J4.1)', 'kN', Fn < 0 ? 'AISC J10.8, J4.4' : 'AISC Eq. J4-1', kN(capAx), kN(Fsu), nm, () => [
+              'Fsu = Ffu − min(φRn) = ' + f2(kN(Fa)) + ' − ' + f2(kN(minCap.v)) + ' (' + minCap.n + ') = ' + f2(kN(Fsu)) + ' kN   (DG4 Eq. 3.32)',
+              'Sườn: 2 × ' + stc.st.bs + '×' + stc.st.ts + ' mm, vát góc ' + stc.st.clip + ' mm, ' + stc.stMat.name,
+              Fn < 0 ? (stc.pt + ';  A = 2bs·ts + ' + (stc.Lw / tw2).toFixed(0) + 'tw·tw = ' + f1(stc.A) + ' mm² → φPn = ' + f2(kN(stc.phiC)) + ' kN') : ('φRn = 0.9·Fy·Ast = 0.9·' + stc.stMat.Fy + '·' + f1(stc.Ast) + ' = ' + f2(kN(stc.phiT)) + ' kN'),
+            ], ['sup' + f + 'stiff']);
+            add('st_wf_' + f, sn, 'Hàn sườn – cánh', 'kN', 'AISC Eq. J2-4', kN(stc.phiWF), kN(Fsu), nm, () => [
+              '4 đường hàn góc w = ' + stc.st.wf + ' mm, L = bs − clip = ' + f1(stc.bn) + ' mm → φRn = ' + f2(kN(stc.phiWF)) + ' kN',
+            ], ['sup' + f + 'stiff']);
+            add('st_ww_' + f, sn, 'Hàn sườn – bụng', 'kN', 'AISC Eq. J2-4', kN(stc.phiWW), kN(Fsu), nm, () => [
+              '4 đường hàn góc w = ' + stc.st.ww + ' mm, L = ' + f1(stc.Lst) + ' − 2·clip → φRn = ' + f2(kN(stc.phiWW)) + ' kN',
+            ], ['sup' + f + 'stiff']);
+          }
+        });
+
+        // Panel zone
+        const Pc = Fy2 * Ag2;
+        const Pr = Math.abs(N2);
+        const red = Pr <= 0.4 * Pc ? 1 : (1.4 - Pr / Pc);
+        const twP = tw2 + (+sup.doubler || 0);
+        let Rv = 0.9 * 0.6 * Fy2 * M2.d * twP * red;
+        let dtxt = '';
+        if (diag.on) {
+          const th = Math.atan(G.dm / M2.d);
+          const Ad = 2 * diag.b * diag.t;
+          const add2 = 0.9 * material(diag.mat).Fy * Ad * Math.cos(th);
+          Rv += add2;
+          dtxt = 'Sườn chéo 2×' + diag.b + '×' + diag.t + ': + φ·Fy·Ad·cosθ = ' + f2(kN(add2)) + ' kN (θ = ' + f1(th / D2R) + '°)';
+        }
+        add('pz', 'Vùng panel', 'Chảy cắt vùng panel', 'kN', 'AISC J10.6 (J10-9, J10-10)', kN(Rv), kN(Vpz), nm, () => [
+          'Vu = max|Ffu| ' + (inp.opt.pzSubtractShear ? '− |V cấu kiện gối|' : '') + ' = ' + f2(kN(Vpz)) + ' kN',
+          'Pr = ' + f2(kN(Pr)) + ' kN;  Pc = Fy·A = ' + f2(kN(Pc)) + ' kN → hệ số = ' + f3(red),
+          'φRv = 0.9·0.6·Fy·dc·tw·hệ số = 0.9·0.6·' + Fy2 + '·' + f1(M2.d) + '·' + f1(twP) + (sup.doubler > 0 ? ' (gồm bản ốp ' + sup.doubler + ' mm)' : '') + '·' + f3(red),
+        ].concat(dtxt ? [dtxt] : []).concat(['φRv = ' + f2(kN(Rv)) + ' kN']), ['panel']);
+      }
+    });
+
+    // ---------- Kiểm tra cấu tạo ----------
+    const geo = [];
+    function gchk(grp, name, val, min, max, ref, unit) {
+      const ok = (min == null || val >= min - 1e-6) && (max == null || val <= max + 1e-6);
+      geo.push({ grp, name, val, min, max, ref, unit: unit || 'mm', ok });
+    }
+    const emin = edgeMin(db, inp.opt.sheared);
+    const emax = Math.min(12 * Math.min(tp, tsSup), 150);
+    gchk('Bản đầu', 'Khoảng cách mép theo phương dọc bản Lev', pl.Lev, emin, emax, 'J3.4, J3.5');
+    gchk('Bản đầu', 'Khoảng cách mép ngang Leh', pl.Leh, emin, emax, 'J3.4, J3.5');
+    gchk('Bản đầu', 'Gage g (khoảng cách 2 dãy bu lông)', pl.g, 2.667 * db, M1.bf, 'J3.3; DG16 §2.5.3 item 7');
+    const pmin = db <= 25.4 ? db + 12.7 : db + 19.05;
+    if (pl.extE) gchk('Bản đầu', 'pf,o cánh ngoài', pl.pfoE, pmin, null, 'DG16 §2.5.3 item 4');
+    gchk('Bản đầu', 'pf,i cánh ngoài', pl.pfiE, pmin, null, 'DG16 §2.5.3 item 4');
+    if (pl.extI) gchk('Bản đầu', 'pf,o cánh trong', pl.pfoI, pmin, null, 'DG16 §2.5.3 item 4');
+    gchk('Bản đầu', 'pf,i cánh trong', pl.pfiI, pmin, null, 'DG16 §2.5.3 item 4');
+    if (pl.extE) gchk('Bản đầu', 'Khoảng cách hàng ngoài – hàng trong (cánh ngoài)', pl.pfoE + G.tfe + pl.pfiE, 2.667 * db, null, 'J3.3');
+    if (pl.nE > 1) gchk('Bản đầu', 'Bước hàng pb (cánh ngoài)', pl.pbE, 2.667 * db, null, 'J3.3');
+    if (pl.nI > 1) gchk('Bản đầu', 'Bước hàng pb (cánh trong)', pl.pbI, 2.667 * db, null, 'J3.3');
+    const lastE = G.rowsE.filter((r) => !r.outer).pop(), lastI = G.rowsI.filter((r) => !r.outer).pop();
+    if (lastE && lastI) gchk('Bản đầu', 'Khoảng trống giữa nhóm cánh ngoài và cánh trong', lastI.s - lastE.s, 2.667 * db, null, 'J3.3');
+    gchk('Bản đầu', 'Đường kính bu lông', db, null, 38.1, 'DG4 §1.1');
+    gchk('Bản đầu', 'Bề rộng bản bp ≤ bf + 25 (hiệu quả)', G.bp, null, M1.bf + IN, 'DG16 §2.5.3 item 6 (vượt → chỉ tính bf + 25.4)');
+    ['E', 'I'].forEach((f) => {
+      const w = f === 'E' ? inp.weld.flE : inp.weld.flI;
+      if (w.type === 'fillet') gchk('Hàn', 'Hàn góc cánh ' + (f === 'E' ? 'ngoài' : 'trong') + ' ≥ min', w.w, weldMin(Math.min(M1.tf, tp)), null, 'Table J2.4');
+    });
+    gchk('Hàn', 'Hàn góc bụng ≥ min', inp.weld.web.w, weldMin(Math.min(M1.tw, tp)), null, 'Table J2.4');
+    if (flangeSupport) ['E', 'I'].forEach((f) => {
+      const st = f === 'E' ? sup.stE : sup.stI;
+      if (!st || !st.on) return;
+      const lab = 'Sườn gối ' + (f === 'E' ? 'cánh ngoài' : 'cánh trong');
+      gchk(lab, 'bs + tw/2 ≥ bf/3', st.bs + tw2 / 2, M2.bf / 3, null, 'J10.8');
+      gchk(lab, 'ts ≥ tf(kèo)/2', st.ts, (f === 'E' ? G.tfe : G.tfi) / 2, null, 'J10.8');
+      gchk(lab, 'ts ≥ bs/16', st.ts, st.bs / 16, null, 'J10.8');
+      gchk(lab, 'bs ≤ (bf − tw)/2', st.bs, null, (M2.bf - tw2) / 2, 'Hình học');
+    });
+    ['E', 'I'].forEach((f) => {
+      const S = sides[f];
+      if (!S || S.error || !S.stiff) return;
+      const st = f === 'E' ? pl.stiffE : pl.stiffI;
+      const stMat = material(st.mat);
+      const hst = (f === 'E' ? pl.pfoE : pl.pfoI) + pl.Lev;
+      const lab = 'Sườn bản đầu (4ES) ' + (f === 'E' ? 'ngoài' : 'trong');
+      gchk(lab, 'ts ≥ tw·Fyb/Fys', st.ts, M1.tw * M1.mat.Fy / stMat.Fy, null, 'DG4 Eq. 3.15');
+      gchk(lab, 'hst/ts ≤ 0.56√(E/Fys)', hst / st.ts, null, 0.56 * Math.sqrt(E / stMat.Fy), 'DG4 Eq. 3.16', '');
+      gchk(lab, 'Lst ≥ hst/tan30°', st.L, hst / Math.tan(30 * D2R), null, 'DG4 §2.4');
+    });
+
+    // ---------- Tổng hợp ----------
+    const list = order.map((id) => checks[id]);
+    let gov = null;
+    list.forEach((c) => { if (!c.info && (!gov || c.ratio > gov.ratio)) gov = c; });
+    const geoFail = geo.filter((g) => !g.ok).length;
+    return { G, sides, bolt, checks: list, geo, demands, gov, W, geoFail, weldF, meta: { code: 'AISC 360-10 LRFD', guides: 'DG4 (2003), DG16 (2002), DG39 (2023) App. A' } };
+  }
+
+  function condLabel(c) {
+    return ({
+      endplate: 'Bản đầu (như end-plate, DG16)',
+      cont_unstiff: 'Cánh liên tục, không sườn',
+      cont_stiff: 'Cánh liên tục, có sườn ngang',
+      top_cap: 'Đỉnh cấu kiện có bản nắp',
+      top_unstiff: 'Đỉnh cấu kiện, không sườn',
+    })[c] || c;
+  }
+
+  root.KneeEngine = { compute, parseSection, MATERIALS, BOLT_GRADES, BOLT_DIAS, ELECTRODES, PRETENSION, condLabel, endPlateY, kennedy, boltMoments, supportYc, material };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+(function(){
+'use strict';
+const K = window.KneeEngine;
+const $ = (s,el=document)=>el.querySelector(s);
+const $$ = (s,el=document)=>Array.from(el.querySelectorAll(s));
+const clone = (o)=>JSON.parse(JSON.stringify(o));
+const matOpts = Object.keys(K.MATERIALS);
+const LS_KEY = 'knee-aisc360-state-v1';
+
+/* ================= PRESETS ================= */
+const BASE = {
+  name:'K-01', type:'dung',
+  beam:{sec:'I (600-400)-6/200-10', mat:'Q345', L:6000, jointEnd:'start', slope:10},
+  col:{sec:'I (300-600)-8/250-16', mat:'Q345', L:7000, jointEnd:'end', innerStraight:false},
+  plate:{tp:20, mat:'Q345', g:110, Leh:45, Lev:45, flushExt:25, mitre:'bisector', theta:45,
+    extE:true, pfoE:50, pfiE:50, nE:1, pbE:75, stiffE:{on:false, ts:10, L:200, mat:'Q345'},
+    extI:false, pfoI:50, pfiI:50, nI:1, pbI:75, stiffI:{on:false, ts:10, L:200, mat:'Q345'}},
+  bolt:{grade:'8.8', d:24, thread:'N', snug:false},
+  weld:{electrode:'E70XX', flE:{type:'fillet', w:8}, flI:{type:'fillet', w:8}, web:{w:6}},
+  sup:{useFlange:true, t:20, b:200, mat:'Q345', condE:'top_cap', condI:'cont_stiff', topOffset:0, tcap:14, kw:6,
+    stE:{on:true, bs:110, ts:12, clip:15, mat:'Q345', wf:8, ww:6, fullDepth:true},
+    stI:{on:true, bs:110, ts:12, clip:15, mat:'Q345', wf:8, ww:6, fullDepth:true},
+    doubler:0, diag:{on:false, b:80, t:10, mat:'Q345'}},
+  opt:{axialRelief:true, directional:true, shearAll:false, flangeWeldMin:false, webBuckling:true, pzSubtractShear:false, sheared:true},
+  loads:[
+    {name:'TH1 (tĩnh+hoạt)', Vb:85, Nb:-45, Mb:-240, Vc:45, Nc:-95, Mc:-240},
+    {name:'TH2 (gió bốc)', Vb:-35, Nb:25, Mb:115, Vc:-20, Nc:40, Mc:115},
+    {name:'TH3 (gió ngang)', Vb:60, Nb:-30, Mb:-185, Vc:52, Nc:-70, Mc:-185},
+  ],
+};
+const PRESETS = {
+  dung: BASE,
+  ngang: Object.assign(clone(BASE), {name:'K-02', type:'ngang',
+    beam:{sec:'I (700-400)-6/200-10', mat:'Q345', L:6000, jointEnd:'start', slope:10},
+    col:{sec:'I (250-500)-6/200-10', mat:'Q345', L:7000, jointEnd:'end', innerStraight:false},
+    sup:Object.assign(clone(BASE.sup), {useFlange:false, t:20, b:220, condE:'cont_stiff', condI:'cont_stiff', topOffset:0, tcap:0,
+      stE:{on:true, bs:95, ts:10, clip:15, mat:'Q345', wf:8, ww:6, fullDepth:true},
+      stI:{on:true, bs:95, ts:10, clip:15, mat:'Q345', wf:8, ww:6, fullDepth:true}}),
+  }),
+  xien: Object.assign(clone(BASE), {name:'K-03', type:'xien',
+    beam:{sec:'I (550-350)-6/200-10', mat:'Q345', L:6000, jointEnd:'start', slope:10},
+    col:{sec:'I (300-550)-6/200-10', mat:'Q345', L:7000, jointEnd:'end', innerStraight:false},
+    plate:Object.assign(clone(BASE.plate), {mitre:'bisector', extI:false}),
+    sup:Object.assign(clone(BASE.sup), {useFlange:false, t:20, b:230, condE:'endplate', condI:'endplate'}),
+  }),
+  ram11: {
+    name:'RAM #11', type:'dung',
+    beam:{sec:'I 613-5/150-8', mat:'Q345', L:3000, jointEnd:'start', slope:5.7},
+    col:{sec:'I 584-8/225-16', mat:'Q345', L:3000, jointEnd:'end', innerStraight:false},
+    plate:{tp:16, mat:'Q345', g:125, Leh:50, Lev:50, flushExt:25.4, mitre:'custom', theta:5.7,
+      extE:true, pfoE:50, pfiE:50, nE:1, pbE:75, stiffE:{on:false, ts:10, L:200, mat:'Q345'},
+      extI:false, pfoI:50, pfiI:50, nI:1, pbI:75, stiffI:{on:false, ts:10, L:200, mat:'Q345'}},
+    bolt:{grade:'8.8', d:24, thread:'N', snug:false},
+    weld:{electrode:'E70XX', flE:{type:'cjp', w:12.7}, flI:{type:'fillet', w:12.7}, web:{w:12.7}},
+    sup:{useFlange:false, t:16, b:225, mat:'Q345', condE:'cont_unstiff', condI:'cont_stiff', topOffset:600, tcap:0, kw:6,
+      stE:{on:false, bs:82.5, ts:12.7, clip:19.05, mat:'Q345', wf:12.7, ww:12.7, fullDepth:true},
+      stI:{on:true, bs:82.5, ts:12.7, clip:19.05, mat:'Q345', wf:12.7, ww:12.7, fullDepth:true},
+      doubler:0, diag:{on:false, b:80, t:10, mat:'Q345'}},
+    opt:{axialRelief:true, directional:true, shearAll:false, flangeWeldMin:false, webBuckling:false, pzSubtractShear:false, sheared:true},
+    loads:[
+      {name:'M_max', Vb:32.01, Nb:-3.57, Mb:145.16, Vc:0, Nc:0, Mc:0},
+      {name:'M_min', Vb:-42.97, Nb:28.29, Mb:-183.09, Vc:0, Nc:0, Mc:0},
+      {name:'P_max', Vb:-53.78, Nb:2.55, Mb:-112.62, Vc:0, Nc:0, Mc:0},
+      {name:'P_min', Vb:-12.83, Nb:-25.8, Mb:11.66, Vc:0, Nc:0, Mc:0},
+      {name:'V2_max', Vb:26.16, Nb:37.97, Mb:-92.86, Vc:0, Nc:0, Mc:0},
+      {name:'V3_max', Vb:-12.99, Nb:1.38, Mb:11.88, Vc:0, Nc:0, Mc:0},
+    ],
+  },
+};
+
+/* ================= STATE ================= */
+let S;
+try { const raw = localStorage.getItem(LS_KEY); S = raw ? JSON.parse(raw) : clone(BASE); } catch(e){ S = clone(BASE); }
+S = deepMerge(clone(BASE), S);
+let R = null;            // kết quả
+let selCheck = null;     // id kiểm tra đang chọn
+let view = 'elev';
+let comboIdx = 0;
+
+function deepMerge(a,b){ for(const k in b){ if(b[k] && typeof b[k]==='object' && !Array.isArray(b[k]) && a[k] && typeof a[k]==='object') a[k]=deepMerge(a[k],b[k]); else a[k]=b[k]; } return a; }
+const getP = (p)=>p.split('.').reduce((o,k)=>o==null?undefined:o[k], S);
+function setP(p,v){ const ks=p.split('.'); let o=S; for(let i=0;i<ks.length-1;i++){ o=o[ks[i]]=o[ks[i]]||{}; } o[ks[ks.length-1]]=v; }
+
+/* ================= FORM ================= */
+const F = {
+  num:(p,l,u,o={})=>({k:'num',p,l,u,...o}),
+  sel:(p,l,opts,o={})=>({k:'sel',p,l,opts,...o}),
+  chk:(p,l,o={})=>({k:'chk',p,l,...o}),
+  txt:(p,l,o={})=>({k:'txt',p,l,...o}),
+  sub:(l,o={})=>({k:'sub',l,...o}),
+  hint:(l,o={})=>({k:'hint',l,...o}),
+  parsed:(p)=>({k:'parsed',p}),
+};
+const condOpts = [['cont_unstiff','Cánh liên tục, không sườn'],['cont_stiff','Cánh liên tục, có sườn ngang'],['top_cap','Đỉnh cấu kiện có bản nắp'],['top_unstiff','Đỉnh cấu kiện, không sườn'],['endplate','Bản đầu (như end-plate)']];
+const isX = ()=>S.type==='xien';
+const SECTIONS = [
+  {t:'Thông tin chung', open:true, f:[
+    F.txt('name','Tên nút', {w2:true}),
+    F.sel('plate.mitre','Cách đặt bản (knee xiên)', [['bisector','Theo đường phân giác'],['perp','Vuông góc trục kèo'],['custom','Tùy chọn góc θ']], {show:isX, w2:true}),
+    F.num('plate.theta','θ — góc pháp tuyến bản so với phương ngang','°', {show:()=>isX()&&S.plate.mitre==='custom', w2:true}),
+    F.hint('Knee đứng: bản đầu kèo áp vào cánh trong của cột.  Knee ngang: bản đầu cột nằm ngang, đỡ kèo (vai kèo).  Knee xiên: hai bản đầu (kèo và cột) nằm trên một mặt nghiêng.'),
+  ]},
+  {t:'Kèo (rafter)', tag:()=>S.beam.sec, f:[
+    F.txt('beam.sec','Tiết diện — I (h1-h2)-tw/bf-tf', {w2:true}), F.parsed('beam.sec'),
+    F.sel('beam.mat','Vật liệu', matOpts), F.num('beam.slope','Góc dốc α','°'),
+    F.num('beam.L','Chiều dài L','mm'), F.sel('beam.jointEnd','Đầu tại nút', [['start','h1 (đầu I)'],['end','h2 (đầu J)']]),
+  ]},
+  {t:'Cột (column)', tag:()=>S.col.sec, f:[
+    F.txt('col.sec','Tiết diện — I (h1-h2)-tw/bf-tf', {w2:true}), F.parsed('col.sec'),
+    F.sel('col.mat','Vật liệu', matOpts), F.num('col.L','Chiều dài L','mm'),
+    F.sel('col.jointEnd','Đầu tại nút', [['end','h2 (đỉnh cột)'],['start','h1']]),
+    F.chk('col.innerStraight','Cánh trong cột thẳng đứng (cánh ngoài vát)'),
+  ]},
+  {t:'Bản đầu (end plate)', tag:()=>'tp '+S.plate.tp, f:[
+    F.num('plate.tp','Chiều dày tp','mm'), F.sel('plate.mat','Vật liệu', matOpts),
+    F.num('plate.g','Gage g (tâm-tâm ngang)','mm'), F.num('plate.Leh','Khoảng mép ngang Leh','mm'),
+    F.num('plate.Lev','Khoảng mép dọc Lev','mm'), F.num('plate.flushExt','Phần bản thừa phía flush','mm'),
+    F.sub('Nhóm bu lông cánh ngoài'),
+    F.chk('plate.extE','Bản nhô ra ngoài cánh (extended)', {w2:true}),
+    F.num('plate.pfoE','pf,o — hàng ngoài tới cánh','mm', {show:()=>S.plate.extE}), F.num('plate.pfiE','pf,i — hàng trong tới cánh','mm'),
+    F.sel('plate.nE','Số hàng bên trong cánh', [[1,'1'],[2,'2'],[3,'3']]), F.num('plate.pbE','Bước hàng pb','mm', {show:()=>S.plate.nE>1}),
+    F.chk('plate.stiffE.on','Sườn gia cường phần nhô (4ES)', {show:()=>S.plate.extE&&S.plate.nE==1, w2:true}),
+    F.num('plate.stiffE.ts','ts sườn','mm', {show:()=>S.plate.extE&&S.plate.stiffE.on}), F.num('plate.stiffE.L','Chiều dài sườn Lst','mm', {show:()=>S.plate.extE&&S.plate.stiffE.on}),
+    F.sub('Nhóm bu lông cánh trong'),
+    F.chk('plate.extI','Bản nhô ra ngoài cánh (extended)', {w2:true}),
+    F.num('plate.pfoI','pf,o — hàng ngoài tới cánh','mm', {show:()=>S.plate.extI}), F.num('plate.pfiI','pf,i — hàng trong tới cánh','mm'),
+    F.sel('plate.nI','Số hàng bên trong cánh', [[1,'1'],[2,'2'],[3,'3']]), F.num('plate.pbI','Bước hàng pb','mm', {show:()=>S.plate.nI>1}),
+    F.chk('plate.stiffI.on','Sườn gia cường phần nhô (4ES)', {show:()=>S.plate.extI&&S.plate.nI==1, w2:true}),
+    F.num('plate.stiffI.ts','ts sườn','mm', {show:()=>S.plate.extI&&S.plate.stiffI.on}), F.num('plate.stiffI.L','Chiều dài sườn Lst','mm', {show:()=>S.plate.extI&&S.plate.stiffI.on}),
+  ]},
+  {t:'Bu lông', tag:()=>'M'+S.bolt.d+' '+S.bolt.grade, f:[
+    F.sel('bolt.grade','Cấp bền', Object.keys(K.BOLT_GRADES).map(k=>[k,K.BOLT_GRADES[k].label])),
+    F.sel('bolt.d','Đường kính', K.BOLT_DIAS.map(d=>[d,'M'+d])),
+    F.sel('bolt.thread','Ren trong mặt cắt', [['N','N — có ren'],['X','X — không ren']]),
+    F.chk('bolt.snug','Siết sơ bộ (snug-tight)'),
+  ]},
+  {t:'Đường hàn', tag:()=>S.weld.electrode, f:[
+    F.sel('weld.electrode','Que hàn', Object.keys(K.ELECTRODES)),
+    F.num('weld.web.w','Hàn góc bụng w','mm'),
+    F.sel('weld.flE.type','Hàn cánh ngoài', [['fillet','Hàn góc 2 phía'],['cjp','Hàn thấu CJP']]),
+    F.num('weld.flE.w','w cánh ngoài','mm', {show:()=>S.weld.flE.type==='fillet'}),
+    F.sel('weld.flI.type','Hàn cánh trong', [['fillet','Hàn góc 2 phía'],['cjp','Hàn thấu CJP']]),
+    F.num('weld.flI.w','w cánh trong','mm', {show:()=>S.weld.flI.type==='fillet'}),
+  ]},
+  {t:'Phía gối (cột / kèo nhận bản)', tag:()=>S.type==='ngang'?'kèo':'cột', f:[
+    F.chk('sup.useFlange','Bản gối = cánh của cấu kiện gối', {w2:true}),
+    F.num('sup.t','Chiều dày bản gối','mm', {show:()=>!S.sup.useFlange}), F.num('sup.b','Bề rộng bản gối','mm', {show:()=>!S.sup.useFlange}),
+    F.sel('sup.mat','Vật liệu bản gối', matOpts, {show:()=>!S.sup.useFlange}),
+    F.sel('sup.condE','Điều kiện tại cánh ngoài', condOpts, {w2:true}),
+    F.sel('sup.condI','Điều kiện tại cánh trong', condOpts, {w2:true}),
+    F.num('sup.topOffset','Đỉnh cấu kiện gối tới mép bản','mm'), F.num('sup.tcap','Dày bản nắp tcap','mm'),
+    F.num('sup.kw','Hàn cổ bụng–cánh (k = tf + w)','mm'), F.num('sup.doubler','Bản ốp bụng (doubler)','mm'),
+    F.sub('Sườn ngang tại cánh ngoài'),
+    F.chk('sup.stE.on','Có sườn', {w2:true}),
+    F.num('sup.stE.bs','bs','mm',{show:()=>S.sup.stE.on}), F.num('sup.stE.ts','ts','mm',{show:()=>S.sup.stE.on}),
+    F.num('sup.stE.clip','Vát góc','mm',{show:()=>S.sup.stE.on}), F.sel('sup.stE.mat','Vật liệu',matOpts,{show:()=>S.sup.stE.on}),
+    F.num('sup.stE.wf','Hàn sườn–cánh','mm',{show:()=>S.sup.stE.on}), F.num('sup.stE.ww','Hàn sườn–bụng','mm',{show:()=>S.sup.stE.on}),
+    F.chk('sup.stE.fullDepth','Sườn suốt chiều cao bụng', {show:()=>S.sup.stE.on, w2:true}),
+    F.sub('Sườn ngang tại cánh trong'),
+    F.chk('sup.stI.on','Có sườn', {w2:true}),
+    F.num('sup.stI.bs','bs','mm',{show:()=>S.sup.stI.on}), F.num('sup.stI.ts','ts','mm',{show:()=>S.sup.stI.on}),
+    F.num('sup.stI.clip','Vát góc','mm',{show:()=>S.sup.stI.on}), F.sel('sup.stI.mat','Vật liệu',matOpts,{show:()=>S.sup.stI.on}),
+    F.num('sup.stI.wf','Hàn sườn–cánh','mm',{show:()=>S.sup.stI.on}), F.num('sup.stI.ww','Hàn sườn–bụng','mm',{show:()=>S.sup.stI.on}),
+    F.chk('sup.stI.fullDepth','Sườn suốt chiều cao bụng', {show:()=>S.sup.stI.on, w2:true}),
+    F.sub('Sườn chéo vùng panel'),
+    F.chk('sup.diag.on','Có sườn chéo (2 bên bụng)', {w2:true}),
+    F.num('sup.diag.b','b sườn chéo','mm',{show:()=>S.sup.diag.on}), F.num('sup.diag.t','t sườn chéo','mm',{show:()=>S.sup.diag.on}),
+  ]},
+  {t:'Tùy chọn tính toán', f:[
+    F.chk('opt.axialRelief','Kể cả lực dọc nén làm giảm Mu,eq (như RAM)', {w2:true}),
+    F.chk('opt.directional','Tăng cường độ hàn góc theo phương lực (1.0+0.5sin^1.5θ)', {w2:true}),
+    F.chk('opt.shearAll','Toàn bộ bu lông chịu cắt (mặc định: chỉ nhóm phía nén)', {w2:true}),
+    F.chk('opt.flangeWeldMin','Hàn cánh thiết kế ≥ 0.6·Fy·Af (DG16 §2.5.3-8)', {w2:true}),
+    F.chk('opt.webBuckling','Kiểm tra oằn nén bụng J10.5 (DG4 bước 17)', {w2:true}),
+    F.chk('opt.pzSubtractShear','Panel: trừ lực cắt cấu kiện gối', {w2:true}),
+    F.chk('opt.sheared','Mép bản cắt bằng cưa/đột (Table J3.4 mép cắt)', {w2:true}),
+  ]},
+];
+
+function renderForm(){
+  const host = $('#left');
+  const openState = $$('details',host).map(d=>d.open);
+  let html='';
+  SECTIONS.forEach((sec,i)=>{
+    const open = openState.length ? openState[i] : !!sec.open;
+    html += `<details ${open?'open':''}><summary>${sec.t}<span class="tag">${sec.tag?esc(String(sec.tag())):''}</span></summary><div class="fields">`;
+    sec.f.forEach(fd=>{ html += fieldHTML(fd); });
+    html += `</div></details>`;
+  });
+  host.innerHTML = html;
+  $$('[data-p]',host).forEach(el=>{
+    const p=el.dataset.p;
+    const ev = el.type==='checkbox'||el.tagName==='SELECT' ? 'change' : 'input';
+    el.addEventListener(ev,()=>{
+      let v;
+      if(el.type==='checkbox') v=el.checked;
+      else if(el.type==='number') v=el.value===''?0:+el.value;
+      else if(el.tagName==='SELECT') v = isNaN(+el.value)||el.value==='' ? el.value : +el.value;
+      else v=el.value;
+      setP(p,v);
+      const needRerender = el.tagName==='SELECT'||el.type==='checkbox'||el.dataset.p.endsWith('.sec');
+      if(needRerender && !el.dataset.p.endsWith('.sec')) { renderForm(); }
+      else updateParsed();
+      schedule();
+    });
+  });
+  updateParsed();
+}
+function fieldHTML(fd){
+  if(fd.show && !fd.show()) return '';
+  const cls = 'f'+(fd.w2?' w2':'');
+  switch(fd.k){
+    case 'sub': return `<div class="sub">${fd.l}</div>`;
+    case 'hint': return `<div class="hint">${fd.l}</div>`;
+    case 'parsed': return `<div class="parsed" data-parsed="${fd.p}"></div>`;
+    case 'num': return `<div class="${cls}"><label title="${fd.l}">${fd.l}</label><div class="u"><input type="number" step="any" data-p="${fd.p}" value="${getP(fd.p)??''}"><span>${fd.u||''}</span></div></div>`;
+    case 'txt': return `<div class="${cls}"><label>${fd.l}</label><input type="text" data-p="${fd.p}" value="${esc(getP(fd.p)??'')}" class="mono"></div>`;
+    case 'sel': {
+      const v = getP(fd.p);
+      const opts = fd.opts.map(o=>Array.isArray(o)?o:[o,o]).map(([k,l])=>`<option value="${k}" ${String(k)===String(v)?'selected':''}>${l}</option>`).join('');
+      return `<div class="${cls}"><label title="${fd.l}">${fd.l}</label><select data-p="${fd.p}">${opts}</select></div>`;
+    }
+    case 'chk': return `<div class="${cls} chk"><input type="checkbox" id="c_${fd.p}" data-p="${fd.p}" ${getP(fd.p)?'checked':''}><label for="c_${fd.p}">${fd.l}</label></div>`;
+  }
+  return '';
+}
+function updateParsed(){
+  $$('[data-parsed]').forEach(el=>{
+    const p = K.parseSection(getP(el.dataset.parsed));
+    if(p.ok){ el.className='parsed'; el.textContent = `✓ h = ${p.h1}${p.tapered?' → '+p.h2:''} mm · tw ${p.tw} · bf ${p.bf} · tf ${p.tf}${p.tapered?' (vát)':''}`; }
+    else { el.className='parsed err'; el.textContent='✗ Sai quy cách. Ví dụ: I (600-400)-6/200-10  hoặc  I 500-6/200-10'; }
+  });
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ================= LOADS TABLE ================= */
+function renderLoads(){
+  const cols = [['name','Tên'],['Vb','V kèo (kN)'],['Nb','N kèo (kN)'],['Mb','M kèo (kN·m)'],['Vc','V cột (kN)'],['Nc','N cột (kN)'],['Mc','M cột (kN·m)']];
+  let h = `<div class="section-pad"><div class="hint" style="margin-bottom:8px">Quy ước dấu: <b>N &gt; 0 kéo</b>; <b>M &lt; 0 → cánh ngoài chịu kéo</b> (mômen âm tại knee), M &gt; 0 → cánh trong chịu kéo. Nội lực lấy tại mặt liên kết. Knee ngang dùng nội lực <b>cột</b> cho bản đầu; knee đứng / xiên dùng nội lực <b>kèo</b>. Có thể dán trực tiếp từ Excel (7 cột theo thứ tự bảng).</div>
+  <div class="tbl-wrap"><table class="loads"><thead><tr>${cols.map(c=>`<th>${c[1]}</th>`).join('')}<th></th></tr></thead><tbody>`;
+  S.loads.forEach((l,i)=>{
+    h += `<tr>${cols.map(([k])=>`<td><input ${k==='name'?'class="nm"':'type="number" step="any"'} data-li="${i}" data-lk="${k}" value="${esc(l[k]??'')}"></td>`).join('')}<td><button class="x" data-del="${i}" title="Xóa">✕</button></td></tr>`;
+  });
+  h += `</tbody></table></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn" id="lAdd">+ Thêm tổ hợp</button><button class="btn" id="lPaste">📋 Dán từ Excel</button><button class="btn" id="lClear">Xóa hết</button></div>
+  <textarea id="lPasteArea" hidden placeholder="Dán dữ liệu (Tab/; phân cách): Tên  Vb  Nb  Mb  Vc  Nc  Mc" style="width:100%;height:110px;margin-top:8px;font-family:JetBrains Mono,monospace;font-size:12px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px"></textarea></div>`;
+  $('#p-loads').innerHTML = h;
+  $$('#p-loads [data-li]').forEach(inp=>inp.addEventListener('input',()=>{
+    const i=+inp.dataset.li, k=inp.dataset.lk;
+    S.loads[i][k] = k==='name'?inp.value:(+inp.value||0); schedule(false);
+  }));
+  $$('#p-loads [data-del]').forEach(b=>b.addEventListener('click',()=>{ S.loads.splice(+b.dataset.del,1); renderLoads(); schedule(); }));
+  $('#lAdd').onclick=()=>{ S.loads.push({name:'TH'+(S.loads.length+1),Vb:0,Nb:0,Mb:0,Vc:0,Nc:0,Mc:0}); renderLoads(); schedule(); };
+  $('#lClear').onclick=()=>{ if(confirm('Xóa toàn bộ tổ hợp?')){ S.loads=[]; renderLoads(); schedule(); } };
+  $('#lPaste').onclick=()=>{
+    const ta=$('#lPasteArea');
+    if(ta.hidden){ ta.hidden=false; ta.focus(); $('#lPaste').textContent='✔ Nạp dữ liệu đã dán'; return; }
+    const rows = ta.value.trim().split(/\r?\n/).map(r=>r.split(/\t|;/).map(x=>x.trim())).filter(r=>r.length>=4);
+    const parsed = rows.filter(r=>!isNaN(parseFloat(String(r[1]).replace(',','.')))).map((r,i)=>{
+      const n=(x)=>parseFloat(String(x??'0').replace(',','.'))||0;
+      return {name:r[0]||('TH'+(i+1)),Vb:n(r[1]),Nb:n(r[2]),Mb:n(r[3]),Vc:n(r[4]),Nc:n(r[5]),Mc:n(r[6])};
+    });
+    if(parsed.length){ S.loads = S.loads.concat(parsed); }
+    renderLoads(); schedule();
+  };
+}
+
+/* ================= COMPUTE ================= */
+let tmr=null;
+function schedule(rerenderLoads){ clearTimeout(tmr); tmr=setTimeout(()=>run(),180); }
+function run(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(S)); }catch(e){}
+  $$('#typeSeg button').forEach(b=>b.classList.toggle('on', b.dataset.type===S.type));
+  try{ R = K.compute(S); R.err=null; }
+  catch(e){ R = {err:e.message}; console.error(e); }
+  renderCombos();
+  renderAll();
+}
+function renderCombos(){
+  const sel=$('#comboSel');
+  if(comboIdx>=S.loads.length) comboIdx=0;
+  sel.innerHTML = S.loads.map((l,i)=>`<option value="${i}" ${i===comboIdx?'selected':''}>${esc(l.name)}</option>`).join('') || '<option>—</option>';
+}
+function renderAll(){
+  renderSummary(); renderChecks(); renderDemands(); renderGeo(); draw();
+}
+
+/* ================= SUMMARY ================= */
+function rc(r){ return r>1.0001?'bad':r>0.9?'warn':'ok'; }
+function gauge(r){
+  const v=Math.min(r,1.5), a0=-210, a1=30, ang=a0+(a1-a0)*v/1.5;
+  const P=(a,rad)=>[65+rad*Math.cos(a*Math.PI/180), 65+rad*Math.sin(a*Math.PI/180)];
+  const arc=(from,to,col,w)=>{ const [x0,y0]=P(from,50),[x1,y1]=P(to,50); const large=(to-from)>180?1:0; return `<path d="M${x0} ${y0} A50 50 0 ${large} 1 ${x1} ${y1}" stroke="${col}" stroke-width="${w}" fill="none" stroke-linecap="round"/>`; };
+  const col = r>1?'var(--bad)':r>0.9?'var(--warn)':'var(--ok)';
+  const [nx,ny]=P(ang,40);
+  return `<svg class="gauge" viewBox="0 0 130 115" width="130">${arc(a0,a1,'var(--grid)',10)}${arc(a0,a0+(a1-a0)*0.9/1.5,'color-mix(in srgb,var(--ok) 35%,transparent)',3)}${arc(a0+(a1-a0)*0.9/1.5,a0+(a1-a0)*1/1.5,'color-mix(in srgb,var(--warn) 45%,transparent)',3)}${arc(a0+(a1-a0)/1.5,a1,'color-mix(in srgb,var(--bad) 45%,transparent)',3)}${arc(a0,Math.max(ang,a0+0.5),col,10)}
+  <line x1="65" y1="65" x2="${nx}" y2="${ny}" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="${a0-ang} 65 65" to="0 65 65" dur=".7s" fill="freeze"/></line><circle cx="65" cy="65" r="4" fill="var(--ink)"/>
+  <text x="65" y="98" text-anchor="middle" font-size="19" font-weight="700" fill="${col}">${r===Infinity?'∞':r.toFixed(2)}</text><text x="65" y="111" text-anchor="middle" font-size="9" fill="var(--ink2)">TỶ SỐ D/C MAX</text></svg>`;
+}
+function renderSummary(){
+  const el=$('#summary');
+  if(R.err){ el.innerHTML=`<div class="errbox" style="grid-column:1/-1">⛔ ${esc(R.err)}</div>`; $('#warns').hidden=true; $('#quick').innerHTML=''; return; }
+  const g=R.gov; const r=g?g.ratio:0;
+  const ok = r<=1.0001 && R.geoFail===0;
+  const sE=R.sides.E, sI=R.sides.I;
+  const sd=(s)=>s&&!s.error?`${s.cfg} · ${s.thick?'bản dày':'bản mỏng'}`:'—';
+  el.innerHTML = `${gauge(r)}<div>
+    <div class="status ${ok?'ok':'bad'}">${ok?'✔ ĐẠT':'✘ KHÔNG ĐẠT'}</div>
+    <div style="font-size:12px;color:var(--ink2);margin:2px 0 8px">${g?`Khống chế: <b style="color:var(--ink)">${esc(g.name)}</b> — ${esc(g.grp)} (${esc(g.combo)})`:''}${R.geoFail?`<br><span class="t-bad">${R.geoFail} kiểm tra cấu tạo không đạt</span>`:''}</div>
+    <div class="kv">
+      <span>Kiểu</span><b>${({dung:'Knee đứng',ngang:'Knee ngang',xien:'Knee xiên'})[S.type]}</b>
+      <span>Cánh ngoài</span><b>${sd(sE)}</b>
+      <span>Cánh trong</span><b>${sd(sI)}</b>
+      <span>Góc φ cánh</span><b class="mono">${R.G.phiE.toFixed(1)}° / ${R.G.phiI.toFixed(1)}°</b>
+      <span>d, dm dọc bản</span><b class="mono">${R.G.dp.toFixed(1)} / ${R.G.dm.toFixed(1)} mm</b>
+      <span>Bản đầu</span><b class="mono">${R.G.bp.toFixed(0)}×${S.plate.tp}×${(R.G.sBot-R.G.sTop).toFixed(0)}</b>
+    </div></div>`;
+  const W=$('#warns');
+  if(R.W.length){ W.hidden=false; W.innerHTML='<div class="warns">'+R.W.map(w=>`<div>${esc(w)}</div>`).join('')+'</div>'; } else W.hidden=true;
+  // quick list by group (worst per group)
+  const groups={};
+  R.checks.forEach(c=>{ (groups[c.grp]=groups[c.grp]||[]).push(c); });
+  let h='<div class="grp"><h4><span>Tổng hợp theo nhóm</span><span>D/C</span></h4>';
+  Object.keys(groups).forEach(gk=>{
+    const worst = groups[gk].filter(c=>!c.info).reduce((a,b)=>(!a||b.ratio>a.ratio)?b:a,null) || groups[gk][0];
+    h+=crowHTML(worst, gk);
+  });
+  h+='</div>';
+  $('#quick').innerHTML=h;
+  bindCrows($('#quick'));
+}
+function crowHTML(c, title){
+  const r=c.ratio, k=rc(r);
+  return `<div class="crow ${c.info?'info':''} ${selCheck===c.id?'sel':''}" data-cid="${c.id}">
+    <div class="nm">${esc(title||c.name)}${title?`<div style="font-size:11px;color:var(--ink2)">${esc(c.name)}</div>`:''}</div>
+    <div class="rt t-${k}">${fmtR(r)}</div>
+    <div class="bar"><i class="${k}-c" style="width:${Math.min(r,1.2)/1.2*100}%"></i></div>
+  </div>`;
+}
+const fmtR=(r)=>r===Infinity?'∞':r.toFixed(2);
+function bindCrows(host){
+  $$('[data-cid]',host).forEach(el=>el.addEventListener('click',()=>{ selectCheck(el.dataset.cid===selCheck?null:el.dataset.cid); }));
+}
+function selectCheck(id){
+  selCheck=id;
+  $$('[data-cid]').forEach(el=>el.classList.toggle('sel', el.dataset.cid===id));
+  $$('tr[data-rid]').forEach(tr=>tr.classList.toggle('sel', tr.dataset.rid===id));
+  $$('.detail[data-for]').forEach(d=>d.hidden = d.dataset.for!==id);
+  if(id){
+    const c=R.checks.find(x=>x.id===id);
+    const ci = S.loads.findIndex(l=>l.name===c.combo);
+    if(ci>=0 && ci!==comboIdx){ comboIdx=ci; $('#comboSel').value=ci; }
+    // chuyển tab
+    showRep('checks');
+    const tr = $(`tr[data-rid="${id}"]`); if(tr) tr.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+  draw();
+}
+
+/* ================= CHECKS TABLE ================= */
+function renderChecks(){
+  const el=$('#p-checks');
+  if(R.err){ el.innerHTML=`<div class="errbox">${esc(R.err)}</div>`; return; }
+  let h=`<div class="tbl-wrap"><table><thead><tr><th class="l">Kiểm tra</th><th>Đơn vị</th><th>Khả năng</th><th>Yêu cầu</th><th>Tổ hợp</th><th>D/C</th><th class="l">Tham chiếu</th></tr></thead><tbody>`;
+  let last='';
+  R.checks.forEach(c=>{
+    if(c.grp!==last){ h+=`<tr class="gh"><td colspan="7">${esc(c.grp)}</td></tr>`; last=c.grp; }
+    const k=rc(c.ratio);
+    h+=`<tr data-rid="${c.id}" style="cursor:pointer;${c.info?'opacity:.55':''}" class="${selCheck===c.id?'sel':''}"><td class="l">${esc(c.name)}${c.info?' <span class="pill" style="background:var(--ink2)">có sườn</span>':''}</td><td>${c.unit}</td><td class="mono">${fmt(c.cap)}</td><td class="mono">${fmt(c.dem)}</td><td>${esc(c.combo)}</td>
+      <td><span class="pill ${k}-c">${fmtR(c.ratio)}</span></td><td class="l" style="font-size:11.5px;color:var(--ink2)">${esc(c.ref)}</td></tr>
+      <tr><td colspan="7" style="padding:0 8px;border:0"><div class="detail" data-for="${c.id}" ${selCheck===c.id?'':'hidden'}>${c.detail.map(esc).join('\n')}</div></td></tr>`;
+  });
+  h+='</tbody></table></div>';
+  // Tóm tắt thông số bản đầu
+  h += sidesSummaryHTML();
+  el.innerHTML=h;
+  $$('tr[data-rid]',el).forEach(tr=>tr.addEventListener('click',()=>selectCheck(tr.dataset.rid===selCheck?null:tr.dataset.rid)));
+}
+function sidesSummaryHTML(){
+  const rows=[];
+  ['E','I'].forEach(sd=>{
+    const s=R.sides[sd]; if(!s||s.error) return;
+    rows.push(`<tr><td class="l">${sd==='E'?'Cánh ngoài':'Cánh trong'}</td><td>${s.cfg}</td><td>${s.Yr.Y.toFixed(1)}</td><td>${(s.phiMpl/1e6/s.gam).toFixed(2)}</td><td>${(s.phiMnp/1e6).toFixed(2)}</td><td>${isNaN(s.phiMq)?'—':(s.phiMq/1e6).toFixed(2)}</td><td>${(s.ken.Qi/1e3).toFixed(1)}${s.ext?' / '+(s.ken.Qo/1e3).toFixed(1):''}</td><td>${s.thick?'Dày':'Mỏng'}</td><td>${s.S.Y.Y.toFixed(1)}</td><td>${(s.S.phiM/1e6).toFixed(2)}</td></tr>`);
+  });
+  return `<div class="section-pad"><h4 style="margin:4px 0 6px;color:var(--ink2);font-size:12px;text-transform:uppercase">Thông số yield-line & bu lông</h4><div class="tbl-wrap"><table><thead><tr><th class="l">Phía kéo</th><th>Cấu hình</th><th>Y (mm)</th><th>φMpl/γr</th><th>φMnp</th><th>φMq</th><th>Qmax i/o (kN)</th><th>Ứng xử</th><th>Y gối</th><th>φM gối</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+  <div style="font-size:11.5px;color:var(--ink2);margin-top:6px">Bu lông: ${R.bolt.bg.label} M${R.bolt.db} — Pt = ${(R.bolt.Pt/1e3).toFixed(1)} kN, Tb = ${(R.bolt.Tb/1e3).toFixed(1)} kN, φRnv/bu lông = ${(0.75*R.bolt.Fnv*R.bolt.Ab/1e3).toFixed(1)} kN, lỗ ${R.bolt.dh} mm. Mômen đơn vị kN·m.</div></div>`;
+}
+const fmt=(x)=>x==null||isNaN(x)?'—':(Math.abs(x)>=1000?x.toFixed(1):x.toFixed(2));
+
+function renderDemands(){
+  const el=$('#p-demands');
+  if(R.err){ el.innerHTML=''; return; }
+  const isN=S.type==='ngang';
+  let h=`<div class="section-pad"><div class="hint">Nội lực của cấu kiện có bản đầu (${isN?'cột':'kèo'}) được chiếu lên hệ trục bản: Nn = N·cosφ + |V|·sinφ; Vt = |N|·sinφ + |V|·cosφ (lấy dấu bất lợi), φ = ${R.G.phiA.toFixed(2)}°. Lực cánh Ffu = ∓M/dm + Nn/2 (dương = kéo); Mu,eq = |M| + Nn·dm/2; dm = ${R.G.dm.toFixed(1)} mm.</div></div>
+  <div class="tbl-wrap"><table><thead><tr><th>Tổ hợp</th><th>V</th><th>N</th><th>M</th><th>Nn</th><th>Vt</th><th>Ffu ngoài</th><th>Ffu trong</th><th>Mu,eq</th><th>Phía kéo</th><th>Vu panel</th></tr><tr><th></th><th>kN</th><th>kN</th><th>kN·m</th><th>kN</th><th>kN</th><th>kN</th><th>kN</th><th>kN·m</th><th></th><th>kN</th></tr></thead><tbody>`;
+  R.demands.forEach(d=>{
+    h+=`<tr><td>${esc(d.name)}</td><td>${d.V.toFixed(2)}</td><td>${d.N.toFixed(2)}</td><td>${d.M.toFixed(2)}</td><td>${d.Nn.toFixed(2)}</td><td>${d.Vt.toFixed(2)}</td><td class="${d.FnE>0?'t-bad':''}">${d.FnE.toFixed(2)}</td><td class="${d.FnI>0?'t-bad':''}">${d.FnI.toFixed(2)}</td><td>${d.Mu.toFixed(2)}</td><td>${d.side==='E'?'Cánh ngoài':d.side==='I'?'Cánh trong':'—'}</td><td>${d.Vpz.toFixed(2)}</td></tr>`;
+  });
+  el.innerHTML=h+'</tbody></table></div>';
+}
+function renderGeo(){
+  const el=$('#p-geo');
+  if(R.err){ el.innerHTML=''; return; }
+  let h=`<div class="tbl-wrap"><table><thead><tr><th class="l">Kích thước</th><th>Đơn vị</th><th>Giá trị</th><th>Min</th><th>Max</th><th></th><th class="l">Tham chiếu</th></tr></thead><tbody>`;
+  let last='';
+  R.geo.forEach(g=>{
+    if(g.grp!==last){ h+=`<tr class="gh"><td colspan="7">${esc(g.grp)}</td></tr>`; last=g.grp; }
+    h+=`<tr><td class="l">${esc(g.name)}</td><td>${g.unit}</td><td class="mono">${g.val.toFixed(2)}</td><td class="mono">${g.min==null?'—':g.min.toFixed(2)}</td><td class="mono">${g.max==null?'—':g.max.toFixed(2)}</td><td>${g.ok?'<span class="t-ok">✔</span>':'<span class="t-bad">✘</span>'}</td><td class="l" style="font-size:11.5px;color:var(--ink2)">${esc(g.ref)}</td></tr>`;
+  });
+  el.innerHTML=h+'</tbody></table></div>';
+}
+
+/* ================= DRAWING ================= */
+let FS = 12;
+const V2 = {
+  add:(a,b)=>[a[0]+b[0],a[1]+b[1]], sub:(a,b)=>[a[0]-b[0],a[1]-b[1]], mul:(a,k)=>[a[0]*k,a[1]*k],
+  dir:(deg)=>[Math.cos(deg*Math.PI/180),Math.sin(deg*Math.PI/180)], len:(a)=>Math.hypot(a[0],a[1]),
+  norm:(a)=>{const l=Math.hypot(a[0],a[1])||1;return [a[0]/l,a[1]/l];}, perp:(a)=>[-a[1],a[0]],
+  inter:(p,d,q,e)=>{ const den=d[0]*e[1]-d[1]*e[0]; if(Math.abs(den)<1e-9) return p; const t=((q[0]-p[0])*e[1]-(q[1]-p[1])*e[0])/den; return [p[0]+d[0]*t,p[1]+d[1]*t]; },
+};
+function draw(){
+  const svg=$('#svg');
+  if(!R||R.err){ svg.innerHTML=`<text x="20" y="40" fill="var(--bad)">${esc(R&&R.err||'')}</text>`; svg.setAttribute('viewBox','0 0 600 400'); return; }
+  const c = selCheck && R.checks.find(x=>x.id===selCheck);
+  svg.classList.toggle('hlmode', !!c);
+  const d = R.demands[comboIdx];
+  $('#drawInfo').textContent = d ? `${d.name}: M = ${d.M.toFixed(1)} kN·m · N = ${d.N.toFixed(1)} kN · V = ${d.V.toFixed(1)} kN → kéo ${d.side==='E'?'cánh ngoài':d.side==='I'?'cánh trong':'—'}` : '';
+  if(view==='elev') drawElev(svg,d); else drawFace(svg,d);
+  if(c){ $$('[data-tag]',svg).forEach(el=>{ if(c.tags.includes(el.dataset.tag)) el.classList.add('hl','pulse'); }); }
+}
+function polyS(pts,cls,tag,extra=''){ return `<polygon points="${pts.map(p=>p[0].toFixed(2)+','+(-p[1]).toFixed(2)).join(' ')}" class="${cls}" ${tag?`data-tag="${tag}"`:''} ${extra}/>`; }
+function lineS(a,b,cls,extra=''){ return `<line x1="${a[0].toFixed(2)}" y1="${(-a[1]).toFixed(2)}" x2="${b[0].toFixed(2)}" y2="${(-b[1]).toFixed(2)}" class="${cls}" ${extra}/>`; }
+function textS(p,t,cls,extra=''){ return `<text x="${p[0].toFixed(1)}" y="${(-p[1]).toFixed(1)}" class="${cls}" ${extra}>${esc(t)}</text>`; }
+function quad(a,dirA,la,b,dirB,lb){ return [a, V2.add(a,V2.mul(dirA,la)), V2.add(b,V2.mul(dirB,lb)), b]; }
+
+function drawElev(svg,dm){
+  const G=R.G, T=S.type, tp=S.plate.tp;
+  const n = V2.dir(G.thN);
+  const t = T==='ngang' ? [-n[1],n[0]] : [n[1],-n[0]];
+  const C=(s)=>V2.mul(t,s);
+  const out=[]; const pts=[];
+  const M1=G.M1, M2=G.M2;
+  const Ld = Math.max(G.dp, M2.d)*1.9;
+  FS = Math.max(G.dp, M2.d)*3.3/55;
+  const a=G.a;
+  // hướng cánh cấu kiện M1 (ra xa nút)
+  let uE,uI;
+  if(T==='ngang'){ uE=V2.dir(-90+(S.col.innerStraight?G.colOuterTilt:0)); uI=V2.dir(-90-(S.col.innerStraight?0:G.colInnerTilt)); }
+  else { uE=V2.dir(a); uI=V2.dir(a+M1.beta); }
+  const face = V2.mul(n,tp);
+  const A=V2.add(C(0),face), B=V2.add(C(G.dp),face);
+  const Ai=V2.add(C(G.tfe),face), Bi=V2.add(C(G.dp-G.tfi),face);
+  // ---- M2 ----
+  const ts = S.sup.useFlange ? M2.tf : S.sup.t;
+  const sEnd = G.sTop - (+S.sup.topOffset||0);
+  const tf2=M2.tf;
+  let panelPoly=null;
+  if(T==='dung'){
+    const Lc = Ld*1.1;
+    const top = C(sEnd);
+    const hdir=[-1,0];
+    const Q = V2.add(top, V2.mul(hdir, M2.d));
+    const outDir = S.col.innerStraight ? V2.dir(-90-G.col.beta) : [0,-1];
+    const inBot = C(sEnd+Lc);
+    const yDrop = top[1]-inBot[1];
+    const Qb = V2.inter(Q,outDir,[0,inBot[1]],[1,0]);
+    out.push(polyS([top,inBot,Qb,Q],'s-web','sup_web'));
+    // cánh trong (bản gối) & cánh ngoài
+    const nIn = V2.mul(n,-tf2);
+    out.push(polyS([top,inBot,V2.add(inBot,nIn),V2.add(top,nIn)],'s-steel','supportE'));
+    out.push(polyS([Q,Qb,V2.add(Qb,[tf2,0]),V2.add(Q,[tf2,0])],'s-steel',''));
+    if(+S.sup.tcap>0) out.push(polyS([Q,top,V2.add(top,[0,-S.sup.tcap]),V2.add(Q,[0,-S.sup.tcap])],'s-steel','supportE'));
+    // sườn + panel
+    const fcE=G.tfe/2, fcI=G.dp-G.tfi/2;
+    const stLine=(s,u,on,tag)=>{
+      const P=V2.add(C(s),V2.mul(n,-tf2));
+      const E2=V2.inter(P,u,V2.add(Q,[tf2,0]),outDir);
+      if(on){ const w=(tag==='supEstiff'?S.sup.stE.ts:S.sup.stI.ts); const nn=V2.norm(V2.perp(u)); out.push(polyS([V2.add(P,V2.mul(nn,w/2)),V2.add(E2,V2.mul(nn,w/2)),V2.add(E2,V2.mul(nn,-w/2)),V2.add(P,V2.mul(nn,-w/2))],'s-stiff',tag)); }
+      return [P,E2];
+    };
+    const [p1,e1]=stLine(fcE,uE,S.sup.stE.on,'supEstiff');
+    const [p2,e2]=stLine(fcI,uI,S.sup.stI.on,'supIstiff');
+    panelPoly=[p1,p2,e2,e1];
+    out.push(polyS(panelPoly,'s-panel','panel'));
+    if(S.sup.diag.on) out.push(lineS(p1,e2,'s-stiff','data-tag="panel" style="stroke:#2f5f94;stroke-width:'+(S.sup.diag.t)+'"'));
+    out.push(polyS([top,inBot,Qb,Q],'','supEweb','style="fill:transparent"'));
+    pts.push(top,inBot,Qb,Q);
+    out.push(textS(V2.add(Qb,[10,120]),'CỘT '+M2.sec,'s-lbl','transform="rotate(-90 '+(Qb[0]+10)+' '+(-(Qb[1]+120))+')"'));
+  } else if(T==='ngang'){
+    // kèo phía trên bản ngang: đáy y = 0 (mặt tiếp xúc), mở rộng
+    const xL=C(sEnd)[0], y0=0;
+    const Lr=Ld*1.3;
+    const xR=Math.max(C(G.sBot)[0],C(G.sTop)[0])+Lr;
+    const hK=M2.d;
+    const top0=[xL,y0+hK], top1=[xR,y0+hK+(xR-xL)*Math.tan(a*Math.PI/180)];
+    out.push(polyS([[xL,y0],[xR,y0],top1,top0],'s-web','sup_web'));
+    out.push(polyS([[xL,y0],[xR,y0],[xR,y0+ts],[xL,y0+ts]],'s-steel','supportE'));
+    const nT=V2.norm(V2.perp(V2.sub(top1,top0)));
+    out.push(polyS([top0,top1,V2.add(top1,V2.mul(nT,-tf2)),V2.add(top0,V2.mul(nT,-tf2))],'s-steel',''));
+    out.push(polyS([[xL,y0],[xL+10,y0],top0.map((v,i)=>i?v:v+10),top0],'s-steel',''));
+    const xE=C(G.tfe/2)[0], xI=C(G.dp-G.tfi/2)[0];
+    const yAt=(x)=>y0+hK+(x-xL)*Math.tan(a*Math.PI/180)-tf2;
+    const stV=(x,on,tag,w)=>{ if(on) out.push(polyS([[x-w/2,y0+ts],[x+w/2,y0+ts],[x+w/2,yAt(x)],[x-w/2,yAt(x)]],'s-stiff',tag)); };
+    stV(xE,S.sup.stE.on,'supEstiff',S.sup.stE.ts); stV(xI,S.sup.stI.on,'supIstiff',S.sup.stI.ts);
+    panelPoly=[[xE,y0+ts],[xI,y0+ts],[xI,yAt(xI)],[xE,yAt(xE)]];
+    out.push(polyS(panelPoly,'s-panel','panel'));
+    if(S.sup.diag.on) out.push(lineS(panelPoly[0],panelPoly[2],'s-stiff','data-tag="panel" style="stroke:#2f5f94;stroke-width:'+S.sup.diag.t+'"'));
+    out.push(polyS([[xL,y0],[xR,y0],top1,top0],'','supEweb','style="fill:transparent"'));
+    pts.push([xL,y0],[xR,y0],top1,top0);
+    out.push(textS([xL+(xR-xL)*0.6,y0+hK*0.55],'KÈO '+M2.sec,'s-lbl','text-anchor="middle"'));
+  } else {
+    // xiên: cột có bản đầu riêng
+    const Lc=Ld;
+    const P0=V2.mul(n,-ts);
+    const outDir = S.col.innerStraight ? V2.dir(-90-G.col.beta) : [0,-1];
+    const inDir = S.col.innerStraight ? [0,-1] : V2.dir(-90-G.col.beta);
+    const Pi=V2.add(C(G.dpc),V2.mul(n,-ts));
+    const Pob=V2.add(P0,V2.mul(outDir,Lc)), Pib=V2.inter(Pi,inDir,Pob,[1,0]);
+    out.push(polyS([P0,Pob,Pib,Pi],'s-web','m2web'));
+    const tfo=G.tfce, tfi2=G.tfci;
+    out.push(polyS(quad(P0,outDir,Lc,V2.add(P0,V2.mul(t,tfo)),outDir,Lc),'s-steel',''));
+    const Pi2=V2.add(Pi,V2.mul(t,-tfi2));
+    out.push(polyS([Pi,Pib,V2.inter(Pi2,inDir,Pob,[1,0]),Pi2],'s-steel',''));
+    // bản đầu phía cột
+    out.push(polyS([C(G.sTop),C(G.sBot),V2.add(C(G.sBot),V2.mul(n,-ts)),V2.add(C(G.sTop),V2.mul(n,-ts))],'s-plate','supportE'));
+    // hàn cột
+    out.push(weldTri(P0,t,outDir,'m2weldE')); out.push(weldTri(Pi,V2.mul(t,-1),inDir,'m2weldI'));
+    pts.push(P0,Pob,Pib,Pi);
+    out.push(textS(V2.add(Pob,[20,150]),'CỘT '+M2.sec,'s-lbl','transform="rotate(-90 '+(Pob[0]+20)+' '+(-(Pob[1]+150))+')"'));
+    // tính lại ts cho khung
+  }
+  // ---- M1 ----
+  const A2=V2.add(A,V2.mul(uE,Ld)), B2=V2.inter(B,uI,A2,V2.perp(uE));
+  out.push(polyS([A,A2,B2,B],'s-web','m1web'));
+  const Ai2=V2.add(Ai,V2.mul(uE,Ld)); const Bi2=V2.inter(Bi,uI,A2,V2.perp(uE));
+  out.push(polyS([A,A2,Ai2,Ai],'s-steel',''));
+  out.push(polyS([B,B2,Bi2,Bi],'s-steel',''));
+  // trục
+  out.push(lineS(V2.mul(V2.add(A,B),0.5),V2.mul(V2.add(A2,B2),0.5),'s-axis'));
+  out.push(textS(V2.add(V2.mul(V2.add(A2,B2),0.5),V2.mul(V2.perp(uE),-30)),(T==='ngang'?'CỘT ':'KÈO ')+M1.sec,'s-lbl',T==='ngang'?'text-anchor="middle"':'text-anchor="end"'));
+  // hàn M1
+  out.push(weldTri(A,t,uE,'m1weldE')); out.push(weldTri(Ai,V2.mul(t,1),uE,'m1weldE',true));
+  out.push(weldTri(B,V2.mul(t,-1),uI,'m1weldI')); out.push(weldTri(Bi,V2.mul(t,-1),uI,'m1weldI',true));
+  out.push(lineS(V2.add(Ai,V2.mul(t,6)),V2.add(Bi,V2.mul(t,-6)),'','data-tag="m1webweld" style="stroke:var(--weld);stroke-width:5"'));
+  // bản đầu
+  const pl=[C(G.sTop),C(G.sBot),V2.add(C(G.sBot),face),V2.add(C(G.sTop),face)];
+  out.push(polyS(pl,'s-plate','plate'));
+  // sườn 4ES
+  ['E','I'].forEach(sd=>{
+    const st = sd==='E'?S.plate.stiffE:S.plate.stiffI; const ext = sd==='E'?S.plate.extE:S.plate.extI;
+    if(!(st&&st.on&&ext)) return;
+    const s0 = sd==='E'?G.sTop:G.sBot, s1 = sd==='E'?0:G.dp; const u = sd==='E'?uE:uI;
+    out.push(polyS([V2.add(C(s0),face),V2.add(C(s1),face),V2.add(V2.add(C(s1),face),V2.mul(u,st.L))],'s-stiff','plate'));
+  });
+  // bu lông
+  const ts2 = (T==='xien'||!S.sup.useFlange)?ts:tf2;
+  [['E',G.rowsE],['I',G.rowsI]].forEach(([sd,rows])=>rows.forEach(r=>{
+    const c0=C(r.s);
+    const db=S.bolt.d;
+    const a1=V2.add(c0,V2.mul(n,-ts2-8)), a2=V2.add(c0,V2.mul(n,tp+10));
+    const w=V2.mul(t,db/2);
+    out.push(polyS([V2.add(a1,w),V2.add(a2,w),V2.sub(a2,w),V2.sub(a1,w)],'s-bolt','bolts'+sd));
+    const hw=V2.mul(t,db*0.85);
+    out.push(polyS([V2.add(a2,hw),V2.add(V2.add(a2,hw),V2.mul(n,db*0.6)),V2.sub(V2.add(a2,V2.mul(n,db*0.6)),hw),V2.sub(a2,hw)],'s-bolt','bolts'+sd));
+    out.push(polyS([V2.add(a1,hw),V2.add(V2.add(a1,hw),V2.mul(n,-db*0.6)),V2.sub(V2.add(a1,V2.mul(n,-db*0.6)),hw),V2.sub(a1,hw)],'s-bolt','bolts'+sd));
+  }));
+  // kích thước dọc bản
+  const dimOff = V2.mul(n, tp+70);
+  const dimL=(s0,s1,txt,off)=>{ const p=V2.add(C(s0),off), q=V2.add(C(s1),off); const mid=V2.mul(V2.add(p,q),.5);
+    return lineS(p,q,'s-dim','marker-start="url(#tick)" marker-end="url(#tick)"')+textS(V2.add(mid,V2.mul(n,8)),txt,'s-dimt'); };
+  const ticks=[G.sTop].concat(G.rowsE.map(r=>r.s),[0,G.dp],G.rowsI.map(r=>r.s),[G.sBot]).sort((x,y)=>x-y);
+  for(let i=0;i<ticks.length-1;i++){ if(ticks[i+1]-ticks[i]>0.5) out.push(dimL(ticks[i],ticks[i+1],(ticks[i+1]-ticks[i]).toFixed(0),dimOff)); }
+  out.push(dimL(G.sTop,G.sBot,'L = '+(G.sBot-G.sTop).toFixed(0),V2.mul(n,tp+130)));
+  pts.push(A,A2,B2,B,...pl, V2.add(C(G.sTop),V2.mul(n,tp+160)), V2.add(C(G.sBot),V2.mul(n,tp+160)));
+  // lực
+  if(dm){
+    const mid = V2.mul(V2.add(A2,B2),0.5);
+    const ax = V2.norm(V2.sub(mid, V2.mul(V2.add(A,B),0.5)));
+    const sc = G.dp*0.6;
+    out.push(forceArrow(V2.add(mid,V2.mul(ax,G.dp*0.5)),ax,dm.N,'N = '+dm.N.toFixed(1)+' kN',sc));
+    out.push(forceArrow(V2.add(mid,V2.mul(ax,G.dp*0.5+sc*1.15)),V2.perp(ax),dm.V,'V = '+dm.V.toFixed(1)+' kN',sc*0.8));
+    out.push(momentArc(mid,G.dp*0.42,dm.M));
+    pts.push(V2.add(mid,V2.mul(ax,G.dp*0.5+sc*2.1)), V2.add(mid,[0,G.dp*0.42+FS*3]), V2.add(mid,[0,-G.dp*0.5]));
+    // mũi tên lực cánh tại bản
+    [['E',dm.FnE,V2.mul(V2.add(A,Ai),.5),uE,1],['I',dm.FnI,V2.mul(V2.add(B,Bi),.5),uI,-1]].forEach(([sd,F,p0,u,sg])=>{
+      if(Math.abs(F)<1e-6) return;
+      const len=Math.min(Math.abs(F)/Math.max(Math.abs(dm.FnE),Math.abs(dm.FnI)),1)*Ld*0.22+Ld*0.05;
+      const off=V2.mul(V2.norm(V2.perp(u)),sg*FS*1.6);
+      const p=V2.add(V2.add(p0,V2.mul(u,Ld*0.06)),off);
+      const start= F>0? p : V2.add(p,V2.mul(u,len));
+      const dir = F>0? u : V2.mul(u,-1);
+      out.push(arrowPath(start,dir,len,F>0?'t':'c',(F>0?'Kéo ':'Nén ')+Math.abs(F).toFixed(1)+' kN'));
+    });
+  }
+  // phạm vi vẽ
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  pts.forEach(p=>{minX=Math.min(minX,p[0]);maxX=Math.max(maxX,p[0]);minY=Math.min(minY,-p[1]);maxY=Math.max(maxY,-p[1]);});
+  const pad=Math.max(maxX-minX,maxY-minY)*0.08+60;
+  svg.setAttribute('viewBox',`${minX-pad} ${minY-pad} ${maxX-minX+2*pad} ${maxY-minY+2*pad}`);
+  const fs=Math.max(maxX-minX,maxY-minY)/55;
+  svg.innerHTML = defs() + `<g style="font-size:${fs}px">`+out.join('')+'</g>';
+  $$('.s-dimt,.s-lbl,.f-txt',svg).forEach(el=>el.style.fontSize=(el.classList.contains('s-lbl')?fs*1.05:fs*0.85)+'px');
+}
+function defs(){ return `<defs><marker id="tick" viewBox="-5 -5 10 10" markerWidth="8" markerHeight="8" orient="auto"><line x1="-3" y1="3" x2="3" y2="-3" stroke="var(--ink2)" stroke-width="1.4"/></marker>
+  <marker id="ah-t" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" class="f-head-t"/></marker>
+  <marker id="ah-c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" class="f-head-c"/></marker></defs>`; }
+function weldTri(p,alongPlate,alongMember,tag,inner){
+  const s=Math.max(S.weld.flE.w||8,6)*1.3;
+  const q=V2.add(p,V2.mul(alongPlate, inner? s: -s)), r=V2.add(p,V2.mul(alongMember,s*1.3));
+  return polyS([p,q,r],'s-weld',tag);
+}
+function arrowPath(start,dir,len,kind,label){
+  const end=V2.add(start,V2.mul(dir,len));
+  return `<g class="keep">${lineS(start,end,'f-arrow f-'+kind,`marker-end="url(#ah-${kind})"`)}${textS(V2.add(V2.add(start,end).map(v=>v/2),V2.mul(V2.perp(dir),FS*0.7)),label,'f-txt',`text-anchor="middle" fill="var(--${kind==='t'?'bad':'acc2'})"`)}</g>`;
+}
+function forceArrow(p,dir,val,label,sc){
+  if(Math.abs(val)<1e-6) return '';
+  const kind = val>0?'t':'c';
+  const len = sc;
+  const d = val>0?dir:V2.mul(dir,-1);
+  const start = val>0? p : V2.add(p,V2.mul(dir,len));
+  return arrowPath(start,d,len,kind,label);
+}
+function momentArc(c,r,M){
+  if(Math.abs(M)<1e-6) return '';
+  const kind = M<0?'t':'c';
+  const a0=200,a1=-20;
+  const P=(a)=>[c[0]+r*Math.cos(a*Math.PI/180), c[1]+r*Math.sin(a*Math.PI/180)];
+  const [x0,y0]= M>0?P(a1):P(a0), [x1,y1]= M>0?P(a0):P(a1);
+  const sweep = M>0?0:1;
+  return `<g class="keep"><path d="M${x0} ${-y0} A${r} ${r} 0 1 ${sweep} ${x1} ${-y1}" class="f-arrow f-${kind}" marker-end="url(#ah-${kind})"/>${textS([c[0],c[1]-r-FS*1.6],'M = '+M.toFixed(1)+' kN·m','f-txt',`text-anchor="middle" fill="var(--${kind==='t'?'bad':'acc2'})"`)}</g>`;
+}
+
+/* ---- Mặt bản đầu ---- */
+function drawFace(svg,dm){
+  const G=R.G, M1=G.M1, P=S.plate;
+  const bp=G.bp, g=P.g;
+  const out=[];
+  const X=(x)=>x, Y=(s)=>s; // hệ SVG: x ngang, y = s xuống dưới
+  const rect=(x,y,w,h,cls,tag,extra='')=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" class="${cls}" ${tag?`data-tag="${tag}"`:''} ${extra}/>`;
+  out.push(rect(-bp/2,G.sTop,bp,G.sBot-G.sTop,'s-plate','plate','rx="2"'));
+  // footprint tiết diện
+  out.push(rect(-M1.bf/2,0,M1.bf,G.tfe,'s-steel','m1weldE','opacity=".9"'));
+  out.push(rect(-M1.bf/2,G.dp-G.tfi,M1.bf,G.tfi,'s-steel','m1weldI','opacity=".9"'));
+  out.push(rect(-M1.tw/2,G.tfe,M1.tw,G.dp-G.tfe-G.tfi,'s-steel','m1webweld','opacity=".9"'));
+  // sườn 4ES
+  if(P.extE&&P.stiffE.on) out.push(rect(-P.stiffE.ts/2,G.sTop,P.stiffE.ts,-G.sTop,'s-stiff','plate'));
+  if(P.extI&&P.stiffI.on) out.push(rect(-P.stiffI.ts/2,G.dp,P.stiffI.ts,G.sBot-G.dp,'s-stiff','plate'));
+  // đường chảy dẻo (minh họa) cho phía kéo
+  const side = dm?dm.side:null;
+  if(side && R.sides[side] && !R.sides[side].error){
+    const sd=R.sides[side];
+    const sgn = side==='E'?1:-1;          // hướng từ cánh kéo vào trong
+    const fIn = side==='E'?G.tfe:G.dp-G.tfi, fOut = side==='E'?0:G.dp;
+    const inner=sd.inner, last=inner[inner.length-1];
+    const sYL = last.s + sgn*sd.Yr.s;
+    const L=[];
+    L.push(`M${-bp/2} ${fIn} H${bp/2}`);
+    L.push(`M${-bp/2} ${sYL} H${bp/2}`);
+    L.push(`M${-g/2} ${fIn} V${sYL} M${g/2} ${fIn} V${sYL}`);
+    if(sd.ext){ L.push(`M${-bp/2} ${fOut} H${bp/2}`); const so=sd.outer.s - sgn*P.Lev*0.2; L.push(`M${-g/2} ${fOut} L${-bp/2} ${so} M${g/2} ${fOut} L${bp/2} ${so}`); }
+    L.push(`M${-g/2} ${sYL} L${-bp/2} ${last.s+sgn*sd.Yr.s*0.55} M${g/2} ${sYL} L${bp/2} ${last.s+sgn*sd.Yr.s*0.55}`);
+    out.push(`<path d="${L.join(' ')}" class="s-yl" data-tag="plate"/>`);
+    out.push(`<text x="${bp/2+12}" y="${sYL}" class="s-dimt" fill="var(--bad)" style="fill:var(--bad)">đường chảy (minh họa)</text>`);
+  }
+  // bu lông
+  [['E',G.rowsE],['I',G.rowsI]].forEach(([sd,rows])=>rows.forEach(r=>{
+    [-g/2,g/2].forEach(x=>{
+      out.push(`<g data-tag="bolts${sd}"><circle cx="${x}" cy="${r.s}" r="${R.bolt.dh/2}" fill="var(--panel)" stroke="var(--bolt)" stroke-width="1.2"/><circle cx="${x}" cy="${r.s}" r="${S.bolt.d/2*0.8}" class="s-bolt"/></g>`);
+    });
+  }));
+  // kích thước
+  const dimH=(x0,x1,y,txt)=>`<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" class="s-dim" marker-start="url(#tick)" marker-end="url(#tick)"/><text x="${(x0+x1)/2}" y="${y-5}" text-anchor="middle" class="s-dimt">${txt}</text>`;
+  const dimV=(y0,y1,x,txt)=>`<line x1="${x}" y1="${y0}" x2="${x}" y2="${y1}" class="s-dim" marker-start="url(#tick)" marker-end="url(#tick)"/><text x="${x+5}" y="${(y0+y1)/2+4}" class="s-dimt">${txt}</text>`;
+  out.push(dimH(-bp/2,bp/2,G.sTop-40,'bp = '+bp.toFixed(0)));
+  out.push(dimH(-g/2,g/2,G.sTop-18,'g = '+g));
+  const ticks=[G.sTop].concat(G.rowsE.map(r=>r.s),[0,G.tfe,G.dp-G.tfi,G.dp],G.rowsI.map(r=>r.s),[G.sBot]).sort((x,y)=>x-y);
+  for(let i=0;i<ticks.length-1;i++){ const dd=ticks[i+1]-ticks[i]; if(dd>0.5) out.push(dimV(ticks[i],ticks[i+1],bp/2+18,dd.toFixed(0))); }
+  out.push(dimV(G.sTop,G.sBot,-bp/2-40,'L = '+(G.sBot-G.sTop).toFixed(0)));
+  out.push(`<text x="0" y="${G.sBot+36}" text-anchor="middle" class="s-lbl">MẶT BẢN ĐẦU ${bp.toFixed(0)}×${P.tp}×${(G.sBot-G.sTop).toFixed(0)} — ${R.bolt.bg.label} M${S.bolt.d}</text>`);
+  const w=bp+260, h=G.sBot-G.sTop+140;
+  svg.setAttribute('viewBox',`${-bp/2-120} ${G.sTop-80} ${w} ${h}`);
+  svg.innerHTML=defs()+out.join('');
+  const fs=Math.max(w,h)/55;
+  $$('.s-dimt,.s-lbl',svg).forEach(el=>el.style.fontSize=(el.classList.contains('s-lbl')?fs:fs*0.8)+'px');
+}
+
+/* ================= EVENTS ================= */
+function showRep(v){ $$('#repTabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); ['checks','demands','geo','loads'].forEach(k=>$('#p-'+k).hidden = k!==v); }
+$$('#repTabs button').forEach(b=>b.addEventListener('click',()=>showRep(b.dataset.v)));
+$$('#drawTabs button').forEach(b=>b.addEventListener('click',()=>{ view=b.dataset.v; $$('#drawTabs button').forEach(x=>x.classList.toggle('on',x===b)); draw(); }));
+$('#comboSel').addEventListener('change',e=>{ comboIdx=+e.target.value; draw(); });
+$$('#typeSeg button').forEach(b=>b.addEventListener('click',()=>{
+  S.type=b.dataset.type;
+  // điều kiện gối mặc định theo kiểu
+  if(S.type==='xien'){ S.sup.condE='endplate'; S.sup.condI='endplate'; S.sup.useFlange=false; }
+  else if(S.type==='dung'){ if(S.sup.condE==='endplate') S.sup.condE='top_cap'; if(S.sup.condI==='endplate') S.sup.condI='cont_stiff'; }
+  else { if(S.sup.condE==='endplate') S.sup.condE='cont_stiff'; if(S.sup.condI==='endplate') S.sup.condI='cont_stiff'; }
+  selCheck=null; renderForm(); run();
+}));
+$('#preset').addEventListener('change',e=>{ const k=e.target.value; if(!k) return; S=deepMerge(clone(BASE),clone(PRESETS[k])); selCheck=null; comboIdx=0; e.target.value=''; renderForm(); renderLoads(); run(); });
+$('#bSave').onclick=()=>{ const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=(S.name||'knee')+'.json'; a.click(); URL.revokeObjectURL(a.href); };
+$('#bOpen').onclick=()=>$('#fOpen').click();
+$('#fOpen').onchange=(e)=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ S=deepMerge(clone(BASE),JSON.parse(r.result)); selCheck=null; renderForm(); renderLoads(); run(); }catch(err){ alert('File JSON không hợp lệ: '+err.message); } }; r.readAsText(f); e.target.value=''; };
+$('#bPrint').onclick=()=>{ $$('.detail').forEach(d=>d.hidden=false); window.print(); setTimeout(()=>selectCheck(selCheck),300); };
+$('#bTheme').onclick=()=>{ const cur=document.documentElement.getAttribute('data-theme'); const dark = cur? cur==='dark' : matchMedia('(prefers-color-scheme: dark)').matches; document.documentElement.setAttribute('data-theme', dark?'light':'dark'); try{localStorage.setItem('knee-theme',dark?'light':'dark');}catch(e){} };
+try{ const th=localStorage.getItem('knee-theme'); if(th) document.documentElement.setAttribute('data-theme',th); }catch(e){}
+
+renderForm(); renderLoads(); run();
+window.__knee = { get S(){return S;}, get R(){return R;}, K, PRESETS, run, setState:(o)=>{S=deepMerge(clone(BASE),o); renderForm(); renderLoads(); run();} };
+})();
+</script>
+</body>
+</html>

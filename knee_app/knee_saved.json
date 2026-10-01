@@ -1,0 +1,241 @@
+[
+ {
+  "name": "K1",
+  "state": {
+   "name": "K1",
+   "type": "dung",
+   "beam": {
+    "sec": "(950-744-500).6.5-200.10.10/bal-3",
+    "mat": "Q345",
+    "L": 5.999357,
+    "jointEnd": "I",
+    "slope": 5.464,
+    "topIsOuter": true,
+    "dims": null
+   },
+   "col": {
+    "sec": "(814-1050).6-215.10",
+    "mat": "Q345",
+    "L": 3.682361,
+    "jointEnd": "J",
+    "topIsOuter": true,
+    "innerStraight": false,
+    "dims": null
+   },
+   "plate": {
+    "tp": 12,
+    "mat": "Q345",
+    "g": 110,
+    "Leh": 45,
+    "Lev": 45,
+    "flushExt": 25,
+    "mitre": "perp",
+    "theta": 45,
+    "extE": true,
+    "pfoE": 50,
+    "pfiE": 50,
+    "nE": 1,
+    "pbE": 75,
+    "stiffE": {
+     "on": false,
+     "ts": 10,
+     "L": 200,
+     "mat": "Q345"
+    },
+    "extI": false,
+    "pfoI": 50,
+    "pfiI": 50,
+    "nI": 1,
+    "pbI": 75,
+    "stiffI": {
+     "on": false,
+     "ts": 10,
+     "L": 200,
+     "mat": "Q345"
+    }
+   },
+   "bolt": {
+    "grade": "8.8",
+    "d": 20,
+    "thread": "N",
+    "snug": false
+   },
+   "weld": {
+    "electrode": "E70XX",
+    "flE": {
+     "type": "fillet",
+     "w": 8
+    },
+    "flI": {
+     "type": "fillet",
+     "w": 8
+    },
+    "web": {
+     "w": 6
+    }
+   },
+   "sup": {
+    "useFlange": true,
+    "t": 20,
+    "b": 250,
+    "mat": "Q345",
+    "condE": "top_cap",
+    "condI": "cont_stiff",
+    "topOffset": 0,
+    "tcap": 14,
+    "kw": 6,
+    "stE": {
+     "on": true,
+     "bs": 110,
+     "ts": 12,
+     "clip": 15,
+     "mat": "Q345",
+     "wf": 8,
+     "ww": 6,
+     "fullDepth": true
+    },
+    "stI": {
+     "on": true,
+     "bs": 110,
+     "ts": 12,
+     "clip": 15,
+     "mat": "Q345",
+     "wf": 8,
+     "ww": 6,
+     "fullDepth": true
+    },
+    "doubler": 0,
+    "diag": {
+     "on": true,
+     "b": 80,
+     "t": 10,
+     "mat": "Q345"
+    }
+   },
+   "pz": {
+    "on": false,
+    "tw": 10,
+    "tfo": 16,
+    "tfi": 20,
+    "mat": "Q345"
+   },
+   "opt": {
+    "axialRelief": true,
+    "directional": true,
+    "shearAll": false,
+    "flangeWeldMin": false,
+    "webBuckling": true,
+    "pzSubtractShear": false,
+    "sheared": true
+   },
+   "loads": [
+    {
+     "name": "LRFD: 76: 0.9DL+0.9CL+0.9N-DL(-y)+0.9N-CL(-y)+1WL3-",
+     "src": "Kèo Max P",
+     "Vb": 23.19,
+     "Nb": 36.19,
+     "Mb": 197.38,
+     "Vc": -32.84,
+     "Nc": 27.28,
+     "Mc": 195.01
+    },
+    {
+     "name": "LRFD: 14: 1.2DL+1.2CL+1.6LR+1LF+1.2N-DL(-x)+1.2N-CL(-x)+1.6N-LR(-x)+1N-LF(-x)",
+     "src": "Kèo Min P, Kèo Min M3, Kèo Max V2 (Abs), Cột Min P, Cột Min M3, Cột Max V2 (Abs)",
+     "Vb": -121.99,
+     "Nb": -90.76,
+     "Mb": -744.4,
+     "Vc": 74.4,
+     "Nc": -136.67,
+     "Mc": -769.62
+    },
+    {
+     "name": "LRFD: 71: 0.9DL+0.9CL+0.9N-DLx+0.9N-CLx+1WL1+",
+     "src": "Kèo Max M3, Cột Max P, Cột Max M3",
+     "Vb": 42.0,
+     "Nb": 25.11,
+     "Mb": 244.34,
+     "Vc": -19.37,
+     "Nc": 45.28,
+     "Mc": 254.86
+    },
+    {
+     "name": "LRFD: 16: 1.2DL+1.2CL+1.6LR+1LF+1.2N-DL(-y)+1.2N-CL(-y)+1.6N-LR(-y)+1N-LF(-y)",
+     "src": "Kèo Max M2",
+     "Vb": -121.81,
+     "Nb": -90.48,
+     "Mb": -740.92,
+     "Vc": 74.14,
+     "Nc": -136.46,
+     "Mc": -766.19
+    },
+    {
+     "name": "LRFD: 15: 1.2DL+1.2CL+1.6LR+1LF+1.2N-DLy+1.2N-CLy+1.6N-LRy+1N-LFy",
+     "src": "Kèo Min M2, Kèo Max V3 (Abs)",
+     "Vb": -121.81,
+     "Nb": -90.48,
+     "Mb": -740.92,
+     "Vc": 74.14,
+     "Nc": -136.46,
+     "Mc": -766.19
+    },
+    {
+     "name": "LRFD: 1: 1.4DL+1.4CL+1.4N-DLx+1.4N-CLx",
+     "src": "Kèo Max T (Abs), Cột Max T (Abs)",
+     "Vb": -51.32,
+     "Nb": -37.45,
+     "Mb": -301.12,
+     "Vc": 30.54,
+     "Nc": -58.15,
+     "Mc": -311.73
+    },
+    {
+     "name": "LRFD: 145: 1.42DL+1.42CL+1LF+1.42N-DL(-y)+1.42N-CL(-y)+1N-LF(-y)+0.3EX++1EY-+0.2SBAL",
+     "src": "Cột Max M2",
+     "Vb": -52.13,
+     "Nb": -38.11,
+     "Mb": -306.96,
+     "Vc": 31.1,
+     "Nc": -59.07,
+     "Mc": -317.7
+    },
+    {
+     "name": "LRFD: 143: 1.42DL+1.42CL+1LF+1.42N-DLy+1.42N-CLy+1N-LFy+0.3EX++1EY++0.2SBAL",
+     "src": "Cột Min M2, Cột Max V3 (Abs)",
+     "Vb": -52.13,
+     "Nb": -38.11,
+     "Mb": -306.96,
+     "Vc": 31.1,
+     "Nc": -59.07,
+     "Mc": -317.7
+    }
+   ],
+   "sap_lock": true,
+   "_source": {
+    "group": "G1",
+    "knees": [
+     {
+      "kid": "K1",
+      "joint": "181",
+      "col": "161",
+      "col_end": "J",
+      "raf": "156",
+      "raf_end": "I",
+      "slope": 5.464
+     }
+    ]
+   }
+  },
+  "summary": {
+   "type": "dung",
+   "raf": "(950-744-500).6.5-200.10.10/bal-3",
+   "col": "(814-1050).6-215.10",
+   "tp": 12,
+   "bolt": "M20 8.8",
+   "nl": 8,
+   "dc": 2.6594293903755206,
+   "ok": false
+  },
+  "time": "30/09/2026 11:15"
+ }
+]

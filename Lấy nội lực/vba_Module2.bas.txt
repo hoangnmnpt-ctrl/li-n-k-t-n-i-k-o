@@ -1,0 +1,207 @@
+Attribute VB_Name = "Module2"
+Sub TaoBangTomTat_CucTriToanCuc()
+    Dim wsSource As Worksheet, wsTarget As Worksheet
+    Dim SheetNameSource As String
+    Dim NodeOpt As String
+    
+    ' 1. Hoi ten sheet chua du lieu chi tiet cu
+    SheetNameSource = InputBox("Nhap ten Sheet chua du lieu noi luc chi tiet:", "Chon Sheet Nguon", "NoiLuc_Bao_TuongUng")
+    
+    On Error Resume Next
+    Set wsSource = Worksheets(SheetNameSource)
+    On Error GoTo 0
+    
+    If wsSource Is Nothing Then
+        MsgBox "Khong tim thay sheet co ten [" & SheetNameSource & "]! Vui long kiem tra lai.", vbCritical
+        Exit Sub
+    End If
+    
+    ' Tim dong cuoi cua sheet nguon
+    Dim lastRow As Long
+    lastRow = wsSource.Cells(wsSource.Rows.Count, "A").End(xlUp).Row
+    
+    If lastRow < 2 Then
+        MsgBox "Sheet nguon khong co du lieu!", vbExclamation
+        Exit Sub
+    End If
+    
+    ' 2. Chon vi tri nut can xuat (Nut Dau hay Nut Cuoi)
+    NodeOpt = InputBox("CHON VI TRI NUT CAN XUAT TOM TAT:" & vbCrLf & _
+                       "1: Nut Dau" & vbCrLf & _
+                       "2: Nut Cuoi", "Chon Vi Tri Nut", "1")
+    If NodeOpt <> "1" And NodeOpt <> "2" Then Exit Sub
+    
+    Dim NutKeyWord As String, NutTitle As String
+    If NodeOpt = "1" Then
+        NutKeyWord = "Nut Dau"
+        NutTitle = "TomTat_CucTri_NutDau"
+    Else
+        NutKeyWord = "Nut Cuoi"
+        NutTitle = "TomTat_CucTri_NutCuoi"
+    End If
+    
+    ' 3. Tao hoac lam moi Sheet ket qua (Da sua loi Subscript out of range)
+    On Error Resume Next
+    Set wsTarget = Worksheets(NutTitle)
+    On Error GoTo 0
+    
+    If wsTarget Is Nothing Then
+        Set wsTarget = Worksheets.Add
+        wsTarget.Name = NutTitle
+    Else
+        wsTarget.Cells.Clear
+    End If
+    
+    ' 4. Tao tieu de bang giong y h?t khung mau
+    Dim CurrentRow As Long: CurrentRow = 1
+    wsTarget.Cells(CurrentRow, 1).Value = "--- " & UCase(NutKeyWord) & " ---"
+    wsTarget.Cells(CurrentRow, 1).Font.Bold = True
+    CurrentRow = CurrentRow + 1
+    
+    wsTarget.Cells(CurrentRow, 1).Value = "Num"
+    wsTarget.Cells(CurrentRow, 2).Value = "Condition"
+    wsTarget.Cells(CurrentRow, 3).Value = "V2"
+    wsTarget.Cells(CurrentRow, 4).Value = "V3"
+    wsTarget.Cells(CurrentRow, 5).Value = "Axial"
+    wsTarget.Cells(CurrentRow, 6).Value = "M33"
+    wsTarget.Cells(CurrentRow, 7).Value = "M22"
+    wsTarget.Cells(CurrentRow, 8).Value = "Bar"
+    wsTarget.Range(wsTarget.Cells(CurrentRow, 1), wsTarget.Cells(CurrentRow, 8)).Font.Bold = True
+    
+    ' 5. Duyet qua toan bo sheet nguon de tim cac gia tri cuc tri extreme nhat cho tung loai
+    Dim val_Mmax_V2 As Double, val_Mmax_V3 As Double, val_Mmax_Axial As Double, val_Mmax_M33 As Double, val_Mmax_M22 As Double, val_Mmax_Bar As String
+    Dim val_Mmin_V2 As Double, val_Mmin_V3 As Double, val_Mmin_Axial As Double, val_Mmin_M33 As Double, val_Mmin_M22 As Double, val_Mmin_Bar As String
+    Dim val_V2max_V2 As Double, val_V2max_V3 As Double, val_V2max_Axial As Double, val_V2max_M33 As Double, val_V2max_M22 As Double, val_V2max_Bar As String
+    Dim val_Nmax_V2 As Double, val_Nmax_V3 As Double, val_Nmax_Axial As Double, val_Nmax_M33 As Double, val_Nmax_M22 As Double, val_Nmax_Bar As String
+    Dim val_Nmin_V2 As Double, val_Nmin_V3 As Double, val_Nmin_Axial As Double, val_Nmin_M33 As Double, val_Nmin_M22 As Double, val_Nmin_Bar As String
+    Dim val_V3max_V2 As Double, val_V3max_V3 As Double, val_V3max_Axial As Double, val_V3max_M33 As Double, val_V3max_M22 As Double, val_V3max_Bar As String
+    
+    Dim has_Mmax As Boolean: has_Mmax = False
+    Dim has_Mmin As Boolean: has_Mmin = False
+    Dim has_V2max As Boolean: has_V2max = False
+    Dim has_Nmax As Boolean: has_Nmax = False
+    Dim has_Nmin As Boolean: has_Nmin = False
+    Dim has_V3max As Boolean: has_V3max = False
+    
+    Dim r As Long
+    For r = 2 To lastRow
+        Dim fName As String: fName = CStr(wsSource.Cells(r, 1).Value)
+        Dim nPos As String: nPos = wsSource.Cells(r, 4).Value
+        Dim cType As String: cType = wsSource.Cells(r, 5).Value
+        
+        If InStr(nPos, NutKeyWord) > 0 Then
+            Dim pVal As Double, v2Val As Double, v3Val As Double, m2Val As Double, m3Val As Double
+            pVal = wsSource.Cells(r, 7).Value
+            v2Val = wsSource.Cells(r, 8).Value
+            v3Val = wsSource.Cells(r, 9).Value
+            m2Val = wsSource.Cells(r, 10).Value
+            m3Val = wsSource.Cells(r, 11).Value
+            
+            If InStr(cType, "Max M3") > 0 Then
+                If Not has_Mmax Or m3Val > val_Mmax_M33 Then
+                    val_Mmax_V2 = v2Val: val_Mmax_V3 = v3Val: val_Mmax_Axial = pVal: val_Mmax_M33 = m3Val: val_Mmax_M22 = m2Val: val_Mmax_Bar = fName
+                    has_Mmax = True
+                End If
+            ElseIf InStr(cType, "Min M3") > 0 Then
+                If Not has_Mmin Or m3Val < val_Mmin_M33 Then
+                    val_Mmin_V2 = v2Val: val_Mmin_V3 = v3Val: val_Mmin_Axial = pVal: val_Mmin_M33 = m3Val: val_Mmin_M22 = m2Val: val_Mmin_Bar = fName
+                    has_Mmin = True
+                End If
+            ElseIf InStr(cType, "Max V2") > 0 Then
+                If Not has_V2max Or v2Val > val_V2max_V2 Then
+                    val_V2max_V2 = v2Val: val_V2max_V3 = v3Val: val_V2max_Axial = pVal: val_V2max_M33 = m3Val: val_V2max_M22 = m2Val: val_V2max_Bar = fName
+                    has_V2max = True
+                End If
+            ElseIf InStr(cType, "Max P") > 0 Then
+                If Not has_Nmax Or pVal > val_Nmax_Axial Then
+                    val_Nmax_V2 = v2Val: val_Nmax_V3 = v3Val: val_Nmax_Axial = pVal: val_Nmax_M33 = m3Val: val_Nmax_M22 = m2Val: val_Nmax_Bar = fName
+                    has_Nmax = True
+                End If
+            ElseIf InStr(cType, "Min P") > 0 Then
+                If Not has_Nmin Or pVal < val_Nmin_Axial Then
+                    val_Nmin_V2 = v2Val: val_Nmin_V3 = v3Val: val_Nmin_Axial = pVal: val_Nmin_M33 = m3Val: val_Nmin_M22 = m2Val: val_Nmin_Bar = fName
+                    has_Nmin = True
+                End If
+            ElseIf InStr(cType, "Max V3") > 0 Then
+                If Not has_V3max Or v3Val > val_V3max_V3 Then
+                    val_V3max_V2 = v2Val: val_V3max_V3 = v3Val: val_V3max_Axial = pVal: val_V3max_M33 = m3Val: val_V3max_M22 = m2Val: val_V3max_Bar = fName
+                    has_V3max = True
+                End If
+            End If
+        End If
+    Next r
+    
+    ' 6. Ghi 6 dong dieu kien vao bang
+    Dim Conditions As Variant
+    Conditions = Array("Mmax", "Mmin", "V2max", "Nmax", "Nmin", "V3max")
+    
+    Dim n As Integer
+    For n = 0 To 5
+        CurrentRow = CurrentRow + 1
+        wsTarget.Cells(CurrentRow, 1).Value = n + 1
+        wsTarget.Cells(CurrentRow, 2).Value = Conditions(n)
+        
+        Select Case Conditions(n)
+            Case "Mmax"
+                If has_Mmax Then
+                    wsTarget.Cells(CurrentRow, 3).Value = val_Mmax_V2
+                    wsTarget.Cells(CurrentRow, 4).Value = val_Mmax_V3
+                    wsTarget.Cells(CurrentRow, 5).Value = val_Mmax_Axial
+                    wsTarget.Cells(CurrentRow, 6).Value = val_Mmax_M33
+                    wsTarget.Cells(CurrentRow, 7).Value = val_Mmax_M22
+                    wsTarget.Cells(CurrentRow, 8).Value = val_Mmax_Bar
+                End If
+            Case "Mmin"
+                If has_Mmin Then
+                    wsTarget.Cells(CurrentRow, 3).Value = val_Mmin_V2
+                    wsTarget.Cells(CurrentRow, 4).Value = val_Mmin_V3
+                    wsTarget.Cells(CurrentRow, 5).Value = val_Mmin_Axial
+                    wsTarget.Cells(CurrentRow, 6).Value = val_Mmin_M33
+                    wsTarget.Cells(CurrentRow, 7).Value = val_Mmin_M22
+                    wsTarget.Cells(CurrentRow, 8).Value = val_Mmin_Bar
+                End If
+            Case "V2max"
+                If has_V2max Then
+                    wsTarget.Cells(CurrentRow, 3).Value = val_V2max_V2
+                    wsTarget.Cells(CurrentRow, 4).Value = val_V2max_V3
+                    wsTarget.Cells(CurrentRow, 5).Value = val_V2max_Axial
+                    wsTarget.Cells(CurrentRow, 6).Value = val_V2max_M33
+                    wsTarget.Cells(CurrentRow, 7).Value = val_V2max_M22
+                    wsTarget.Cells(CurrentRow, 8).Value = val_V2max_Bar
+                End If
+            Case "Nmax"
+                If has_Nmax Then
+                    wsTarget.Cells(CurrentRow, 3).Value = val_Nmax_V2
+                    wsTarget.Cells(CurrentRow, 4).Value = val_Nmax_V3
+                    wsTarget.Cells(CurrentRow, 5).Value = val_Nmax_Axial
+                    wsTarget.Cells(CurrentRow, 6).Value = val_Nmax_M33
+                    wsTarget.Cells(CurrentRow, 7).Value = val_Nmax_M22
+                    wsTarget.Cells(CurrentRow, 8).Value = val_Nmax_Bar
+                End If
+            Case "Nmin"
+                If has_Nmin Then
+                    wsTarget.Cells(CurrentRow, 3).Value = val_Nmin_V2
+                    wsTarget.Cells(CurrentRow, 4).Value = val_Nmin_V3
+                    wsTarget.Cells(CurrentRow, 5).Value = val_Nmin_Axial
+                    wsTarget.Cells(CurrentRow, 6).Value = val_Nmin_M33
+                    wsTarget.Cells(CurrentRow, 7).Value = val_Nmin_M22
+                    wsTarget.Cells(CurrentRow, 8).Value = val_Nmin_Bar
+                End If
+            Case "V3max"
+                If has_V3max Then
+                    wsTarget.Cells(CurrentRow, 3).Value = val_V3max_V2
+                    wsTarget.Cells(CurrentRow, 4).Value = val_V3max_V3
+                    wsTarget.Cells(CurrentRow, 5).Value = val_V3max_Axial
+                    wsTarget.Cells(CurrentRow, 6).Value = val_V3max_M33
+                    wsTarget.Cells(CurrentRow, 7).Value = val_V3max_M22
+                    wsTarget.Cells(CurrentRow, 8).Value = val_V3max_Bar
+                End If
+        End Select
+    Next n
+    
+    wsTarget.Columns("A:H").AutoFit
+    MsgBox "Da tao xong bang tong hop cuc tri toan cuc cho " & NutKeyWord & "!", vbInformation, "Thanh Cong"
+End Sub
+
+
+

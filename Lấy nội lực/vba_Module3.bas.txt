@@ -1,0 +1,6 @@
+Attribute VB_Name = "Module3"
+Sub GoToRafter()
+
+    ThisWorkbook.Worksheets("Torsional for rafter").Select
+
+End Sub
