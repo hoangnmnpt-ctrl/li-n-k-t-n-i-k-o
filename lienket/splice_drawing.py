@@ -1,7 +1,7 @@
 """
-splice_drawing.py — Vẽ liên kết nối dầm lên tk.Canvas (mặt đứng + mặt bản đầu) theo bảng màu của knee_app/drawing.py:
+splice_drawing.py — Vẽ liên kết nối dầm lên tk.Canvas (mặt đứng + mặt bản đầu) theo bảng màu của drawing.py (knee):
 dầm màu xanh, hai bản đầu màu vàng cam, bu lông, đường hàn, sườn bản đầu (4ES), mũi tên lực chạy nét,
-tô sáng bộ phận của kiểm tra đang chọn. Dùng lại Scene / canvas / thang màu D/C của knee_app.
+tô sáng bộ phận của kiểm tra đang chọn. Dùng lại Scene / canvas / thang màu D/C của tool knee.
 
 Tag bộ phận (khớp với tag trong splice_engine): plate1, plate2, boltsT, boltsB, m{k}weldT, m{k}weldB, m{k}webweld, m{k}web.
 """
@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import math
 
-from _knee import K  # noqa: F401
 import drawing as D
 from drawing import (C_BOLT, C_DIM, C_PLATE, C_PLATE_L, C_STEEL, C_STEEL_L, C_STIFF, C_TXT, C_WEB, C_WELD, KneeCanvas, Scene,  # noqa: F401
                      _arrow, add, ang, heat_color, mul, perp, shade)

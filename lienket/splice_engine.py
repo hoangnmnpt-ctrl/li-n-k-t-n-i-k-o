@@ -3,7 +3,7 @@ splice_engine.py — Lõi tính liên kết NỐI DẦM bằng bản đầu bu l
 =====================================================================================
 AISC 360-10 (LRFD) + AISC Design Guide 4 (2003), Design Guide 16 (2002), Design Guide 39 (2023).
 
-Dùng lại các hàm đã kiểm chứng của knee_app/engine.py: yield-line bản đầu (end_plate_Y), lực nhổ Kennedy hiệu chỉnh
+Dùng lại các hàm đã kiểm chứng của engine.py (lõi knee): yield-line bản đầu (end_plate_Y), lực nhổ Kennedy hiệu chỉnh
 (kennedy, bolt_moments), bảng vật liệu / bu lông / lỗ / mép, đọc tiết diện I tổ hợp (member_at_joint).
 
 Mô hình: hai bản đầu áp vào nhau, bu lông xuyên cả hai bản. Mỗi bản có bề dày và vật liệu riêng (tp1/mat1, tp2/mat2).
@@ -25,7 +25,7 @@ import copy
 import math
 from typing import Callable, Optional
 
-from _knee import K
+import engine as K  # lõi knee: yield-line, Kennedy, bảng bu lông / vật liệu, tiết diện
 
 E = K.E
 IN = K.IN

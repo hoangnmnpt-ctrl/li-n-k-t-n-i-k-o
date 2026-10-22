@@ -1,11 +1,11 @@
 """
-splice_gui.py — NỐI DẦM (Beam splice / Apex) — AISC 360-10 LRFD · DG4 / DG16 / DG39 (customtkinter)
+splice_gui.py — Khung "Joint data" cho NỐI DẦM, đặt trong cửa sổ chính app.py — (Beam splice / Apex) — AISC 360-10 LRFD · DG4 / DG16 / DG39 (customtkinter)
 ================================================================================================
-Cùng bố cục với KNEE KÈO (knee_app/gui.py):
+Cùng bố cục với KNEE KÈO (knee_gui.py):
   • Form nhập theo đúng thứ tự & nhãn của RAM Connection (Beam splice — Moment end plate).
   • Hình mặt đứng + mặt bản đầu, tô màu theo D/C, dòng lực, thanh trượt / phát tự động theo tổ hợp.
   • Bảng kiểm tra D/C, diễn giải công thức từng bước, thẻ đồng hồ theo nhóm.
-  • Tab Loads (dán từ Excel), Report (RAM) + xuất Word, Danh sách đã lưu, Nội lực quy đổi, Cấu tạo & cảnh báo.
+  • Tab Loads (dán từ Excel), Report (RAM) + xuất Word, Nội lực quy đổi, Cấu tạo & cảnh báo.
   • Tự chọn tp / bu lông.
 """
 
@@ -25,13 +25,12 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
-from _knee import K, knee_section  # noqa: E402
+import engine as K  # noqa: E402
+import knee_section  # noqa: E402
 import splice_engine as SE  # noqa: E402
 import splice_report as RP  # noqa: E402
 from splice_defaults import BASE, PRESETS, merge  # noqa: E402
 from splice_drawing import KneeCanvas, elevation, heat_color, plate_face  # noqa: E402
-from splice_store import SavedList  # noqa: E402
-import splice_newjoint  # noqa: E402
 
 APP_TITLE = "NỐI DẦM — AISC 360-10 LRFD · DG4 / DG16 / DG39"
 TYPE_LABEL = {"straight": "Beam splice", "apex": "Apex"}
@@ -179,16 +178,16 @@ class StatusBar(ctk.CTkFrame):
 
 
 # ═══════════════════════════ APP ═══════════════════════════
-class App(ctk.CTk):
-    def __init__(self):
-        super().__init__()
-        self.title(APP_TITLE)
-        self.geometry("1560x940")
-        self.minsize(1100, 700)
-        ctk.set_appearance_mode("light")
-        ctk.set_default_color_theme("blue")
+class SplicePanel(ctk.CTkFrame):
+    """Khung nhập + kiểm tra một liên kết nối dầm. state: thông số ban đầu; status: thanh trạng thái của cửa sổ chính."""
 
-        self.S = merge(BASE, {})
+    kind = "splice"
+
+    def __init__(self, master, state: dict | None = None, status=None, on_add=None):
+        super().__init__(master, corner_radius=0, fg_color="transparent")
+        self._ext_status = status
+        self.on_add = on_add
+        self.S = merge(BASE, state or {})
         self.R = None
         self.sel_check = None
         self.combo_idx = 0
@@ -197,7 +196,6 @@ class App(ctk.CTk):
         self._job = None
         self._playing = False
         self.fields = []
-        self.saved = SavedList()
 
         self._build()
         self._load_form()
@@ -215,22 +213,16 @@ class App(ctk.CTk):
 
     # ───────────────────────── Bố cục ─────────────────────────
     def _build(self):
-        self._build_menu()
-        self.status = StatusBar(self)
-        self.status.pack(side="bottom", fill="x")
+        self.status = self._ext_status or StatusBar(self)
+        if not self._ext_status:
+            self.status.pack(side="bottom", fill="x")
 
         top = ctk.CTkFrame(self, corner_radius=0, fg_color="#DADDE1")
         top.pack(fill="x")
-        ctk.CTkButton(top, text="New joint…", width=100, height=28, fg_color="#FFFFFF", text_color="#1B2430", hover_color="#F3F4F6",
-                      border_width=1, border_color="#B8BCC0", corner_radius=2, command=self._new_joint).pack(side="left", padx=(8, 3), pady=4)
-        self.lbl_joint = ctk.CTkLabel(top, text="", font=("Segoe UI", 12, "bold"), text_color="#1B2430")
-        self.lbl_joint.pack(side="left", padx=10)
         self.opt_preset = ctk.CTkOptionMenu(top, values=list(PRESETS), width=300, height=28, command=self._preset)
         self.opt_preset.set("Nạp mẫu…"); self.opt_preset.pack(side="left", padx=3)
         ctk.CTkButton(top, text="⚙ Tự chọn tp / bu lông", width=160, height=30, fg_color="#B45309", hover_color="#92400E", font=FONT_B,
                       command=self._auto).pack(side="left", padx=6)
-        ctk.CTkButton(top, text="💾 Lưu vào danh sách", width=150, height=30, fg_color="#059669", hover_color="#047857", font=FONT_B,
-                      command=self._save_new).pack(side="right", padx=6)
         ctk.CTkButton(top, text="📄 Xuất Word", width=110, height=30, fg_color="#2563EB", font=FONT_B, command=self._export_docx).pack(side="right", padx=3)
 
         vpan = self.vpan = ttk.PanedWindow(self, orient="vertical")
@@ -260,8 +252,8 @@ class App(ctk.CTk):
         bar2 = ctk.CTkFrame(mid, fg_color="transparent"); bar2.pack(fill="x", padx=4)
         self.var_heat = ctk.BooleanVar(value=True)
         self.var_flow = ctk.BooleanVar(value=True)
-        ctk.CTkSwitch(bar2, text="Tô màu theo D/C", variable=self.var_heat, command=self._draw, font=FONT_S).pack(side="left", padx=(2, 10))
-        ctk.CTkSwitch(bar2, text="Dòng lực", variable=self.var_flow, command=self._draw, font=FONT_S).pack(side="left", padx=(0, 10))
+        ctk.CTkSwitch(bar2, text="Tô màu theo D/C", variable=self.var_heat, command=self._draw_view, font=FONT_S).pack(side="left", padx=(2, 10))
+        ctk.CTkSwitch(bar2, text="Dòng lực", variable=self.var_flow, command=self._draw_view, font=FONT_S).pack(side="left", padx=(0, 10))
         self.btn_play = ctk.CTkButton(bar2, text="▶", width=34, height=26, command=self._play)
         self.btn_play.pack(side="left", padx=(6, 4))
         self.slider = ctk.CTkSlider(bar2, from_=0, to=1, number_of_steps=1, command=self._slider)
@@ -328,11 +320,10 @@ class App(ctk.CTk):
         # dưới: tab
         self.tabs = ctk.CTkTabview(vpan, height=250)
         vpan.add(self.tabs, weight=1)
-        for name in ("Loads", "Report (RAM)", "Danh sách đã lưu", "Nội lực quy đổi", "Cấu tạo & cảnh báo"):
+        for name in ("Loads", "Report (RAM)", "Nội lực quy đổi", "Cấu tạo & cảnh báo"):
             self.tabs.add(name)
         self._build_loads_tab(self.tabs.tab("Loads"))
         self._build_report_tab(self.tabs.tab("Report (RAM)"))
-        self._build_saved_tab(self.tabs.tab("Danh sách đã lưu"))
         self.tree_dem = self._mk_table(self.tabs.tab("Nội lực quy đổi"),
                                        [("name", "Tổ hợp", 170), ("V", "V", 70), ("N", "N", 70), ("M", "M (kN·m)", 80), ("Nn", "Nn", 70), ("Vt", "Vt", 70),
                                         ("FnT", "Ffu trên", 85), ("FnB", "Ffu dưới", 85), ("Mu", "Mu,eq", 80), ("side", "Phía kéo", 90)])
@@ -340,44 +331,6 @@ class App(ctk.CTk):
                                        [("grp", "Nhóm", 160), ("name", "Kích thước", 280), ("val", "Giá trị", 80), ("min", "Min", 80), ("max", "Max", 80), ("ok", "", 40), ("ref", "Tham chiếu", 200)])
         self.tree_geo.tag_configure("bad", foreground=BAD_C)
         self.tree_geo.tag_configure("warn", foreground=WARN_C)
-
-    def _build_menu(self):
-        mb = tk.Menu(self)
-        fm = tk.Menu(mb, tearoff=0)
-        fm.add_command(label="New joint…", accelerator="Ctrl+N", command=self._new_joint)
-        fm.add_command(label="Save to list", accelerator="Ctrl+S", command=self._save_new)
-        fm.add_separator()
-        fm.add_command(label="Export report (.docx)…", command=self._export_docx)
-        fm.add_separator()
-        fm.add_command(label="Exit", command=self.destroy)
-        mb.add_cascade(label="File", menu=fm)
-        em = tk.Menu(mb, tearoff=0)
-        pm = tk.Menu(em, tearoff=0)
-        for name in PRESETS:
-            pm.add_command(label=name, command=lambda n=name: self._preset(n))
-        em.add_cascade(label="Load preset", menu=pm)
-        em.add_command(label="Smart connection (auto tp / bolt)", command=self._auto)
-        mb.add_cascade(label="Edit", menu=em)
-        vm = tk.Menu(mb, tearoff=0)
-        vm.add_command(label="Elevation", command=lambda: (self.seg_view.set("Mặt đứng"), self._view_changed("Mặt đứng")))
-        vm.add_command(label="End plate face", command=lambda: (self.seg_view.set("Mặt bản đầu"), self._view_changed("Mặt bản đầu")))
-        mb.add_cascade(label="View", menu=vm)
-        rm = tk.Menu(mb, tearoff=0)
-        rm.add_command(label="Loads", command=lambda: self.tabs.set("Loads"))
-        rm.add_command(label="Report", command=lambda: self.tabs.set("Report (RAM)"))
-        rm.add_command(label="Saved connections", command=lambda: self.tabs.set("Danh sách đã lưu"))
-        mb.add_cascade(label="Results", menu=rm)
-        hm = tk.Menu(mb, tearoff=0)
-        hm.add_command(label="About", command=lambda: messagebox.showinfo("About", "NỐI DẦM — AISC 360-10 LRFD · DG4 / DG16 / DG39\nKết quả cần được kỹ sư có chứng chỉ kiểm tra."))
-        mb.add_cascade(label="Help", menu=hm)
-        self.configure(menu=mb)
-        self.bind("<Control-n>", lambda e: self._new_joint())
-        self.bind("<Control-s>", lambda e: self._save_new())
-
-    def _new_joint(self):
-        key = splice_newjoint.ask(self, self.S["type"])
-        if key and key != self.S["type"]:
-            self.seg_type.set(TYPE_LABEL[key]); self._type_changed(TYPE_LABEL[key])
 
     def _mk_table(self, parent, cols, height=7):
         fr = ttk.Frame(parent); fr.pack(fill="both", expand=True)
@@ -483,7 +436,6 @@ class App(ctk.CTk):
             else: f["var"].set("" if v is None else (f"{v:g}" if isinstance(v, float) else str(v)))
         self._suspend = False
         self.seg_type.set(TYPE_LABEL[self.S["type"]])
-        self.lbl_joint.configure(text=f"BS - {TYPE_LABEL[self.S['type']]}   ·   {self.S.get('name', '')}")
         self._refresh_visibility(); self._update_info()
         self._fill_loads()
 
@@ -560,7 +512,6 @@ class App(ctk.CTk):
         g = R["gov"]; r = g["ratio"] if g else 0.0
         ok = r <= 1.0001 and R["geoFail"] == 0
         self.lbl_status.configure(text="✔ ĐẠT" if ok else "✘ KHÔNG ĐẠT", text_color=OK_C if ok else BAD_C)
-        self.status.set_text(f"Global critical strength ratio  {'INF' if math.isinf(r) else f'{r:.2f}'}   ·   {'OK' if ok else 'N.G.'}")
         self.lbl_ratio.configure(text="∞" if math.isinf(r) else f"{r:.2f}", text_color=rc(r))
         self.bar_ratio.configure(progress_color=rc(r)); self.bar_ratio.set(min(r, 1.0))
         self.lbl_gov.configure(text=(f"Khống chế: {g['name']} — {g['grp']} ({g['combo']})" if g else "")
@@ -604,7 +555,7 @@ class App(ctk.CTk):
             self.tree_geo.insert("", "end", values=(x["grp"], x["name"], f"{x['val']:.2f}", "—" if x["min"] is None else f"{x['min']:.2f}",
                                                     "—" if x["max"] is None else f"{x['max']:.2f}", "✔" if x["ok"] else "✘", x["ref"]),
                                  tags=(() if x["ok"] else ("bad",)))
-        self._draw()
+        self._draw_view()
 
     def _heat_map(self):
         """D/C của từng bộ phận cho tổ hợp đang xem (tính riêng tổ hợp đó)."""
@@ -637,7 +588,7 @@ class App(ctk.CTk):
             lines.append(f"{'∞' if math.isinf(c['ratio']) else format(c['ratio'], '.2f'):>5}  {c['name'][:40]}  ({c['combo'][:16]})")
         return "\n".join(lines)
 
-    def _draw(self):
+    def _draw_view(self):
         if not self.R: return
         dem = self.R["demands"][self.combo_idx] if self.R["demands"] else None
         c = next((x for x in self.R["checks"] if x["id"] == self.sel_check), None)
@@ -662,7 +613,7 @@ class App(ctk.CTk):
             if c["combo"] in names and names.index(c["combo"]) != self.combo_idx:
                 self.combo_idx = names.index(c["combo"])
                 self.opt_combo.set(f"{self.combo_idx + 1}. {c['combo']}")
-            self._draw()
+            self._draw_view()
         else:
             self.canvas.set_highlight(())
 
@@ -686,14 +637,14 @@ class App(ctk.CTk):
 
     def _view_changed(self, lab):
         self.view = {"Mặt đứng": "elev", "Mặt bản đầu": "face"}[lab]
-        self._draw()
+        self._draw_view()
 
     def _slider(self, v):
         i = int(round(float(v)))
         if i != self.combo_idx and 0 <= i < len(self.S["loads"]):
             self.combo_idx = i
             self.opt_combo.set(f"{i + 1}. {self.S['loads'][i].get('name', '')}")
-            self._draw()
+            self._draw_view()
 
     def _play(self):
         self._playing = not self._playing
@@ -705,7 +656,7 @@ class App(ctk.CTk):
         self.combo_idx = (self.combo_idx + 1) % len(self.S["loads"])
         self.opt_combo.set(f"{self.combo_idx + 1}. {self.S['loads'][self.combo_idx].get('name', '')}")
         self.slider.set(self.combo_idx)
-        self._draw()
+        self._draw_view()
         self.after(1300, self._play_step)
 
     # ───────────────────────── thẻ đồng hồ ─────────────────────────
@@ -739,7 +690,7 @@ class App(ctk.CTk):
     def _combo_changed(self, lab):
         try: self.combo_idx = int(lab.split(".", 1)[0]) - 1
         except ValueError: self.combo_idx = 0
-        self._draw()
+        self._draw_view()
 
     def _preset(self, name):
         self.S = merge(BASE, PRESETS[name]); self.sel_check = None; self.combo_idx = 0
@@ -884,93 +835,3 @@ class App(ctk.CTk):
         except Exception as e:  # noqa: BLE001
             messagebox.showerror("Export report", str(e)); return
         self.status.set_text(f"Đã xuất báo cáo: {path}")
-
-    # ───────────────────────── Danh sách đã lưu ─────────────────────────
-    def _build_saved_tab(self, tab):
-        bar = ctk.CTkFrame(tab, fg_color="transparent"); bar.pack(fill="x")
-        for t, cmd, col in (("💾 Lưu mới", self._save_new, "#059669"), ("↻ Ghi đè", self._save_over, None), ("📂 Mở", self._saved_open, None),
-                            ("✎ Đổi tên", self._saved_rename, None), ("✕ Xoá", self._saved_delete, "#B91C1C"),
-                            ("▲ Lên", lambda: self._saved_move(-1), None), ("▼ Xuống", lambda: self._saved_move(1), None)):
-            kw = dict(fg_color=col) if col else {}
-            ctk.CTkButton(bar, text=t, width=96, height=26, command=cmd, **kw).pack(side="left", padx=3, pady=3)
-        cols = [("stt", "STT", 45), ("name", "Tên", 240), ("type", "Kiểu", 90), ("b1", "Dầm 1", 190), ("b2", "Dầm 2", 190),
-                ("plate", "Bản", 110), ("bolt", "Bu lông", 110), ("nl", "Số TH", 60), ("dc", "D/C", 60), ("time", "Cập nhật", 130)]
-        self.tree_saved = self._mk_table(tab, cols, height=6)
-        self.tree_saved.bind("<Double-1>", lambda _e: self._saved_open())
-        for tag, c in (("ok", OK_C), ("bad", BAD_C)):
-            self.tree_saved.tag_configure(tag, foreground=c)
-        self._fill_saved()
-
-    def _summary_of(self, st):
-        try:
-            r = SE.compute(copy.deepcopy(st)); dc = r["gov"]["ratio"] if r["gov"] else 0.0; ok = dc <= 1.0001 and r["geoFail"] == 0
-        except Exception:  # noqa: BLE001
-            dc, ok = float("nan"), False
-        return dict(type=st["type"], b1=st["beam1"]["sec"], b2=st["beam2"]["sec"], tp=f"{st['plate']['tp1']:g}/{st['plate']['tp2']:g}",
-                    bolt=f"M{st['bolt']['d']} {st['bolt']['grade']}", nl=len(st["loads"]), dc=dc, ok=ok)
-
-    def _fill_saved(self, select=None):
-        tv = self.tree_saved
-        tv.delete(*tv.get_children())
-        for i, it in enumerate(self.saved.items):
-            s = it.get("summary", {})
-            dc = s.get("dc", float("nan"))
-            tv.insert("", "end", iid=str(i), tags=("ok" if s.get("ok") else "bad",),
-                      values=(i + 1, it["name"], TYPE_LABEL.get(s.get("type"), ""), s.get("b1", ""), s.get("b2", ""),
-                              f"tp {s.get('tp', '')}", s.get("bolt", ""), s.get("nl", ""), "—" if dc != dc else f"{dc:.2f}", it.get("time", "")))
-        if select is not None and 0 <= select < len(self.saved.items):
-            tv.selection_set(str(select)); tv.see(str(select))
-
-    def _saved_idx(self):
-        s = self.tree_saved.selection()
-        if not s:
-            messagebox.showinfo("Danh sách", "Chọn một dòng trong danh sách đã lưu."); return None
-        return int(s[0])
-
-    def _save_new(self):
-        name = ctk.CTkInputDialog(text="Tên liên kết / nhóm:", title="Lưu vào danh sách").get_input()
-        if not name: return
-        self.S["name"] = name
-        i = self.saved.add(name, self.S, self._summary_of(self.S))
-        self._load_form(); self._fill_saved(i); self.tabs.set("Danh sách đã lưu")
-        self.status.set_text(f"Đã lưu '{name}'.")
-
-    def _save_over(self):
-        i = self._saved_idx()
-        if i is None: return
-        if messagebox.askyesno("Ghi đè", f"Ghi đè '{self.saved.items[i]['name']}' bằng thông số hiện tại?"):
-            st = copy.deepcopy(self.S); st["name"] = self.saved.items[i]["name"]
-            self.saved.update(i, st, self._summary_of(st)); self._fill_saved(i)
-
-    def _saved_open(self):
-        i = self._saved_idx()
-        if i is None: return
-        self.S = merge(BASE, self.saved.items[i]["state"]); self.sel_check = None; self.combo_idx = 0
-        self._load_form(); self.run()
-        self.status.set_text(f"Đã mở '{self.saved.items[i]['name']}'.")
-
-    def _saved_rename(self):
-        i = self._saved_idx()
-        if i is None: return
-        name = ctk.CTkInputDialog(text=f"Tên mới cho '{self.saved.items[i]['name']}':", title="Đổi tên").get_input()
-        if name:
-            self.saved.rename(i, name); self._fill_saved(i)
-
-    def _saved_delete(self):
-        i = self._saved_idx()
-        if i is None: return
-        if messagebox.askyesno("Xoá", f"Xoá '{self.saved.items[i]['name']}' khỏi danh sách?"):
-            self.saved.delete(i); self._fill_saved(min(i, len(self.saved.items) - 1))
-
-    def _saved_move(self, step):
-        i = self._saved_idx()
-        if i is None: return
-        self._fill_saved(self.saved.move(i, step))
-
-
-def main():
-    App().mainloop()
-
-
-if __name__ == "__main__":
-    main()

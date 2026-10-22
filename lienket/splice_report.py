@@ -3,7 +3,7 @@ splice_report.py — Báo cáo tiếng Anh theo form RAM Connection ("Steel Conn
 ===================================================================================================================
 build(S, R) → cấu trúc báo cáo;  to_text() cho tab Report;  to_docx() xuất Word (không cần thư viện ngoài).
 Bố cục: Demands · Geometric Considerations · Plate Behavior · Design Check · Global critical strength ratio.
-Dựng Word dùng lại các hàm _p, _tbl của knee_app/report.py.
+Dựng Word dùng lại các hàm _p, _tbl của report.py (knee).
 """
 
 from __future__ import annotations
@@ -13,8 +13,7 @@ import math
 import re
 import zipfile
 
-from _knee import K  # noqa: F401  (đảm bảo knee_app nằm trong sys.path)
-import report as KR  # knee_app/report.py
+import report as KR  # report.py (knee)
 
 _num = KR._num
 UNIT_EN = KR.UNIT_EN

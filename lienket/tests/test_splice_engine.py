@@ -2,7 +2,7 @@
 
 Đối chiếu:
   • AISC DG39 Example 5.2-1 (bích bằng 2 bu lông, dầm W18×35) — quy ước h tính từ TÂM cánh nén (hRef = centerline)
-  • AISC DG16 Example 4.2.1 (bích mở rộng 4E): Y và lực nhổ qua hàm dùng chung với knee_app
+  • AISC DG16 Example 4.2.1 (bích mở rộng 4E): Y và lực nhổ qua hàm dùng chung với engine.py (knee)
 Đổi đơn vị Mỹ → SI: 1 in = 25.4 mm, 1 ksi = 6.894757 MPa, 1 kip = 4.448222 kN, 1 kip-in = 0.1129848 kN·m
 """
 
@@ -17,7 +17,7 @@ sys.path.insert(0, HERE)
 
 import splice_engine as SE  # noqa: E402
 from splice_defaults import BASE, PRESETS, merge  # noqa: E402
-from splice_store import SavedList  # noqa: E402
+import project as PJ  # noqa: E402
 
 IN, KSI, KIP, KIPIN = 25.4, 6.894757, 4.448222, 0.1129848
 
@@ -48,7 +48,7 @@ def test_dg39_521_demand_and_Y():
     assert S["cfg"] == "2FU"
     Y = S["plates"][0]["Yr"]["Y"]
     bp = 7 * IN
-    # DG39 Table 5-2 (2023) cho Yp = 93.9 in. Công thức DG16 (2002) — dùng trong knee_app / RAM Connection — còn số hạng
+    # DG39 Table 5-2 (2023) cho Yp = 93.9 in. Công thức DG16 (2002) — dùng trong phần knee / RAM Connection — còn số hạng
     # "−1/2" trong ngoặc: Y_DG16 = Y_DG39 − bp/4 (thấp hơn ~1.9 %, thiên về an toàn). Kiểm tra cả hai mối quan hệ.
     assert close(Y, 93.9 * IN - bp / 4, 0.005), Y / IN
     assert Y < 93.9 * IN and close(Y, 93.9 * IN, 0.025)
@@ -177,17 +177,22 @@ def test_auto_design_finds_passing_connection():
     assert SE.compute(s)["gov"]["ratio"] <= 1.0001 or res["ratio"] <= 1.0
 
 
-def test_store_roundtrip(tmp_path=None):
+def test_project_roundtrip():
     import tempfile
-    d = tempfile.mkdtemp()
-    p = os.path.join(d, "x.json")
-    st = SavedList(p)
-    i = st.add("BS-A", merge(BASE, {}), dict(dc=0.5))
-    st2 = SavedList(p)
-    want = merge(BASE, {"name": "BS-A"})
-    assert st2.items[i]["name"] == "BS-A" and json.dumps(st2.items[i]["state"], sort_keys=True) == json.dumps(want, sort_keys=True)
-    st2.rename(0, "BS-B"); st2.delete(0)
-    assert SavedList(p).items == []
+    p = os.path.join(tempfile.mkdtemp(), "x.lkt")
+    pr = PJ.Project(p)
+    a = pr.add("splice", merge(BASE, {}))
+    b = pr.add("knee", {})
+    c = pr.copy_joint(a["id"])
+    pr.save()
+    q = PJ.Project.load(p)
+    assert [j["id"] for j in q.joints] == [1, 2, 3] and [j["kind"] for j in q.joints] == ["splice", "knee", "splice"]
+    assert q.get(3)["state"]["name"].endswith("(copy)") and q.get(2)["state"]["name"] == "K-02"
+    for j in q.joints:                                   # mọi nút tính được
+        st, R = PJ.evaluate(j)
+        assert R["gov"] is not None
+    q.delete(1); q.clear()
+    assert q.joints == [] and q.dirty
 
 
 if __name__ == "__main__":

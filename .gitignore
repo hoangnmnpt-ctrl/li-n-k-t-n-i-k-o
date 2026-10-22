@@ -3,3 +3,5 @@ __pycache__/
 *.sdb
 *.SDB
 *.pdf
+lienket/settings.json
+*.tmp

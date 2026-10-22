@@ -1,11 +1,11 @@
 """
-gui.py — KNEE KÈO AISC 360-10 LRFD (customtkinter)
+knee_gui.py — Khung "Joint data" cho KNEE KÈO (BCF) — AISC 360-10 LRFD (customtkinter), đặt trong cửa sổ chính app.py
 =================================================
   • Quét SAP2000 → tìm knee (đỉnh cột ↔ đầu kèo), lấy 9 cực trị của CẢ cột và kèo tại đầu nút,
     ghép theo cùng tổ hợp, gom nhóm knee giống nhau → nạp vào thiết kế.
   • Thiết kế knee đứng (bản 90°) / ngang / xiên (bản ⟂ kèo): form thông số, hình knee động,
     bảng kiểm tra D/C, diễn giải công thức từng bước, tự chọn tp & bu lông.
-  • Danh sách đã lưu: lưu tên + thông số, mở lại, ghi đè, đổi tên, xoá, dời lên / xuống.
+  • Lưu / mở / xoá liên kết: ở danh sách nút của dự án (cửa sổ chính app.py).
 LƯU Ý: gọi COM SAP2000 trên main thread (STA) như tool Lấy nội lực.
 """
 
@@ -34,7 +34,6 @@ import ram_export  # noqa: E402
 import report as RP  # noqa: E402
 from tkinter import filedialog  # noqa: E402
 from knee_section import SectionError, parse_section  # noqa: E402
-from store import SavedList  # noqa: E402
 
 from gui_widgets import LoadSourcePicker, StatusBar  # noqa: E402  (từ Lấy nội lực)
 from sap2000_connector import (  # noqa: E402
@@ -209,16 +208,17 @@ def setp(d, p, v):
 
 
 # ═══════════════════════════ APP ═══════════════════════════
-class App(ctk.CTk):
-    def __init__(self):
-        super().__init__()
-        self.title(APP_TITLE)
-        self.geometry("1560x940")
-        self.minsize(1100, 700)
-        ctk.set_appearance_mode("light")
-        ctk.set_default_color_theme("blue")
+class KneePanel(ctk.CTkFrame):
+    """Khung nhập + kiểm tra một knee. state: thông số ban đầu; status: thanh trạng thái của cửa sổ chính;
+    on_add(kind, name, state): thêm liên kết mới vào dự án (dùng khi quét nhiều knee từ SAP)."""
 
-        self.S = merge(BASE, {})
+    kind = "knee"
+
+    def __init__(self, master, state: dict | None = None, status=None, on_add=None):
+        super().__init__(master, corner_radius=0, fg_color="transparent")
+        self._ext_status = status
+        self.on_add = on_add
+        self.S = merge(BASE, state or {})
         self.R = None
         self.sel_check = None
         self.combo_idx = 0
@@ -226,7 +226,6 @@ class App(ctk.CTk):
         self._suspend = False
         self._job = None
         self.fields = []
-        self.saved = SavedList()
         self.knees: list = []
         self.groups: dict = {}
         self.conn = SAP2000Connector()
@@ -251,8 +250,9 @@ class App(ctk.CTk):
 
     # ───────────────────────── Bố cục ─────────────────────────
     def _build(self):
-        self.status = StatusBar(self)
-        self.status.pack(side="bottom", fill="x")
+        self.status = self._ext_status or StatusBar(self)
+        if not self._ext_status:
+            self.status.pack(side="bottom", fill="x")
 
         top = ctk.CTkFrame(self, corner_radius=0)
         top.pack(fill="x")
@@ -271,7 +271,6 @@ class App(ctk.CTk):
                       command=self._pick_knee).pack(side="left", padx=4)
         ctk.CTkButton(top, text="⟳ Quét knee từ SAP", width=150, height=30, fg_color="#2563EB", font=FONT_B, command=self._scan).pack(side="left", padx=4)
 
-        ctk.CTkButton(top, text="💾 Lưu vào danh sách", width=150, height=30, fg_color="#059669", hover_color="#047857", font=FONT_B, command=self._save_new).pack(side="right", padx=6)
         ctk.CTkButton(top, text="⬇ RAM .rcnx", width=104, height=30, fg_color="#7C3AED", hover_color="#6D28D9", font=FONT_B,
                       command=lambda: self._export_rcnx("current")).pack(side="right", padx=3)
         ctk.CTkButton(top, text="⚙ Tự chọn tp / bu lông", width=160, height=30, fg_color="#B45309", hover_color="#92400E", font=FONT_B, command=self._auto).pack(side="right", padx=3)
@@ -305,8 +304,8 @@ class App(ctk.CTk):
         bar2 = ctk.CTkFrame(mid, fg_color="transparent"); bar2.pack(fill="x", padx=4)
         self.var_heat = ctk.BooleanVar(value=True)
         self.var_flow = ctk.BooleanVar(value=True)
-        ctk.CTkSwitch(bar2, text="Tô màu theo D/C", variable=self.var_heat, command=self._draw, font=FONT_S).pack(side="left", padx=(2, 10))
-        ctk.CTkSwitch(bar2, text="Dòng lực", variable=self.var_flow, command=self._draw, font=FONT_S).pack(side="left", padx=(0, 10))
+        ctk.CTkSwitch(bar2, text="Tô màu theo D/C", variable=self.var_heat, command=self._draw_view, font=FONT_S).pack(side="left", padx=(2, 10))
+        ctk.CTkSwitch(bar2, text="Dòng lực", variable=self.var_flow, command=self._draw_view, font=FONT_S).pack(side="left", padx=(0, 10))
         self.btn_play = ctk.CTkButton(bar2, text="▶", width=34, height=26, command=self._play)
         self.btn_play.pack(side="left", padx=(6, 4))
         self.slider = ctk.CTkSlider(bar2, from_=0, to=1, number_of_steps=1, command=self._slider)
@@ -377,12 +376,11 @@ class App(ctk.CTk):
         # dưới: tab
         self.tabs = ctk.CTkTabview(vpan, height=250)
         vpan.add(self.tabs, weight=1)
-        for name in ("Loads", "Report (RAM)", "Knee quét từ SAP", "Danh sách đã lưu", "Nội lực quy đổi", "Cấu tạo & cảnh báo"):
+        for name in ("Loads", "Report (RAM)", "Knee quét từ SAP", "Nội lực quy đổi", "Cấu tạo & cảnh báo"):
             self.tabs.add(name)
         self._build_loads_tab(self.tabs.tab("Loads"))
         self._build_report_tab(self.tabs.tab("Report (RAM)"))
         self._build_scan_tab(self.tabs.tab("Knee quét từ SAP"))
-        self._build_saved_tab(self.tabs.tab("Danh sách đã lưu"))
         self.tree_dem = self._mk_table(self.tabs.tab("Nội lực quy đổi"),
                                        [("name", "Tổ hợp", 170), ("V", "V", 70), ("N", "N", 70), ("M", "M (kN·m)", 80), ("Nn", "Nn", 70), ("Vt", "Vt", 70),
                                         ("FnE", "Ffu ngoài", 85), ("FnI", "Ffu trong", 85), ("Mu", "Mu,eq", 80), ("side", "Phía kéo", 90), ("Vpz", "Vu panel", 80)])
@@ -656,7 +654,7 @@ class App(ctk.CTk):
             self.tree_geo.insert("", "end", values=(x["grp"], x["name"], f"{x['val']:.2f}", "—" if x["min"] is None else f"{x['min']:.2f}",
                                                     "—" if x["max"] is None else f"{x['max']:.2f}", "✔" if x["ok"] else "✘", x["ref"]),
                                  tags=(() if x["ok"] else ("bad",)))
-        self._draw()
+        self._draw_view()
 
     def _heat_map(self):
         """D/C của từng bộ phận cho tổ hợp đang xem (tính riêng tổ hợp đó)."""
@@ -689,7 +687,7 @@ class App(ctk.CTk):
             lines.append(f"{'∞' if math.isinf(c['ratio']) else format(c['ratio'], '.2f'):>5}  {c['name'][:40]}  ({c['combo'][:16]})")
         return "\n".join(lines)
 
-    def _draw(self):
+    def _draw_view(self):
         if not self.R: return
         dem = self.R["demands"][self.combo_idx] if self.R["demands"] else None
         c = next((x for x in self.R["checks"] if x["id"] == self.sel_check), None)
@@ -718,7 +716,7 @@ class App(ctk.CTk):
             if c["combo"] in names and names.index(c["combo"]) != self.combo_idx:
                 self.combo_idx = names.index(c["combo"])
                 self.opt_combo.set(f"{self.combo_idx + 1}. {c['combo']}")
-            self._draw()
+            self._draw_view()
         else:
             self.canvas.set_highlight(()); self.canvas3d.set_highlight(())
 
@@ -756,14 +754,14 @@ class App(ctk.CTk):
             self.canvas.pack_forget(); self.canvas3d.pack(fill="both", expand=True)
         else:
             self.canvas3d.pack_forget(); self.canvas.pack(fill="both", expand=True)
-        self._draw()
+        self._draw_view()
 
     def _slider(self, v):
         i = int(round(float(v)))
         if i != self.combo_idx and 0 <= i < len(self.S["loads"]):
             self.combo_idx = i
             self.opt_combo.set(f"{i + 1}. {self.S['loads'][i].get('name', '')}")
-            self._draw()
+            self._draw_view()
 
     def _play(self):
         self._playing = not self._playing
@@ -775,7 +773,7 @@ class App(ctk.CTk):
         self.combo_idx = (self.combo_idx + 1) % len(self.S["loads"])
         self.opt_combo.set(f"{self.combo_idx + 1}. {self.S['loads'][self.combo_idx].get('name', '')}")
         self.slider.set(self.combo_idx)
-        self._draw()
+        self._draw_view()
         self.after(1300, self._play_step)
 
     # ───────────────────────── thẻ đồng hồ ─────────────────────────
@@ -809,7 +807,7 @@ class App(ctk.CTk):
     def _combo_changed(self, lab):
         try: self.combo_idx = int(lab.split(".", 1)[0]) - 1
         except ValueError: self.combo_idx = 0
-        self._draw()
+        self._draw_view()
 
     def _preset(self, name):
         self.S = merge(BASE, PRESETS[name]); self.sel_check = None; self.combo_idx = 0
@@ -936,8 +934,6 @@ class App(ctk.CTk):
         ctk.CTkButton(bar, text="📄 Export report (.docx)", width=170, height=26, command=self._export_docx).pack(side="left", padx=3, pady=3)
         ctk.CTkButton(bar, text="⬇ Export RAM Connection (.rcnx) — knee hiện tại", width=300, height=26, fg_color="#7C3AED", hover_color="#6D28D9",
                       command=lambda: self._export_rcnx("current")).pack(side="left", padx=3)
-        ctk.CTkButton(bar, text="⬇ Export .rcnx — toàn bộ danh sách đã lưu", width=280, height=26, fg_color="#7C3AED", hover_color="#6D28D9",
-                      command=lambda: self._export_rcnx("saved")).pack(side="left", padx=3)
         self.var_mksec = ctk.BooleanVar(value=True)
         ctk.CTkCheckBox(bar, text="Tạo tiết diện trong database RAM (WS Section-Hoang)", variable=self.var_mksec, font=FONT_S).pack(side="left", padx=10)
         fr = ttk.Frame(tab); fr.pack(fill="both", expand=True)
@@ -973,31 +969,9 @@ class App(ctk.CTk):
             messagebox.showerror("Export report", str(e)); return
         self.status.set_text(f"Đã xuất báo cáo: {path}")
 
-    def _export_rcnx(self, which):
-        if which == "saved":
-            states = [merge(BASE, it["state"]) for it in self.saved.items]
-            if not states:
-                messagebox.showinfo("Export RAM", "Danh sách đã lưu đang trống — lưu knee vào danh sách trước."); return
-        else:
-            states = [copy.deepcopy(self.S)]
-        path = filedialog.asksaveasfilename(title="Export RAM Connection", defaultextension=".rcnx", filetypes=[("RAM Connection", "*.rcnx")],
-                                            initialfile="KNEE_export.rcnx")
-        if not path: return
-        try:
-            res = ram_export.export_rcnx(states, path, make_sections=self.var_mksec.get())
-        except Exception as e:  # noqa: BLE001
-            messagebox.showerror("Export RAM", f"Không xuất được: {e}"); return
-        msg = [f"Đã xuất {res['n']} connection (MEPlateKneeBCF) → {path}"]
-        sec = res.get("sections")
-        if sec:
-            msg.append(f"\nDatabase tiết diện: {sec['path']}")
-            msg.append(f"  • thêm mới: {', '.join(sec['added']) or '—'}")
-            msg.append(f"  • đã có sẵn: {', '.join(sec['existed']) or '—'}")
-            if sec["added"]: msg.append("  → ĐÓNG và mở lại RAM Connection để nạp tiết diện mới (bản gốc đã sao lưu trong _backup).")
-        if res["warnings"]:
-            msg.append("\nLưu ý:\n  • " + "\n  • ".join(res["warnings"]))
-        messagebox.showinfo("Export RAM Connection", "\n".join(msg))
-        self.status.set_text(msg[0])
+    def _export_rcnx(self, which="current"):
+        msg = export_rcnx_dialog([copy.deepcopy(self.S)], self.var_mksec.get())
+        if msg: self.status.set_text(msg)
 
     # ───────────────────────── SAP2000 ─────────────────────────
     def _connect(self):
@@ -1106,7 +1080,7 @@ class App(ctk.CTk):
     def _build_scan_tab(self, tab):
         bar = ctk.CTkFrame(tab, fg_color="transparent"); bar.pack(fill="x")
         ctk.CTkButton(bar, text="➜ Nạp nhóm vào thiết kế", width=170, height=26, command=self._scan_open).pack(side="left", padx=3, pady=3)
-        ctk.CTkButton(bar, text="💾 Lưu mọi nhóm vào danh sách", width=210, height=26, fg_color="#059669", command=self._scan_save_all).pack(side="left", padx=3)
+        ctk.CTkButton(bar, text="➕ Thêm mọi nhóm vào dự án", width=200, height=26, fg_color="#059669", command=self._scan_save_all).pack(side="left", padx=3)
         ctk.CTkLabel(bar, text="Nhóm = cùng tiết diện cột, kèo, đầu nút, hướng cánh và góc dốc (±0.25°). Thông số bản/bu lông lấy theo thiết kế hiện tại.",
                      font=("Segoe UI", 10), text_color="gray").pack(side="left", padx=8)
         fr = ttk.Frame(tab); fr.pack(fill="both", expand=True)
@@ -1156,98 +1130,34 @@ class App(ctk.CTk):
 
     def _scan_save_all(self):
         if not self.groups: return
+        if not self.on_add:
+            messagebox.showinfo("Knee", "Chỉ dùng được khi mở từ cửa sổ dự án."); return
         for gid in self.groups:
             st = self._group_state(gid)
-            self.saved.add(st["name"], st, self._summary_of(st))
-        self._fill_saved(); self.tabs.set("Danh sách đã lưu")
-        self.status.set_text(f"Đã lưu {len(self.groups)} nhóm vào danh sách.")
-
-    # ───────────────────────── tab danh sách đã lưu ─────────────────────────
-    def _build_saved_tab(self, tab):
-        bar = ctk.CTkFrame(tab, fg_color="transparent"); bar.pack(fill="x")
-        for t, cmd, col in (("💾 Lưu mới", self._save_new, "#059669"), ("↻ Ghi đè", self._save_over, None), ("📂 Mở", self._saved_open, None),
-                            ("✎ Đổi tên", self._saved_rename, None), ("✕ Xoá", self._saved_delete, "#B91C1C"),
-                            ("▲ Lên", lambda: self._saved_move(-1), None), ("▼ Xuống", lambda: self._saved_move(1), None)):
-            kw = dict(fg_color=col) if col else {}
-            ctk.CTkButton(bar, text=t, width=96, height=26, command=cmd, **kw).pack(side="left", padx=3, pady=3)
-        cols = [("stt", "STT", 45), ("name", "Tên", 240), ("type", "Kiểu", 90), ("raf", "Kèo", 190), ("col", "Cột", 190),
-                ("plate", "Bản", 110), ("bolt", "Bu lông", 110), ("nl", "Số TH", 60), ("dc", "D/C", 60), ("time", "Cập nhật", 130)]
-        self.tree_saved = self._mk_table(tab, cols, height=6)
-        self.tree_saved.bind("<Double-1>", lambda _e: self._saved_open())
-        for tag, c in (("ok", OK_C), ("bad", BAD_C)):
-            self.tree_saved.tag_configure(tag, foreground=c)
-        self._fill_saved()
-
-    def _summary_of(self, st):
-        try:
-            r = K.compute(st); dc = r["gov"]["ratio"] if r["gov"] else 0.0; ok = dc <= 1.0001 and r["geoFail"] == 0
-        except Exception:  # noqa: BLE001
-            dc, ok = float("nan"), False
-        return dict(type=st["type"], raf=st["beam"]["sec"], col=st["col"]["sec"], tp=st["plate"]["tp"],
-                    bolt=f"M{st['bolt']['d']} {st['bolt']['grade']}", nl=len(st["loads"]), dc=dc, ok=ok)
-
-    def _fill_saved(self, select=None):
-        tv = self.tree_saved
-        tv.delete(*tv.get_children())
-        for i, it in enumerate(self.saved.items):
-            s = it.get("summary", {})
-            dc = s.get("dc", float("nan"))
-            tv.insert("", "end", iid=str(i), tags=("ok" if s.get("ok") else "bad",),
-                      values=(i + 1, it["name"], TYPE_LABEL.get(s.get("type"), ""), s.get("raf", ""), s.get("col", ""),
-                              f"tp {s.get('tp', '')}", s.get("bolt", ""), s.get("nl", ""), "—" if dc != dc else f"{dc:.2f}", it.get("time", "")))
-        if select is not None and 0 <= select < len(self.saved.items):
-            tv.selection_set(str(select)); tv.see(str(select))
-
-    def _saved_idx(self):
-        s = self.tree_saved.selection()
-        if not s:
-            messagebox.showinfo("Danh sách", "Chọn một dòng trong danh sách đã lưu."); return None
-        return int(s[0])
-
-    def _save_new(self):
-        name = ctk.CTkInputDialog(text="Tên knee / nhóm:", title="Lưu vào danh sách").get_input()
-        if not name: return
-        self.S["name"] = name
-        i = self.saved.add(name, self.S, self._summary_of(self.S))
-        self._load_form(); self._fill_saved(i); self.tabs.set("Danh sách đã lưu")
-        self.status.set_text(f"Đã lưu '{name}'.")
-
-    def _save_over(self):
-        i = self._saved_idx()
-        if i is None: return
-        if messagebox.askyesno("Ghi đè", f"Ghi đè '{self.saved.items[i]['name']}' bằng thông số hiện tại?"):
-            st = copy.deepcopy(self.S); st["name"] = self.saved.items[i]["name"]
-            self.saved.update(i, st, self._summary_of(st)); self._fill_saved(i)
-
-    def _saved_open(self):
-        i = self._saved_idx()
-        if i is None: return
-        self.S = merge(BASE, self.saved.items[i]["state"]); self.sel_check = None; self.combo_idx = 0
-        self._load_form(); self.run()
-        self.status.set_text(f"Đã mở '{self.saved.items[i]['name']}'.")
-
-    def _saved_rename(self):
-        i = self._saved_idx()
-        if i is None: return
-        name = ctk.CTkInputDialog(text=f"Tên mới cho '{self.saved.items[i]['name']}':", title="Đổi tên").get_input()
-        if name:
-            self.saved.rename(i, name); self._fill_saved(i)
-
-    def _saved_delete(self):
-        i = self._saved_idx()
-        if i is None: return
-        if messagebox.askyesno("Xoá", f"Xoá '{self.saved.items[i]['name']}' khỏi danh sách?"):
-            self.saved.delete(i); self._fill_saved(min(i, len(self.saved.items) - 1))
-
-    def _saved_move(self, step):
-        i = self._saved_idx()
-        if i is None: return
-        self._fill_saved(self.saved.move(i, step))
+            self.on_add("knee", st["name"], st)
+        self.status.set_text(f"Đã thêm {len(self.groups)} nhóm knee vào dự án.")
 
 
-def main():
-    App().mainloop()
 
-
-if __name__ == "__main__":
-    main()
+def export_rcnx_dialog(states: list[dict], make_sections: bool = True) -> str:
+    """Hỏi đường dẫn và xuất các knee sang RAM Connection (.rcnx). Trả về dòng thông báo ('' nếu huỷ / lỗi)."""
+    if not states:
+        messagebox.showinfo("Export RAM", "Không có knee nào để xuất."); return ""
+    path = filedialog.asksaveasfilename(title="Export RAM Connection", defaultextension=".rcnx", filetypes=[("RAM Connection", "*.rcnx")],
+                                        initialfile="KNEE_export.rcnx")
+    if not path: return ""
+    try:
+        res = ram_export.export_rcnx(states, path, make_sections=make_sections)
+    except Exception as e:  # noqa: BLE001
+        messagebox.showerror("Export RAM", f"Không xuất được: {e}"); return ""
+    msg = [f"Đã xuất {res['n']} connection (MEPlateKneeBCF) → {path}"]
+    sec = res.get("sections")
+    if sec:
+        msg.append(f"\nDatabase tiết diện: {sec['path']}")
+        msg.append(f"  • thêm mới: {', '.join(sec['added']) or '—'}")
+        msg.append(f"  • đã có sẵn: {', '.join(sec['existed']) or '—'}")
+        if sec["added"]: msg.append("  → ĐÓNG và mở lại RAM Connection để nạp tiết diện mới (bản gốc đã sao lưu trong _backup).")
+    if res["warnings"]:
+        msg.append("\nLưu ý:\n  • " + "\n  • ".join(res["warnings"]))
+    messagebox.showinfo("Export RAM Connection", "\n".join(msg))
+    return msg[0]

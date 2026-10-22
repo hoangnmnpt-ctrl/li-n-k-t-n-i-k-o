@@ -1,0 +1,118 @@
+# LIÊN KẾT THÉP — AISC 360-10 LRFD (giao diện theo RAM Connection Standalone)
+
+Chạy: nhấp đúp **`Chay_LienKet.bat`** ở thư mục gốc (dùng `.venv` của *Lấy nội lực*) hoặc `python run.py [du_an.lkt]`.
+Cần Python ≥ 3.12, `customtkinter`; `comtypes` khi lấy nội lực từ SAP2000.
+
+## Cửa sổ chính
+| Vùng | Chức năng |
+|---|---|
+| Thanh tiêu đề | New project · Open · Save, tên dự án (`*` = chưa lưu) |
+| **File** | New project, Open (Ctrl+O), Save (Ctrl+S), Save as, nhập danh sách đã lưu của tool cũ, Exit |
+| **Home · Joints** | **New** (Ctrl+N) — hộp thoại New joint 3 bước · **Edit** (nhấp đúp dòng) — cửa sổ thiết kế liên kết · Delete · Delete all · Copy · Go to (gõ ID + Enter) |
+| **Home · Load conditions** | **Add/Edit** — bảng tải của nút · Delete — xoá mọi tổ hợp · Generate — lấy nội lực từ SAP2000 (knee) |
+| **Home · View** | Template — áp mẫu · Information log — mọi cảnh báo / N.G. của dự án · Critical load condition — hiện tổ hợp khống chế |
+| **Home · Databases** | Sections (quy cách + tiết diện đang dùng) · Materials · Connections (kiểu nút có / chưa có) · Bolts · Welds · Anchors (chưa hỗ trợ) |
+| **Design** | Edit connection · Smart connection (tự chọn tp / bu lông) · Design all · Joint data · Loads |
+| **Output** | Report (.docx nút đang chọn) · All reports (cả dự án) · RAM .rcnx (mọi knee) · Results table (.csv mở bằng Excel) · Information log |
+| Khung xem xanh đậm | Hình nút đang chọn, tô màu D/C theo **Condition** ở thanh trạng thái; Elevation / End plate; lăn chuột zoom, kéo để di chuyển |
+| Bảng dưới | Các nút của dự án: Joint, Name, Family, Type, Members, Connection, số tổ hợp, Ratio, OK / N.G., kiểm tra khống chế |
+
+## New joint (3 bước như RAM)
+1. **Joint** — chọn nhóm và kiểu nút. Có trong tool: *Tapered beam to tapered column (Knee)* (BCF), *Beam splice*, *Apex* (BS). Các kiểu khác hiện mờ.
+2. **Data** — bảng Property / Value riêng cho từng loại: Knee (Beam = kèo, Column), Beam splice / Apex (Left beam, Right beam, góc dốc). Nhấp ô Value để sửa. Help bên phải.
+3. **Loads** — bảng Num · Condition · V2 · Axial · M33 theo từng cấu kiện (knee: kèo + cột; nối dầm: lực tại mặt nối), dán từ Excel.
+
+Bản đầu, bu lông, hàn, sườn: nhập ở cửa sổ **Edit** (form theo RAM, hình, bảng kiểm tra, báo cáo), bấm **OK** để lưu vào dự án.
+Dự án lưu một file `*.lkt` (mặc định `lienket\du_an.lkt`).
+
+## KNEE (BCF — Tapered beam to tapered column)
+
+
+### Quy trình
+1. **Kết nối SAP** → chọn nguồn tải (Design Combos mặc định, nút *Nguồn tải ▾* để tick) → chọn cột + kèo trong SAP (hoặc tick *Toàn mô hình*) → **Quét knee từ SAP**.
+2. Tab *Knee quét từ SAP*: knee gom nhóm theo kích thước tiết diện tại nút + góc dốc (knee đối xứng hai đầu khung vào chung nhóm). Nhấp đúp nhóm → nạp vào thiết kế (bao nội lực mọi knee trong nhóm).
+3. Chọn kiểu **Knee đứng** (bản 90°) / **Knee ngang** / **Knee xiên** (bản ⟂ kèo, hàn vào panel cột), sửa thông số bản, bu lông, sườn, hoặc bấm **Tự chọn tp / bu lông**.
+4. Bấm một dòng kiểm tra → xem diễn giải công thức, bộ phận liên quan nhấp nháy trên hình.
+5. Bấm **OK** ở cửa sổ Edit để lưu vào dự án. Quét SAP nhiều nhóm: tab *Knee quét từ SAP* → **Thêm mọi nhóm vào dự án**.
+
+### Tương đương RAM Connection (Knee moment end plate — BCF)
+- **Form nhập** theo đúng thứ tự và nhãn tiếng Anh của RAM: General information → Members (Beam, Support) → Moment end plate
+  (Connector, Weld, Bolts, Bolt group external extension / external flange / internal flange / internal extension) → Stiffeners.
+  Rê chuột lên nhãn để xem chú thích tiếng Việt. *Plate alignment* = kiểu knee (Vertical = đứng, Perpendicular = xiên, Horizontal = ngang).
+  Cỡ hàn nhập theo D (1/16 in) như RAM.
+- **Tab Loads**: bảng như hộp thoại Loads của RAM (ID, Description, Right beam Axial/V2/M3, Left beam, Column Axial/V2/M3). Dấu giống RAM.
+- **Tab Report (RAM)**: báo cáo tiếng Anh đúng form RAM (Demands, Geometric Considerations, Plate / Column Behavior, Design Check,
+  Global critical strength ratio); nút *Export report (.docx)*.
+- **Export RAM Connection (.rcnx)**: knee hiện tại (tab Report của cửa sổ Edit) hoặc mọi knee của dự án (Output → RAM .rcnx) → 1 file, mỗi knee = 1 connection `Bentley.AISC.MEPlateKneeBCF`
+  kèm bảng tải. Dựng từ khuôn `ram_proto.rcnx` (lấy từ file RAM 23 thật; tạo lại bằng `tools/make_ram_proto.py`).
+- **Database tiết diện**: khi xuất (tick "Tạo tiết diện…"), tiết diện `I {hw}x{bf}x{tw}x{tf}` còn thiếu được thêm vào
+  `…\Sections\WS Section-Hoang\Built up.sec` (sao lưu bản cũ trong `_backup`, không thêm trùng). Đóng/mở lại RAM để nạp.
+- Đối chứng knee #11 của RAM (dữ liệu gốc từ .rcnx): nội lực quy đổi trùng 100%; bản đầu, bu lông, hàn, panel, sườn lệch ≤ 0.7%;
+  riêng uốn bản cánh trong −1.6% (tool áp γr = 1.25), phía gối −0.7…−5% và ép mặt bản gối −12% (tool xét xé mép) — đều thiên về an toàn.
+
+### Lấy thẳng từ SAP2000
+- **🎯 Chọn knee trong SAP**: chọn nút knee (hoặc cột + kèo) trong SAP → nạp ngay tiết diện, L, đầu nút, góc dốc α, hướng cánh và nội lực.
+  Các ô này bị **khoá 🔒** (banner đầu form); bấm *Mở khoá* để sửa tay.
+- Tên tiết diện không theo quy cách → kích thước I tại mặt gối đọc qua API SAP (I-Section / Nonprismatic), ghi chú "(kích thước qua API SAP)".
+
+### Panel zone
+Mục *Panel zone (bề dày riêng)*: kích thước theo tiết diện gối tại nút, nhập riêng bề dày bụng, cánh ngoài, bản gối và vật liệu.
+Mọi kiểm tra phía gối (Yc, J10.2/10.3/10.5, J10.6, sườn) dùng tiết diện panel. Trên hình, panel tách riêng khỏi cột.
+
+### Trực quan
+- **Tô màu theo D/C** (xanh ≤ 0.6 → vàng 0.9 → cam 1.0 → đỏ > 1) + nhãn D/C nổi trên từng bộ phận, tính theo tổ hợp đang xem.
+- **Dòng lực**: kéo (đỏ) / nén (xanh) chạy từ cánh kèo qua bản, sườn, thanh chống chéo trong panel xuống cột.
+- **Thanh trượt tổ hợp + ▶ phát tự động**: màu, lực, nhãn đổi theo từng tổ hợp.
+- **3D**: kéo trái xoay, kéo phải di chuyển, lăn zoom, nhấp đúp về góc mặc định. Tô bóng, tô màu D/C, tô sáng kiểm tra đang chọn.
+- **Thẻ đồng hồ** theo nhóm (Bản đầu, Bu lông, Phía gối, Panel·J10, Sườn, Hàn, Cấu kiện) — bấm để nhảy tới kiểm tra khống chế.
+- **Rê chuột** lên bộ phận → tooltip các kiểm tra liên quan. 2D: lăn zoom, kéo di chuyển.
+
+### Nội lực từ SAP (như tool Lấy nội lực)
+- Vị trí: mặt gối đầu nút (trừ end offset), 9 cực trị tại đầu nút của **cả kèo và cột**; mỗi tổ hợp lấy đồng thời nội lực hai thanh.
+- Đổi dấu: SAP M3 > 0 kéo mặt −2. Tool: M < 0 → cánh NGOÀI (kèo: cánh trên; cột: phía xa nhịp) chịu kéo. Hướng mặt ngoài xác định bằng trục local 2 (GetTransformationMatrix).
+
+### Tiết diện
+`250.5-150.5` (bụng 250×5, cánh 150×5, cao tổng 260) · `250.5-150.5.6` · `200.5.5-100.8` · `300.5-250.5-150.10` ·
+`(250-500).5-150.5` · `(250-500-500-250).5.5.5-150.10.10.10/2-bal-2` · legacy `I (850-662)-5/150-8`.
+"Cánh trên" = mặt +2 SAP.
+
+### Kiểm chứng
+`python lienket\tests\test_engine.py` (DG16 Ex 4.2.1, DG4 Yc, DG39 Yc bản nắp, RAM Connection #11, quy cách tiết diện) và `python lienket\tests\test_scanner.py` (khung cổng giả lập, đổi dấu, gom nhóm).
+
+## NỐI DẦM (BS — Beam splice / Apex)
+
+
+
+### Quy ước dấu
+N > 0 kéo · **M > 0 → cánh DƯỚI chịu kéo** (mô men dương), **M < 0 → cánh TRÊN chịu kéo** · V lấy giá trị tuyệt đối. Nhập kN, kN·m, mm.
+Apex: nội lực của một dầm tại mặt nối (hệ trục dầm), tool tự quy đổi về hệ trục bản (Nn = N·cosα + |V|·sinα, Vt = |N|·sinα + |V|·cosα).
+
+### Các kiểm tra (theo từng tổ hợp, lấy giá trị bất lợi nhất)
+Mỗi **bản đầu 1 / 2**: chảy dẻo uốn (DG16 §2.5), cắt chảy / cắt đứt phần nhô (DG4 3.12, 3.13), ép mặt / xé lỗ (J3-6).
+**Bu lông**: đứt không nhổ φMnp, đứt có lực nhổ φMq (Kennedy hiệu chỉnh, tính cho từng bản — lấy bản bất lợi), cắt (J3.6, nhóm phía nén).
+**Hàn dầm 1 / 2**: hàn cánh (hàn góc hoặc CJP), hàn bụng vùng kéo (phát triển chảy bụng), hàn bụng chịu cắt, chảy cắt bụng dầm.
+**Cấu tạo**: khoảng cách mép (J3.4, J3.5), gage, pf,o / pf,i, bước hàng, đường kính bu lông, hàn tối thiểu (J2.4), sườn 4ES (DG4 3.15, 3.16).
+Không có kiểm tra phía cột / panel zone / J10 (không có cột).
+
+### Hai quy ước DG16 ↔ DG39 (tuỳ chọn *Yield-line lever arm h* ở mục Options)
+Mặc định theo **DG16 / RAM Connection** (h đo từ mặt cánh nén; Y của 2FU còn số hạng −1/2) — giống phần knee, đã khớp RAM #11.
+Chọn *centerline* để đo h từ tâm cánh nén (DG4 / DG39): Y thấp hơn ~1–2 %, thiên về an toàn.
+DG39 (2023) Table 5-2 bỏ số hạng −1/2 của 2FU, nên Y(DG39) cao hơn Y(DG16) khoảng 1.9 % với ví dụ 5.2-1.
+
+### Kiểm chứng
+- `python lienket\tests\test_splice_engine.py` — **DG39 Example 5.2-1** (bích bằng 2 bu lông, W18×35): Mu,eq, s, Yp (DG16 = DG39 − bp/4), db,req, lực hàn cánh Tu,min, φVn bu lông;
+  **DG16 Example 4.2.1** (Y, dùng chung hàm với knee); đối xứng dấu mô men; lực dọc; Apex; hai bản khác bề dày; tự chọn; lưu danh sách.
+- `python lienket\tests\test_gui_smoke.py` — thử cửa sổ chính: New joint 3 bước, Copy / Delete / Go to, Critical load condition, Smart connection, Databases, Edit → OK, Save / Open, Report Word, Results CSV.
+  Tự bỏ qua nếu thiếu `customtkinter` hoặc màn hình.
+
+### Giới hạn hiện tại
+- **Chưa** đối chiếu số với một file RAM Connection nào cho Beam splice (knee đã đối chiếu RAM #11). Cần anh/chị cung cấp ví dụ RAM để so.
+- **Chưa** xuất `.rcnx` cho RAM (cần khuôn `.rcnx` của Beam splice do RAM sinh ra, như `ram_proto.rcnx` của knee) và **chưa** có hình 3D, quét nội lực từ SAP2000.
+- Hai dầm cùng chiều cao tại mặt nối; độ nghiêng cánh do tiết diện vát bị bỏ qua khi quy đổi nội lực (có cảnh báo khi vát > 2°).
+- Không có bản đầu có sườn kiểu 8ES / 8E, bích bằng 6 bu lông, bản đầu mỏng theo EN; cấu hình MRE chưa kèm sườn.
+- Công cụ hỗ trợ tính toán; kết quả cần được kỹ sư có chứng chỉ kiểm tra.
+
+## Tệp
+`app.py` cửa sổ chính · `newjoint.py` New joint · `project.py` dự án · `knee_gui.py` / `splice_gui.py` cửa sổ thiết kế ·
+`engine.py` / `splice_engine.py` lõi tính · `drawing.py` / `splice_drawing.py` / `view3d.py` hình · `report.py` / `splice_report.py` báo cáo ·
+`defaults.py` / `splice_defaults.py` mẫu · `knee_section.py` tiết diện · `scanner.py` quét SAP · `ram_export.py` + `ram_proto.rcnx` xuất RAM · `tests\` kiểm thử.
