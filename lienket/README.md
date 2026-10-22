@@ -14,8 +14,9 @@ Cần Python ≥ 3.12, `customtkinter`; `comtypes` khi lấy nội lực từ SA
 | **Home · Databases** | Sections (quy cách + tiết diện đang dùng) · Materials · Connections (kiểu nút có / chưa có) · Bolts · Welds · Anchors (chưa hỗ trợ) |
 | **Design** | Edit connection · Smart connection (tự chọn tp / bu lông) · Design all · Joint data · Loads |
 | **Output** | Report (.docx nút đang chọn) · All reports (cả dự án) · RAM .rcnx (mọi knee) · Results table (.csv mở bằng Excel) · Information log |
-| Khung xem xanh đậm | Hình nút đang chọn, tô màu D/C theo **Condition** ở thanh trạng thái; Elevation / End plate; lăn chuột zoom, kéo để di chuyển |
-| Bảng dưới | Các nút của dự án: Joint, Name, Family, Type, Members, Connection, số tổ hợp, Ratio, OK / N.G., kiểm tra khống chế |
+| Khung xem xanh đậm | Hình 3D nút đang chọn kiểu RAM (cấu kiện xám, bản đầu xanh lá, bu lông cam, sườn tím, hàn vàng); kéo trái xoay, kéo phải di chuyển, lăn zoom, nhấp đúp về góc mặc định. Ô xem ở thanh trạng thái: **3D** · **3D D/C** (tô màu theo D/C của Condition) · Elevation · End plate |
+| Bảng thông tin (phải) | JOINT, họ nút (BCF / BS), BEAM – COLUMN (hoặc LEFT / RIGHT BEAM), SHEAR AND MOMENT CONNECTION (Template, Connection, bản / bu lông, tỷ số khống chế), Design code, **Edit...**, Additional notes (lưu theo nút) |
+| Dải thẻ (dưới) | Mỗi nút một thẻ như RAM: số nút, họ, hình thu nhỏ, `tỷ số - tổ hợp khống chế` (xanh = đạt, đỏ = không đạt). Bấm để chọn, nhấp đúp để Edit, lăn chuột để cuộn |
 
 ## New joint (3 bước như RAM)
 1. **Joint** — chọn nhóm và kiểu nút. Có trong tool: *Tapered beam to tapered column (Knee)* (BCF), *Beam splice*, *Apex* (BS). Các kiểu khác hiện mờ.

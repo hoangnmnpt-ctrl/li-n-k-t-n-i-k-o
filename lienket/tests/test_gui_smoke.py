@@ -61,7 +61,7 @@ def main() -> int:
     d = NJ.NewJointDialog(app, "splice:apex"); _spin(app)
     d._next("data"); d._ok()
     j2 = app.project.add(d.result["kind"], d.result["state"]); app.refresh(); app.select(j2["id"]); _spin(app)
-    check("tạo Apex", app.project.get(j2["id"])["state"]["type"] == "apex" and app.grid_tv.exists(str(j2["id"])))
+    check("tạo Apex", app.project.get(j2["id"])["state"]["type"] == "apex" and j2["id"] in app.cards)
 
     d = NJ.NewJointDialog(app, None); _spin(app)
     d._pick_group(0); d._pick(0); d._next("data")

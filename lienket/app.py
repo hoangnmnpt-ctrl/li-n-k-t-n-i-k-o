@@ -34,6 +34,7 @@ import engine as K  # noqa: E402
 import newjoint  # noqa: E402
 import project as PJ  # noqa: E402
 from drawing import KneeCanvas, heat_color  # noqa: E402
+from ramview import RamView  # noqa: E402
 from knee_section import SectionError, parse_section  # noqa: E402
 
 APP = "Liên kết thép — AISC 360-10 LRFD"
@@ -41,6 +42,8 @@ SETTINGS = os.path.join(HERE, "settings.json")
 MAROON, MAROON_D = "#8B3540", "#6E2A33"
 RIB_BG, RIB_LINE = "#F5F5F5", "#D4D4D4"
 NAVY, SLATE = "#001A4D", "#2B3A55"
+CARD, CARD_SEL = "#4A4F57", "#0B2A6B"
+DESIGN_CODES = {"AISC-10 LRFD": "AISC 2010 LRFD", "AISC-16 LRFD": "AISC 2016 LRFD"}
 OK_C, BAD_C = "#1A9E5A", "#D23B3B"
 
 
@@ -384,31 +387,33 @@ class App(ctk.CTk):
         self.cmb_cond = ttk.Combobox(sb, state="readonly", width=26, font=("Segoe UI", 9))
         self.cmb_cond.pack(side="right", padx=6); self.cmb_cond.bind("<<ComboboxSelected>>", lambda e: self._draw())
         tk.Label(sb, text="Condition:", bg="#F0F0F0", font=("Segoe UI", 9)).pack(side="right")
-        self.cmb_view = ttk.Combobox(sb, state="readonly", width=12, values=["Elevation", "End plate"], font=("Segoe UI", 9))
-        self.cmb_view.set("Elevation"); self.cmb_view.pack(side="right", padx=6); self.cmb_view.bind("<<ComboboxSelected>>", lambda e: self._draw())
+        self.cmb_view = ttk.Combobox(sb, state="readonly", width=12, values=["3D", "3D D/C", "Elevation", "End plate"], font=("Segoe UI", 9))
+        self.cmb_view.set("3D"); self.cmb_view.pack(side="right", padx=6); self.cmb_view.bind("<<ComboboxSelected>>", lambda e: self._draw())
         tk.Label(sb, text="SI", bg="#F0F0F0", font=("Segoe UI", 9)).pack(side="right", padx=8)
 
-        pan = ttk.PanedWindow(self, orient="vertical"); pan.pack(fill="both", expand=True, padx=4, pady=4)
-        vf = tk.Frame(pan, bg=NAVY); pan.add(vf, weight=3)
-        self.view = NavyView(vf); self.view.pack(fill="both", expand=True)
-        self.view.empty_text = "Chưa có nút nào.\nHome → New (Ctrl+N) để tạo nút: Knee, Beam splice, Apex."
-        self.view.tipfn = self._tip
-        gf = tk.Frame(pan, bg=SLATE); pan.add(gf, weight=1)
-        st = ttk.Style(); st.theme_use("clam") if "clam" in st.theme_names() else None
-        st.configure("J.Treeview", background=SLATE, fieldbackground=SLATE, foreground="#FFFFFF", rowheight=24, font=("Segoe UI", 9), borderwidth=0)
-        st.configure("J.Treeview.Heading", background="#3B4A66", foreground="#FFFFFF", font=("Segoe UI", 9, "bold"), relief="flat")
-        st.map("J.Treeview", background=[("selected", "#F5823A")], foreground=[("selected", "#1B2430")])
-        cols = [("id", "Joint", 60), ("name", "Name", 150), ("fam", "Family", 70), ("type", "Type", 110), ("mem", "Members", 330),
-                ("con", "Connection", 170), ("nl", "Conditions", 80), ("ratio", "Ratio", 70), ("st", "Status", 70), ("gov", "Critical check", 330)]
-        self.grid_tv = tv = ttk.Treeview(gf, columns=[c[0] for c in cols], show="headings", style="J.Treeview")
-        for c, h, w in cols:
-            tv.heading(c, text=h); tv.column(c, width=w, anchor="w" if c in ("name", "mem", "con", "gov", "type") else "center")
-        tv.tag_configure("bad", foreground="#FF8A8A"); tv.tag_configure("err", foreground="#FBBF24")
-        ysb = ttk.Scrollbar(gf, orient="vertical", command=tv.yview); tv.configure(yscrollcommand=ysb.set)
-        tv.pack(side="left", fill="both", expand=True); ysb.pack(side="right", fill="y")
-        tv.bind("<<TreeviewSelect>>", self._grid_selected)
-        tv.bind("<Double-1>", lambda e: self.edit_joint())
-        tv.bind("<Delete>", lambda e: self.delete_joint())
+        # ── khung xem (giữa) + bảng thông tin nút (phải) ──
+        vf = tk.Frame(self, bg=NAVY); vf.pack(fill="both", expand=True, padx=3, pady=(3, 0))
+        self._build_info(vf)
+        self.vhost = tk.Frame(vf, bg=NAVY); self.vhost.pack(side="left", fill="both", expand=True)
+        self.view3 = RamView(self.vhost)
+        self.view2 = NavyView(self.vhost)
+        for v in (self.view3, self.view2):
+            v.empty_text = "Chưa có nút nào.\nHome → New (Ctrl+N) để tạo nút: Knee, Beam splice, Apex."
+            v.tipfn = self._tip
+        self.view = self.view3; self.view3.pack(fill="both", expand=True)
+        # ── dải thẻ các nút (dưới) ──
+        tk.Frame(self, bg="#FFFFFF", height=4).pack(fill="x")
+        sf = tk.Frame(self, bg=SLATE, height=196); sf.pack(fill="x"); sf.pack_propagate(False)
+        self.strip = tk.Canvas(sf, bg=SLATE, highlightthickness=0, height=180)
+        xs = ttk.Scrollbar(sf, orient="horizontal", command=self.strip.xview)
+        self.strip.configure(xscrollcommand=xs.set)
+        xs.pack(side="bottom", fill="x"); self.strip.pack(fill="both", expand=True)
+        self.strip_in = tk.Frame(self.strip, bg=SLATE)
+        self.strip.create_window(0, 0, window=self.strip_in, anchor="nw")
+        self.strip_in.bind("<Configure>", lambda e: self.strip.configure(scrollregion=self.strip.bbox("all")))
+        self.strip.bind("<MouseWheel>", lambda e: self.strip.xview_scroll(-1 if e.delta > 0 else 1, "units"))
+        self.cards: dict[int, dict] = {}
+        self.bind("<Delete>", lambda e: self.delete_joint() if self.focus_get() in (None, self, self.strip) else None)
         self.bind("<Control-n>", lambda e: self.new_joint())
         self.bind("<Control-s>", lambda e: self.save_project())
         self.bind("<Control-o>", lambda e: self.open_project())
@@ -430,44 +435,145 @@ class App(ctk.CTk):
         return self._cache[key]
 
     def refresh(self):
-        tv = self.grid_tv
-        tv.delete(*tv.get_children())
+        for w in self.strip_in.winfo_children():
+            w.destroy()
+        self.cards = {}
         for j in self.project.joints:
-            st, R, err = self.result(j)
-            if err:
-                vals = ("ERR", "Lỗi", err[:80]); tag = ("err",)
-            else:
-                g = R["gov"]; r = g["ratio"] if g else 0.0
-                ok = r <= 1.0001 and R["geoFail"] == 0
-                vals = ("∞" if math.isinf(r) else f"{r:.2f}", "OK" if ok else "N.G.",
-                        f"{g['name']} ({g['combo']})" if g else ""); tag = () if ok else ("bad",)
-            tv.insert("", "end", iid=str(j["id"]), tags=tag,
-                      values=(j["id"], j["state"].get("name", ""), PJ.KINDS[j["kind"]]["family"], PJ.type_label(j), PJ.members_text(j),
-                              PJ.connection_text(j), len(PJ.full_state(j)["loads"]), *vals))
+            self.cards[j["id"]] = self._card(j)
         self.lbl_count.configure(text=f"Elements: {len(self.project.joints)}")
         self._title()
-        if self.sel is not None and tv.exists(str(self.sel)):
-            tv.selection_set(str(self.sel))
+        if self.sel is not None and self.project.get(self.sel) is None:
+            self.sel = None
+        self._mark_cards(); self._show_info(); self._draw()
+
+    def _card(self, j):
+        """Thẻ thu nhỏ như RAM: số nút (trái), mã họ (phải), hình, tỷ số – tổ hợp khống chế (xanh / đỏ)."""
+        st, R, err = self.result(j)
+        fr = tk.Frame(self.strip_in, bg=CARD, width=186, height=172, highlightthickness=2, highlightbackground=CARD)
+        fr.pack(side="left", padx=4, pady=6); fr.pack_propagate(False)
+        head = tk.Frame(fr, bg=CARD); head.pack(fill="x")
+        l1 = tk.Label(head, text=str(j["id"]), bg=CARD, fg="#FFFFFF", font=("Segoe UI", 14, "bold")); l1.pack(side="left", padx=6)
+        l2 = tk.Label(head, text=PJ.KINDS[j["kind"]]["family"], bg=CARD, fg="#FFFFFF", font=("Segoe UI", 11)); l2.pack(side="right", padx=6)
+        th = RamView(fr, thumb=True, width=178, height=110)
+        th.configure(background=CARD); th.pack(padx=2)
+        if not err:
+            try:
+                th.show(PJ.KINDS[j["kind"]]["elevation"](st, R, None, flow=False))
+            except Exception:  # noqa: BLE001
+                pass
+        if err:
+            txt, col = "lỗi số liệu", "#FBBF24"
         else:
-            self._draw()
+            g = R["gov"]; r = g["ratio"] if g else 0.0
+            ok = r <= 1.0001 and R["geoFail"] == 0
+            txt = (f"{'∞' if math.isinf(r) else format(r, '.2f')} - {g['combo']}" if g else "—")
+            col = "#4ADE80" if ok else "#FF4D4D"
+        l3 = tk.Label(fr, text=txt, bg=CARD, fg=col, font=("Segoe UI", 9), anchor="w"); l3.pack(fill="x", padx=6)
+        for w in (fr, head, l1, l2, th, l3):
+            w.bind("<Button-1>", lambda e, i=j["id"]: self.select(i))
+            w.bind("<Double-Button-1>", lambda e, i=j["id"]: (self.select(i), self.edit_joint()))
+            w.bind("<MouseWheel>", lambda e: self.strip.xview_scroll(-1 if e.delta > 0 else 1, "units"))
+        return dict(frame=fr, parts=(head, l1, l2, l3), thumb=th)
+
+    def _mark_cards(self):
+        for jid, c in self.cards.items():
+            on = jid == self.sel
+            bg = CARD_SEL if on else CARD
+            c["frame"].configure(bg=bg, highlightbackground="#3B82F6" if on else CARD)
+            for w in c["parts"]: w.configure(bg=bg)
+            c["thumb"].configure(background=NAVY if on else CARD)
+        if self.sel in self.cards:
+            self.update_idletasks()
+            x = self.cards[self.sel]["frame"].winfo_x(); W = max(self.strip_in.winfo_width(), 1)
+            vis0, vis1 = self.strip.xview()
+            if not (vis0 * W <= x <= vis1 * W - 186):
+                self.strip.xview_moveto(max(x - 20, 0) / W)
 
     def select(self, jid):
         self.sel = jid
-        if jid is not None and self.grid_tv.exists(str(jid)):
-            self.grid_tv.selection_set(str(jid)); self.grid_tv.see(str(jid))
-        self._fill_conditions(); self._draw()
+        self._mark_cards(); self._fill_conditions(); self._show_info(); self._draw()
 
-    def _grid_selected(self, _e=None):
-        s = self.grid_tv.selection()
-        jid = int(s[0]) if s else None
-        if jid != self.sel:
-            self.sel = jid; self._fill_conditions()
-        self._draw()
+    # ── bảng thông tin nút (bên phải, như RAM) ──
+    def _build_info(self, parent):
+        box = tk.Frame(parent, bg=NAVY, width=360); box.pack(side="right", fill="y"); box.pack_propagate(False)
+        self.info = tk.Text(box, bg=NAVY, fg="#FFFFFF", relief="flat", highlightthickness=0, font=("Segoe UI", 10), wrap="word",
+                            padx=12, pady=10, cursor="arrow", height=22)
+        self.info.pack(fill="x")
+        t = self.info
+        t.tag_configure("jid", font=("Segoe UI", 10, "bold"))
+        t.tag_configure("fam", font=("Segoe UI", 13, "bold"), justify="center", spacing1=10)
+        t.tag_configure("famn", justify="center", spacing3=12)
+        t.tag_configure("h", font=("Segoe UI", 10, "bold"), spacing1=10)
+        t.tag_configure("r", lmargin1=10, lmargin2=10)
+        t.tag_configure("ok", lmargin1=10, foreground="#4ADE80"); t.tag_configure("bad", lmargin1=10, foreground="#FF4D4D")
+        row = tk.Frame(box, bg=NAVY); row.pack(fill="x", padx=22)
+        tk.Label(row, text="Design code :", bg=NAVY, fg="#FFFFFF", font=("Segoe UI", 10)).pack(side="left")
+        self.cmb_code = ttk.Combobox(row, state="readonly", width=17, values=list(DESIGN_CODES), font=("Segoe UI", 9))
+        self.cmb_code.pack(side="left", padx=6); self.cmb_code.bind("<<ComboboxSelected>>", lambda e: self._code_changed())
+        tk.Button(box, text="Edit...", width=10, bg="#C7CBD1", relief="flat", font=("Segoe UI", 8), command=self.edit_joint).pack(anchor="e", padx=10, pady=6)
+        tk.Label(box, text="Additional notes", bg=NAVY, fg="#FFFFFF", font=("Segoe UI", 7, "bold"), anchor="w").pack(fill="x", padx=6, pady=(30, 0))
+        self.notes = tk.Text(box, height=5, bg="#FFFFFF", fg="#1E3A8A", relief="flat", font=("Segoe UI", 9), wrap="word", padx=8, pady=6)
+        self.notes.pack(fill="x", padx=6, pady=(0, 6))
+        self.notes.bind("<FocusOut>", lambda e: self._notes_changed())
+
+    def _show_info(self):
+        t = self.info
+        t.configure(state="normal"); t.delete("1.0", "end")
+        j = self._joint(False)
+        self.notes.delete("1.0", "end")
+        if not j:
+            t.insert("end", "Chưa chọn nút.", "r"); t.configure(state="disabled"); self.cmb_code.set(""); return
+        st = PJ.full_state(j)
+        fam = PJ.KINDS[j["kind"]]["family"]
+        t.insert("end", f"JOINT {j['id']}" + (f"  ·  {st.get('name')}" if st.get("name") else "") + "\n", "jid")
+        t.insert("end", fam + "\n", "fam"); t.insert("end", newjoint.FAMILY.get(fam, "") + "\n", "famn")
+        if j["kind"] == "knee":
+            t.insert("end", "BEAM\n", "h")
+            t.insert("end", f"Section : {st['beam']['sec']}\nMaterial : {st['beam']['mat']}\nSlope angle : {float(st['beam']['slope']):.2f}\n", "r")
+            t.insert("end", "COLUMN\n", "h")
+            t.insert("end", f"Section : {st['col']['sec']}\nMaterial : {st['col']['mat']}\n", "r")
+            align = {"vertical": "Vertical", "horizontal": "Horizontal", "perpendicular": "Perpendicular", "bisector": "Bisector"}.get(st["plate"].get("alignment"), "")
+            tpl, con = f"MEP Knee BCF - {align}", "Shear and moment connection (Knee moment end plate)"
+        else:
+            same = st["beam2"].get("same", True)
+            t.insert("end", "LEFT BEAM\n", "h")
+            t.insert("end", f"Section : {st['beam1']['sec']}\nMaterial : {st['beam1']['mat']}\n"
+                            + (f"Slope angle : {float(st.get('slope') or 0):.2f}\n" if st["type"] == "apex" else ""), "r")
+            t.insert("end", "RIGHT BEAM\n", "h")
+            t.insert("end", f"Section : {st['beam1']['sec'] if same else st['beam2']['sec']}\n"
+                            f"Material : {st['beam1']['mat'] if same else st['beam2']['mat']}\n", "r")
+            ext = {"flush": "Flush", "top": "Extended top", "bottom": "Extended bottom", "both": "Extended both"}.get(st["plate"].get("extension"), "")
+            tpl, con = f"MEP BS - {PJ.type_label(j)} - {ext}", "Moment connection (Moment end plate splice)"
+        t.insert("end", "SHEAR AND MOMENT CONNECTION\n", "h")
+        t.insert("end", f"Template : {tpl}\nConnection : {con}\nPlate / bolts : {PJ.connection_text(j)}\n", "r")
+        _s, R, err = self.result(j)
+        if err:
+            t.insert("end", f"Lỗi : {err}\n", "bad")
+        elif R["gov"]:
+            g = R["gov"]; ok = g["ratio"] <= 1.0001 and R["geoFail"] == 0
+            t.insert("end", f"Critical ratio : {g['ratio']:.2f} - {g['combo']}  ({'OK' if ok else 'N.G.'})\n", "ok" if ok else "bad")
+        t.configure(state="disabled")
+        code = st.get("gen", {}).get("designCode", "AISC 2010 LRFD")
+        self.cmb_code.set(next((k for k, v in DESIGN_CODES.items() if v == code), "AISC-10 LRFD"))
+        self.notes.insert("1.0", st.get("notes", ""))
+
+    def _code_changed(self):
+        j = self._joint(False)
+        if not j: return
+        st = copy.deepcopy(j["state"]); st.setdefault("gen", {})["designCode"] = DESIGN_CODES[self.cmb_code.get()]
+        self.project.update(j["id"], st); self._title()
+
+    def _notes_changed(self):
+        j = self._joint(False)
+        if not j: return
+        txt = self.notes.get("1.0", "end").rstrip("\n")
+        if txt != j["state"].get("notes", ""):
+            j["state"]["notes"] = txt; self.project.dirty = True; self._title()
 
     def _joint(self, need=True):
         j = self.project.get(self.sel) if self.sel is not None else None
         if need and not j:
-            messagebox.showinfo("Joint", "Chọn một nút trong bảng (hoặc tạo nút mới bằng New).")
+            messagebox.showinfo("Joint", "Chọn một nút ở dải hình phía dưới (hoặc tạo nút mới bằng New).")
         return j
 
     def _fill_conditions(self):
@@ -487,7 +593,7 @@ class App(ctk.CTk):
     def _draw(self):
         j = self._joint(False)
         if not j:
-            self.view.show(None); return
+            self.view3.show(None); self.view2.show(None); return
         st, R, err = self.result(j)
         if err:
             self.view.show(None); self.set_status(f"Nút {j['id']}: {err}"); return
@@ -504,8 +610,16 @@ class App(ctk.CTk):
             except Exception:  # noqa: BLE001
                 heat = None
         k = PJ.KINDS[j["kind"]]
-        sc = k["elevation"](st, R, dem, flow=True) if self.cmb_view.get() == "Elevation" else k["face"](st, R, dem)
-        self.view.show(sc, (), heat)
+        mode = self.cmb_view.get()
+        want = self.view3 if mode.startswith("3D") else self.view2
+        if want is not self.view:
+            self.view.pack_forget(); want.pack(fill="both", expand=True); self.view = want
+        if mode.startswith("3D"):
+            sc = k["elevation"](st, R, dem, flow=False)
+            self.view.show(sc, (), heat if mode == "3D D/C" else None)
+        else:
+            sc = k["elevation"](st, R, dem, flow=True) if mode == "Elevation" else k["face"](st, R, dem)
+            self.view.show(sc, (), heat)
         g = R["gov"]
         self.set_status(f"{k['family']} {j['id']} · {j['state'].get('name', '')} · {PJ.type_label(j)} — "
                         f"Global critical strength ratio {('∞' if math.isinf(g['ratio']) else format(g['ratio'], '.2f')) if g else '—'}"

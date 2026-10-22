@@ -41,9 +41,12 @@ def elevation(inp: dict, R: dict, dem: dict | None, flow: bool = True) -> Scene:
     wT = inp["weld"]["flT"]["w"] if inp["weld"]["flT"]["type"] == "fillet" else 0.0
     wB = inp["weld"]["flB"]["w"] if inp["weld"]["flB"]["type"] == "fillet" else 0.0
 
+    Z = lambda w: [(-w / 2, w / 2)]               # bề dày ngoài mặt phẳng (mm) — để dựng hình 3D kiểu RAM
+    m = {1: G["b1"], 2: G["b2"]}
+    g2 = float(pl["g"]) / 2
     # ---- hai bản đầu ----
     for k, (xa, xb) in ((1, (-tp1, 0.0)), (2, (0.0, tp2))):
-        sc.poly([(xa, -sTop), (xb, -sTop), (xb, -sBot), (xa, -sBot)], C_PLATE, C_PLATE_L, 1, (f"plate{k}",))
+        sc.poly([(xa, -sTop), (xb, -sTop), (xb, -sBot), (xa, -sBot)], C_PLATE, C_PLATE_L, 1, (f"plate{k}",), z=Z(G["bp"]))
 
     # ---- hai dầm ----
     for k in (1, 2):
@@ -51,31 +54,34 @@ def elevation(inp: dict, R: dict, dem: dict | None, flow: bool = True) -> Scene:
         P = lambda y: (xs, y)
         off = lambda pt: add(pt, mul(uu, Lb))
         webp = [P(-tfT), P(-(dp - tfB)), off(P(-(dp - tfB))), off(P(-tfT))]
-        sc.poly(webp, C_WEB, C_STEEL_L, 1, (f"m{k}webweld", f"m{k}web"))
-        sc.poly([P(0.0), P(-tfT), off(P(-tfT)), off(P(0.0))], C_STEEL, C_STEEL_L, 1, (f"m{k}weldT",))
-        sc.poly([P(-(dp - tfB)), P(-dp), off(P(-dp)), off(P(-(dp - tfB)))], C_STEEL, C_STEEL_L, 1, (f"m{k}weldB",))
+        sc.poly(webp, C_WEB, C_STEEL_L, 1, (f"m{k}webweld", f"m{k}web"), z=Z(m[k]["tw"]))
+        sc.poly([P(0.0), P(-tfT), off(P(-tfT)), off(P(0.0))], C_STEEL, C_STEEL_L, 1, (f"m{k}weldT",), z=Z(m[k]["bfE"]))
+        sc.poly([P(-(dp - tfB)), P(-dp), off(P(-dp)), off(P(-(dp - tfB)))], C_STEEL, C_STEEL_L, 1, (f"m{k}weldB",), z=Z(m[k]["bfI"]))
         # đường hàn góc ở 4 góc cánh–bản (tam giác)
         for (py, vy, w, tag) in ((0.0, 1, wT, f"m{k}weldT"), (-tfT, -1, wT, f"m{k}weldT"),
                                  (-dp, -1, wB, f"m{k}weldB"), (-(dp - tfB), 1, wB, f"m{k}weldB")):
             if w > 0:
-                sc.poly([P(py), (xs, py + vy * w), add(P(py), mul(uu, w))], C_WELD, C_WELD, 1, (tag,), bbox=False)
+                sc.poly([P(py), (xs, py + vy * w), add(P(py), mul(uu, w))], C_WELD, C_WELD, 1, (tag,), bbox=False,
+                        z=Z(m[k]["bfE"] if tag.endswith("T") else m[k]["bfI"]))
         # sườn bản đầu 4ES (tam giác trên phần nhô)
         for side, ext_y, py, sgn in (("T", sTop, 0.0, 1), ("B", sBot, -dp, -1)):
             st = pl["stiffT"] if side == "T" else pl["stiffB"]
             S = R["sides"].get(side)
             if S and "error" not in S and S["stiff"] and st.get("on"):
                 Ls = float(st["L"])
-                sc.poly([(xs, -ext_y), P(py), add(P(py), mul(uu, Ls))], C_STIFF, C_PLATE_L, 1, (f"plate{k}",))
+                sc.poly([(xs, -ext_y), P(py), add(P(py), mul(uu, Ls))], C_STIFF, C_PLATE_L, 1, (f"plate{k}",), z=Z(float(st["ts"])))
 
     # ---- bu lông xuyên hai bản ----
+    zb = [(g2 - db / 2, g2 + db / 2), (-g2 - db / 2, -g2 + db / 2)]        # hai dãy bu lông cách nhau g
+    zh = [(g2 - 0.85 * db, g2 + 0.85 * db), (-g2 - 0.85 * db, -g2 + 0.85 * db)]
     for sd, rows in (("T", G["rowsT"]), ("B", G["rowsB"])):
         for r in rows:
             y = -r["s"]
             sc.poly([(-tp1 - 0.7 * db, y - 0.85 * db), (-tp1, y - 0.85 * db), (-tp1, y + 0.85 * db), (-tp1 - 0.7 * db, y + 0.85 * db)],
-                    C_BOLT, C_BOLT, 1, ("bolts" + sd,))
+                    C_BOLT, C_BOLT, 1, ("bolts" + sd,), z=zh)
             sc.poly([(tp2, y - 0.85 * db), (tp2 + 0.8 * db, y - 0.85 * db), (tp2 + 0.8 * db, y + 0.85 * db), (tp2, y + 0.85 * db)],
-                    C_BOLT, C_BOLT, 1, ("bolts" + sd,))
-            sc.poly([(-tp1, y - db / 2), (tp2, y - db / 2), (tp2, y + db / 2), (-tp1, y + db / 2)], "#6B7280", C_BOLT, 1, ("bolts" + sd,))
+                    C_BOLT, C_BOLT, 1, ("bolts" + sd,), z=zh)
+            sc.poly([(-tp1, y - db / 2), (tp2, y - db / 2), (tp2, y + db / 2), (-tp1, y + db / 2)], C_BOLT, C_BOLT, 1, ("bolts" + sd,), z=zb)
 
     # ---- nhãn ----
     for k in (1, 2):
