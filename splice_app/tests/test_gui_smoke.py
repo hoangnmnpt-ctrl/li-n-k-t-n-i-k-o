@@ -101,6 +101,18 @@ def main() -> int:
     f["var"].set("500.8-200.12"); app.run(); _spin(app)
     check("sửa lại → tính lại được", app.R is not None)
 
+    # hộp thoại New joint (kiểu RAM Connection)
+    import splice_newjoint as NJ
+    d = NJ.NewJointDialog(app, "straight"); _spin(app)
+    d._pick(1); d._ok()
+    check("New joint: chọn Apex", d.result == "apex")
+    d = NJ.NewJointDialog(app, "straight"); _spin(app)
+    d._pick(4); d._ok()
+    check("New joint: Column splice chưa hỗ trợ → không đóng", d.result is None and d.winfo_exists())
+    d._pick_group(0); _spin(app)
+    check("New joint: nhóm chưa hỗ trợ không có ô", d._joints() == [])
+    d.destroy()
+
     check("không có exception trong callback", not errs)
     app.destroy()
     return 1 if fails else 0

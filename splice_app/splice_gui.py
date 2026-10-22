@@ -31,6 +31,7 @@ import splice_report as RP  # noqa: E402
 from splice_defaults import BASE, PRESETS, merge  # noqa: E402
 from splice_drawing import KneeCanvas, elevation, heat_color, plate_face  # noqa: E402
 from splice_store import SavedList  # noqa: E402
+import splice_newjoint  # noqa: E402
 
 APP_TITLE = "NỐI DẦM — AISC 360-10 LRFD · DG4 / DG16 / DG39"
 TYPE_LABEL = {"straight": "Beam splice", "apex": "Apex"}
@@ -41,6 +42,8 @@ FONT_S = ("Segoe UI", 11)
 FONT_B = ("Segoe UI", 12, "bold")
 OK_C, WARN_C, BAD_C = "#1A9E5A", "#D99A00", "#D23B3B"
 ACCENT = "#E0701C"
+SLATE = "#8A95A3"       # thanh nhóm (như cột "Joint group" của RAM)
+PAPER = "#ECEEF0"
 
 CATS = [("Bản đầu 1", ("pl1_",)), ("Bản đầu 2", ("pl2_",)), ("Bu lông", ("bolt_", "bear_")),
         ("Hàn dầm 1", ("m1_wf", "m1_ww")), ("Hàn dầm 2", ("m2_wf", "m2_ww")), ("Bụng dầm", ("m1_wv", "m2_wv"))]
@@ -212,13 +215,16 @@ class App(ctk.CTk):
 
     # ───────────────────────── Bố cục ─────────────────────────
     def _build(self):
+        self._build_menu()
         self.status = StatusBar(self)
         self.status.pack(side="bottom", fill="x")
 
-        top = ctk.CTkFrame(self, corner_radius=0)
+        top = ctk.CTkFrame(self, corner_radius=0, fg_color="#DADDE1")
         top.pack(fill="x")
-        ctk.CTkLabel(top, text="NỐI DẦM", font=("Segoe UI", 16, "bold"), text_color=ACCENT).pack(side="left", padx=(10, 2))
-        ctk.CTkLabel(top, text="AISC 360-10 LRFD", font=FONT_S, text_color="gray").pack(side="left", padx=(0, 12))
+        ctk.CTkButton(top, text="New joint…", width=100, height=28, fg_color="#FFFFFF", text_color="#1B2430", hover_color="#F3F4F6",
+                      border_width=1, border_color="#B8BCC0", corner_radius=2, command=self._new_joint).pack(side="left", padx=(8, 3), pady=4)
+        self.lbl_joint = ctk.CTkLabel(top, text="", font=("Segoe UI", 12, "bold"), text_color="#1B2430")
+        self.lbl_joint.pack(side="left", padx=10)
         self.opt_preset = ctk.CTkOptionMenu(top, values=list(PRESETS), width=300, height=28, command=self._preset)
         self.opt_preset.set("Nạp mẫu…"); self.opt_preset.pack(side="left", padx=3)
         ctk.CTkButton(top, text="⚙ Tự chọn tp / bu lông", width=160, height=30, fg_color="#B45309", hover_color="#92400E", font=FONT_B,
@@ -335,6 +341,44 @@ class App(ctk.CTk):
         self.tree_geo.tag_configure("bad", foreground=BAD_C)
         self.tree_geo.tag_configure("warn", foreground=WARN_C)
 
+    def _build_menu(self):
+        mb = tk.Menu(self)
+        fm = tk.Menu(mb, tearoff=0)
+        fm.add_command(label="New joint…", accelerator="Ctrl+N", command=self._new_joint)
+        fm.add_command(label="Save to list", accelerator="Ctrl+S", command=self._save_new)
+        fm.add_separator()
+        fm.add_command(label="Export report (.docx)…", command=self._export_docx)
+        fm.add_separator()
+        fm.add_command(label="Exit", command=self.destroy)
+        mb.add_cascade(label="File", menu=fm)
+        em = tk.Menu(mb, tearoff=0)
+        pm = tk.Menu(em, tearoff=0)
+        for name in PRESETS:
+            pm.add_command(label=name, command=lambda n=name: self._preset(n))
+        em.add_cascade(label="Load preset", menu=pm)
+        em.add_command(label="Smart connection (auto tp / bolt)", command=self._auto)
+        mb.add_cascade(label="Edit", menu=em)
+        vm = tk.Menu(mb, tearoff=0)
+        vm.add_command(label="Elevation", command=lambda: (self.seg_view.set("Mặt đứng"), self._view_changed("Mặt đứng")))
+        vm.add_command(label="End plate face", command=lambda: (self.seg_view.set("Mặt bản đầu"), self._view_changed("Mặt bản đầu")))
+        mb.add_cascade(label="View", menu=vm)
+        rm = tk.Menu(mb, tearoff=0)
+        rm.add_command(label="Loads", command=lambda: self.tabs.set("Loads"))
+        rm.add_command(label="Report", command=lambda: self.tabs.set("Report (RAM)"))
+        rm.add_command(label="Saved connections", command=lambda: self.tabs.set("Danh sách đã lưu"))
+        mb.add_cascade(label="Results", menu=rm)
+        hm = tk.Menu(mb, tearoff=0)
+        hm.add_command(label="About", command=lambda: messagebox.showinfo("About", "NỐI DẦM — AISC 360-10 LRFD · DG4 / DG16 / DG39\nKết quả cần được kỹ sư có chứng chỉ kiểm tra."))
+        mb.add_cascade(label="Help", menu=hm)
+        self.configure(menu=mb)
+        self.bind("<Control-n>", lambda e: self._new_joint())
+        self.bind("<Control-s>", lambda e: self._save_new())
+
+    def _new_joint(self):
+        key = splice_newjoint.ask(self, self.S["type"])
+        if key and key != self.S["type"]:
+            self.seg_type.set(TYPE_LABEL[key]); self._type_changed(TYPE_LABEL[key])
+
     def _mk_table(self, parent, cols, height=7):
         fr = ttk.Frame(parent); fr.pack(fill="both", expand=True)
         tv = ttk.Treeview(fr, columns=[c[0] for c in cols], show="headings", style="K.Treeview", height=height)
@@ -349,7 +393,7 @@ class App(ctk.CTk):
         self.fields = []
         for title, opened, specs in build_sections(self):
             hdr = ctk.CTkButton(self.form, text=("▾ " if opened else "▸ ") + title, anchor="w", font=FONT_B, height=28,
-                                fg_color="#EEF1F5", text_color="#18212F", hover_color="#E2E7EE")
+                                fg_color=SLATE, text_color="#FFFFFF", hover_color="#7A8594", corner_radius=2)
             hdr.pack(fill="x", pady=(6, 2))
             body = ctk.CTkFrame(self.form, fg_color="transparent")
             if opened: body.pack(fill="x")
@@ -439,6 +483,7 @@ class App(ctk.CTk):
             else: f["var"].set("" if v is None else (f"{v:g}" if isinstance(v, float) else str(v)))
         self._suspend = False
         self.seg_type.set(TYPE_LABEL[self.S["type"]])
+        self.lbl_joint.configure(text=f"BS - {TYPE_LABEL[self.S['type']]}   ·   {self.S.get('name', '')}")
         self._refresh_visibility(); self._update_info()
         self._fill_loads()
 
@@ -515,6 +560,7 @@ class App(ctk.CTk):
         g = R["gov"]; r = g["ratio"] if g else 0.0
         ok = r <= 1.0001 and R["geoFail"] == 0
         self.lbl_status.configure(text="✔ ĐẠT" if ok else "✘ KHÔNG ĐẠT", text_color=OK_C if ok else BAD_C)
+        self.status.set_text(f"Global critical strength ratio  {'INF' if math.isinf(r) else f'{r:.2f}'}   ·   {'OK' if ok else 'N.G.'}")
         self.lbl_ratio.configure(text="∞" if math.isinf(r) else f"{r:.2f}", text_color=rc(r))
         self.bar_ratio.configure(progress_color=rc(r)); self.bar_ratio.set(min(r, 1.0))
         self.lbl_gov.configure(text=(f"Khống chế: {g['name']} — {g['grp']} ({g['combo']})" if g else "")

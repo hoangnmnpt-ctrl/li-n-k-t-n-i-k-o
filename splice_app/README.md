@@ -7,7 +7,8 @@ Chạy: nhấp đúp `Chay_Splice.bat` (dùng `.venv` của *Lấy nội lực*)
 Cần Python ≥ 3.12 (như tool Knee) và `customtkinter`.
 
 ## Quy trình
-1. Chọn kiểu **Beam splice** (thẳng) hoặc **Apex** (đỉnh mái, hai dầm nghiêng ±α, bản đầu đặt đứng) ở thanh trên hình.
+0. **File → New joint…** (Ctrl+N) mở hộp thoại chọn nút giống RAM Connection (Joint group → Splices → Beam splice / Apex). Các kiểu khác hiện mờ, chưa hỗ trợ.
+1. Hoặc chọn kiểu **Beam splice** (thẳng) hoặc **Apex** (đỉnh mái, hai dầm nghiêng ±α, bản đầu đặt đứng) ở thanh trên hình.
 2. Nhập tiết diện dầm 1 / dầm 2 (quy cách như SAP: `500.8-200.12` = bụng 500×8, cánh 200×12; hỗ trợ tiết diện vát `(580-380).6-200.10`).
    Tick *Same as beam 1* nếu hai dầm giống nhau. Hai dầm phải **cùng chiều cao** tại mặt nối.
 3. Chọn kiểu bản đầu: **Flush** (bích bằng, 2FU / 4FU) · **Extended top / bottom / both** (4E, 4ES có sườn, MRE 1/2, 1/3), bề dày và vật liệu **từng bản** (tp1/tp2),
@@ -47,4 +48,4 @@ DG39 (2023) Table 5-2 bỏ số hạng −1/2 của 2FU, nên Y(DG39) cao hơn Y
 
 ## Tệp
 `splice_engine.py` lõi tính · `splice_defaults.py` mẫu · `splice_drawing.py` hình · `splice_gui.py` giao diện · `splice_report.py` báo cáo RAM + Word ·
-`splice_store.py` danh sách lưu · `_knee.py` nối sang `knee_app` (engine, tiết diện, canvas).
+`splice_store.py` danh sách lưu · `splice_newjoint.py` hộp thoại New joint · `_knee.py` nối sang `knee_app` (engine, tiết diện, canvas).
