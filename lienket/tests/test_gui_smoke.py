@@ -88,11 +88,19 @@ def main() -> int:
     # Edit: cửa sổ thiết kế, sửa và OK
     app.select(j2["id"]); app.edit_joint(); _spin(app, 20)
     ed = app.editors[j2["id"]]
-    ed.panel.S["plate"]["tp1"] = ed.panel.S["plate"]["tp2"] = 25; ed.ok(); _spin(app)
+    check("Connection Pad: ô tỷ số", ed.box.cget("text") not in ("—", "!"))
+    ed.S["plate"]["tp1"] = ed.S["plate"]["tp2"] = 25; ed.ok(); _spin(app)
     check("Edit → OK lưu vào dự án", app.project.get(j2["id"])["state"]["plate"]["tp1"] == 25)
     app.select(j["id"]); app.edit_joint("Loads"); _spin(app, 20)
     ed = app.editors[j["id"]]
-    check("Edit knee mở tab Loads", ed.panel.tabs.get() == "Loads"); ed.destroy()
+    check("Edit knee mở bảng Loads", ed.loads_win is not None and ed.loads_win.winfo_exists())
+    ed.loads_win.destroy(); _spin(app)
+    for st_ in ("lines", "transparent", "solid"): ed.set_style(st_)
+    w = ed.results(); check("Results mở được", w is not None); w.destroy()
+    w = ed.print_preview(); check("Print (xem báo cáo) mở được", w is not None); w.destroy()
+    adv = app.advanced_editor(app.project.get(j["id"])); _spin(app, 10)
+    check("Advanced (khung thiết kế đầy đủ)", adv.panel.S["name"] == ed.S["name"]); adv.destroy()
+    ed.destroy()
 
     # lưu / mở lại
     app.save_project(); app2 = PJ.Project.load(path)

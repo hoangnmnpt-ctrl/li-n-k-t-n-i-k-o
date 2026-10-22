@@ -650,10 +650,23 @@ class App(ctk.CTk):
         ed = self.editors.get(j["id"])
         if ed is not None and ed.winfo_exists():
             ed.lift(); ed.focus_force(); return
-        self.editors[j["id"]] = JointEditor(self, j, tab)
+        from connpad import ConnectionPad
+        self.editors[j["id"]] = ConnectionPad(self, j, tab)
 
-    def apply_editor(self, jid, state):
+    def advanced_editor(self, j, tab=None):
+        """Khung thiết kế đầy đủ của tool (SAP2000, quét knee, bảng D/C, mặt đứng 2D)."""
+        key = ("adv", j["id"])
+        ed = self.editors.get(key)
+        if ed is not None and ed.winfo_exists():
+            ed.lift(); ed.focus_force(); return ed
+        ed = self.editors[key] = JointEditor(self, j, tab)
+        return ed
+
+    def apply_editor(self, jid, state, source=None):
         self.project.update(jid, state); self.refresh(); self.select(jid)
+        pad = self.editors.get(jid)
+        if pad is not None and pad is not source and pad.winfo_exists() and hasattr(pad, "reload"):
+            pad.reload(self.project.get(jid)["state"])
 
     def delete_joint(self):
         j = self._joint()
@@ -704,8 +717,7 @@ class App(ctk.CTk):
         if not j: return
         if j["kind"] != "knee":
             messagebox.showinfo("Generate", "Lấy nội lực từ SAP2000 hiện có cho knee. Nối dầm: nhập hoặc dán từ Excel ở Add/Edit."); return
-        self.edit_joint()
-        ed = self.editors.get(j["id"])
+        ed = self.advanced_editor(j)
         if ed: ed.after(400, ed.panel._pick_knee)
 
     # ───────────────────────── View ─────────────────────────

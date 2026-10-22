@@ -22,7 +22,7 @@ BASE = {
             "topAuto": True, "topOffset": 0, "tcap": 14, "kw": 6,
             "stE": {"on": True, "bs": 110, "ts": 12, "clip": 15, "mat": "Q345", "wf": 8, "ww": 8, "fullDepth": True},
             "stI": {"on": True, "bs": 110, "ts": 12, "clip": 15, "mat": "Q345", "wf": 8, "ww": 8, "fullDepth": True},
-            "doubler": 0, "diag": {"on": True, "b": 80, "t": 10, "mat": "Q345"}},
+            "doubler": 0, "diag": {"on": False, "b": 80, "t": 10, "mat": "Q345"}},
     # một bộ sườn ngang như RAM (Transverse stiffeners); 'at' = both | external | internal
     "stiff": {"on": True, "at": "both", "fullDepth": True, "bs": 110, "cc": 15, "ts": 12, "mat": "Q345",
               "weldType": "Fillet", "electrode": "E70XX", "D": 5},

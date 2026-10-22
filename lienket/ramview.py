@@ -96,6 +96,7 @@ class RamView(D._BaseView):
         self.configure(background=NAVY)
         self.thumb = thumb
         self.yaw, self.pitch = YAW0, PITCH0
+        self.style = "solid"                                  # solid | lines | transparent (Draw options như RAM)
         self.empty_text = ""
         self._model: Model | None = None
         self._center = (0.0, 0.0, 0.0)
@@ -283,6 +284,12 @@ class RamView(D._BaseView):
                 col = D.shade(base, inten)
                 spts = [(ox + k * (x - cxw), oy - k * (y - cyw)) for x, y in q]
                 pts = [c for p in spts for c in p]
+                if self.style == "lines":      # Lines (RAM): chỉ nét cạnh
+                    self.create_polygon(*pts, fill="", outline=D.C_HL if on else D.shade(base, 1.15), width=2 if on else 1, tags=tags)
+                    continue
+                if self.style == "transparent":   # Transparent (RAM): tô lưới nửa trong suốt
+                    self.create_polygon(*pts, fill=col, stipple="gray50", outline=D.C_HL if on else D.shade(base, 1.05), width=2 if on else 1, tags=tags)
+                    continue
                 if weld:                       # đường hàn: nét vàng dày theo điểm ảnh, như RAM
                     self.create_polygon(*pts, fill=col, outline="#F7B733", width=2 if self.thumb else 3, tags=tags)
                     continue

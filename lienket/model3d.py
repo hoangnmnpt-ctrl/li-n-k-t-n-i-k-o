@@ -201,14 +201,68 @@ def bolts(m, rows_s, C, n, g, db, head_off, nut_off, tagof):
 
 
 # ─────────────────────────── knee ───────────────────────────
+def _rect_bb(it):
+    return _bbox2(it["pts"])
+
+
+def _set_span(it, axis, lo, hi):
+    """Đặt lại khoảng [lo, hi] theo trục axis (0 = x, 1 = y) của đa giác chữ nhật trục thẳng."""
+    b = _bbox2(it["pts"])
+    o0, o1 = b[axis], b[axis + 2]
+    pts = []
+    for p in it["pts"]:
+        q = list(p)
+        q[axis] = lo if abs(p[axis] - o0) < abs(p[axis] - o1) else hi
+        pts.append(tuple(q))
+    it["pts"] = pts
+
+
+def _knee_support_as_plate(sc, st, G, C):
+    """Bản gối (connection plate, xanh lá) cùng kích thước với bản đầu như RAM: kéo dài theo chiều bản (sTop → sBot);
+    phần cấu kiện gối phía sau được nối tiếp đúng mép bản. Thêm sườn tam giác phía gối ở phần bản nhô ngoài."""
+    T = G["type"]
+    items = [it for it in sc.items if it["k"] == "poly"]
+    supp = next((it for it in items if {"supportE", "supportI"} <= set(it.get("tags", ())) and it.get("fill") in (D.C_PLATE, D.C_PANEL)), None)
+    if supp is None or T == "xien":
+        return None
+    a, b = C(G["sTop"]), C(G["sBot"])
+    if T == "dung":
+        lo, hi = min(a[1], b[1]), max(a[1], b[1])
+        sb = _rect_bb(supp)
+        for it in items:                                   # cánh trong cột ngay dưới bản gối → nối tới mép dưới bản
+            if it is supp or it.get("fill") != D.C_STEEL: continue
+            bb = _rect_bb(it)
+            if abs(bb[0] - sb[0]) < 1e-3 and abs(bb[2] - sb[2]) < 1e-3 and abs(bb[3] - sb[1]) < 1e-3:
+                _set_span(it, 1, bb[1], lo)
+        _set_span(supp, 1, lo, hi)
+        return dict(x=sb[0], top=hi, col_top=sb[3])
+    lo, hi = min(a[0], b[0]), max(a[0], b[0])
+    sb = _rect_bb(supp)
+    if sb[2] > hi + 1e-3:                                  # phần cánh kèo ngoài bản → thép
+        sc.items.append(dict(supp, pts=[(hi, sb[1]), (sb[2], sb[1]), (sb[2], sb[3]), (hi, sb[3])], fill=D.C_STEEL, tags=()))
+    _set_span(supp, 0, lo, hi)
+    return None
+
+
 def knee_model(st: dict, R: dict) -> Model:
     m = Model()
-    from_scene(m, D.elevation(st, R, None, flow=False))
     G = R["G"]; T = G["type"]; M1 = G["M1"]; sup = st["sup"]
     tp = float(st["plate"]["tp"])
     nn = D.ang(G["thN"])
     t = (-nn[1], nn[0]) if T == "ngang" else (nn[1], -nn[0])
     C = lambda s: (t[0] * s, t[1] * s)
+    sc = D.elevation(st, R, None, flow=False)
+    info = _knee_support_as_plate(sc, st, G, C)
+    from_scene(m, sc)
+    pst = st["plate"].get("stiffE", {})
+    if info and pst.get("on") and st["plate"].get("extension") in ("external", "both") and info["top"] > info["col_top"] + 1:
+        # sườn tam giác phía cột (xanh lá) trên phần bản nhô, tựa lên đỉnh cột / bản nắp — như RAM
+        L, w = float(pst.get("L", 150)), float(pst.get("ts", 10))
+        ta = math.tan(math.radians(G["a"]))
+        x0 = info["x"]
+        y0 = info["col_top"] + (x0 * ta if sup.get("condE") == "top_cap" else 0.0)
+        y1 = y0 + (-L * ta if sup.get("condE") == "top_cap" else 0.0)
+        add_prism(m, [(x0, y0, -w / 2), (x0, info["top"], -w / 2), (x0 - L, y1, -w / 2)], (0.0, 0.0, w), SUPPORT_PLATE, ("supportE",))
     face = (nn[0] * tp, nn[1] * tp)
     if T == "ngang":
         uE = D.ang(-90 + (G["c_out_tilt"] if st["col"].get("innerStraight") else 0)); uI = D.ang(-90 - G["c_in_tilt"])
