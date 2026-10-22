@@ -14,7 +14,7 @@ Cần Python ≥ 3.12, `customtkinter`; `comtypes` khi lấy nội lực từ SA
 | **Home · Databases** | Sections (quy cách + tiết diện đang dùng) · Materials · Connections (kiểu nút có / chưa có) · Bolts · Welds · Anchors (chưa hỗ trợ) |
 | **Design** | Edit connection · Smart connection (tự chọn tp / bu lông) · Design all · Joint data · Loads |
 | **Output** | Report (.docx nút đang chọn) · All reports (cả dự án) · RAM .rcnx (mọi knee) · Results table (.csv mở bằng Excel) · Information log |
-| Khung xem xanh đậm | Hình 3D nút đang chọn kiểu RAM (cấu kiện xám, bản đầu xanh lá, bu lông cam, sườn tím, hàn vàng); kéo trái xoay, kéo phải di chuyển, lăn zoom, nhấp đúp về góc mặc định. Ô xem ở thanh trạng thái: **3D** · **3D D/C** (tô màu theo D/C của Condition) · Elevation · End plate |
+| Khung xem xanh đậm | Hình 3D phối cảnh kiểu RAM dựng từ khối thật (`model3d.py`): cấu kiện xám, bản đầu tím, bản gối xanh lá, sườn xanh rêu, bu lông lục giác cam, đường hàn vàng. Kéo trái xoay, kéo phải di chuyển, lăn zoom, nhấp đúp về góc mặc định. Ô xem: **3D** · **3D D/C** (tô màu theo D/C của Condition) · Elevation · End plate |
 | Bảng thông tin (phải) | JOINT, họ nút (BCF / BS), BEAM – COLUMN (hoặc LEFT / RIGHT BEAM), SHEAR AND MOMENT CONNECTION (Template, Connection, bản / bu lông, tỷ số khống chế), Design code, **Edit...**, Additional notes (lưu theo nút) |
 | Dải thẻ (dưới) | Mỗi nút một thẻ như RAM: số nút, họ, hình thu nhỏ, `tỷ số - tổ hợp khống chế` (xanh = đạt, đỏ = không đạt). Bấm để chọn, nhấp đúp để Edit, lăn chuột để cuộn |
 
@@ -115,5 +115,5 @@ DG39 (2023) Table 5-2 bỏ số hạng −1/2 của 2FU, nên Y(DG39) cao hơn Y
 
 ## Tệp
 `app.py` cửa sổ chính · `newjoint.py` New joint · `project.py` dự án · `knee_gui.py` / `splice_gui.py` cửa sổ thiết kế ·
-`engine.py` / `splice_engine.py` lõi tính · `drawing.py` / `splice_drawing.py` / `view3d.py` hình · `report.py` / `splice_report.py` báo cáo ·
+`engine.py` / `splice_engine.py` lõi tính · `model3d.py` mô hình 3D + `ramview.py` khung xem 3D kiểu RAM · `drawing.py` / `splice_drawing.py` / `view3d.py` hình · `report.py` / `splice_report.py` báo cáo ·
 `defaults.py` / `splice_defaults.py` mẫu · `knee_section.py` tiết diện · `scanner.py` quét SAP · `ram_export.py` + `ram_proto.rcnx` xuất RAM · `tests\` kiểm thử.

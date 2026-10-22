@@ -35,6 +35,7 @@ import newjoint  # noqa: E402
 import project as PJ  # noqa: E402
 from drawing import KneeCanvas, heat_color  # noqa: E402
 from ramview import RamView  # noqa: E402
+import model3d  # noqa: E402
 from knee_section import SectionError, parse_section  # noqa: E402
 
 APP = "Liên kết thép — AISC 360-10 LRFD"
@@ -458,7 +459,7 @@ class App(ctk.CTk):
         th.configure(background=CARD); th.pack(padx=2)
         if not err:
             try:
-                th.show(PJ.KINDS[j["kind"]]["elevation"](st, R, None, flow=False))
+                th.show_model(model3d.build(j["kind"], st, R))
             except Exception:  # noqa: BLE001
                 pass
         if err:
@@ -615,8 +616,7 @@ class App(ctk.CTk):
         if want is not self.view:
             self.view.pack_forget(); want.pack(fill="both", expand=True); self.view = want
         if mode.startswith("3D"):
-            sc = k["elevation"](st, R, dem, flow=False)
-            self.view.show(sc, (), heat if mode == "3D D/C" else None)
+            self.view.show_model(model3d.build(j["kind"], st, R), (), heat if mode == "3D D/C" else None)
         else:
             sc = k["elevation"](st, R, dem, flow=True) if mode == "Elevation" else k["face"](st, R, dem)
             self.view.show(sc, (), heat)
