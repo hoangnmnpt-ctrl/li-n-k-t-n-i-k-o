@@ -91,7 +91,7 @@ def elevation(inp: dict, R: dict, dem: dict | None, flow: bool = True) -> Scene:
     if T in ("dung", "xien"):
         dc = M2["d"]
         back = mul(n, -ts) if T == "xien" else (0.0, 0.0)          # mặt sau bản gối (knee xiên)
-        top = add(C(G["sTop"] if T == "xien" else sEnd), back)
+        top = add(C(sEnd), back)
         x_in = add(C(G["sBot"]), back)[0] if T == "xien" else 0.0
         x_out = x_in - dc
         cap_dir = (-math.cos(math.radians(a)), -math.sin(math.radians(a)))

@@ -17,10 +17,10 @@ import math
 from collections import defaultdict
 
 import drawing as D
-from model3d import BOLT, WELD, Model, v_add, v_cross, v_dot, v_len, v_mul, v_norm, v_sub
+from model3d import BOLT, STIFF, WELD, Model, v_add, v_cross, v_dot, v_len, v_mul, v_norm, v_sub
 
 NAVY = "#001A4D"
-YAW0, PITCH0 = 42.0, 17.0
+YAW0, PITCH0 = 16.0, 9.0
 
 
 def _sep_plane(A, B):
@@ -37,6 +37,25 @@ def _sep_plane(A, B):
         s = min(v_dot(n, v_sub(v, p)) for v in va)
         if s > best_s: best, best_s = (v_mul(n, -1), p), s
     return best
+
+
+def _clip_y(poly, ya, yb):
+    """Cắt đa giác 2D theo dải ya ≤ y ≤ yb (Sutherland–Hodgman)."""
+    def clip(pts, keep, inter):
+        out = []
+        for i in range(len(pts)):
+            a, b = pts[i - 1], pts[i]
+            ka, kb = keep(a), keep(b)
+            if kb:
+                if not ka: out.append(inter(a, b))
+                out.append(b)
+            elif ka:
+                out.append(inter(a, b))
+        return out
+    def at(yc):
+        return lambda a, b: (a[0] + (b[0] - a[0]) * (yc - a[1]) / ((b[1] - a[1]) or 1e-12), yc)
+    p = clip(poly, lambda q: q[1] >= ya, at(ya))
+    return clip(p, lambda q: q[1] <= yb, at(yb)) if p else p
 
 
 def _hull(pts):
@@ -100,8 +119,18 @@ class RamView(D._BaseView):
         self._heat = heat
         if model and model.solids:
             lo, hi = model.bbox()
-            self._center = tuple((lo[i] + hi[i]) / 2 for i in range(3))
             self._diag = max(v_len(v_sub(hi, lo)), 1.0)
+            if model.frame and not self.thumb:              # khung như RAM: nút + một đoạn cấu kiện
+                flo, fhi = model.frame
+                self._center = tuple((flo[i] + fhi[i]) / 2 for i in range(3))
+                self._fit = [(x, y, z) for x in (flo[0], fhi[0]) for y in (flo[1], fhi[1]) for z in (flo[2], fhi[2])]
+            elif model.focus and not self.thumb:
+                self._center = model.focus
+                h = model.focus_size / 2
+                self._fit = [v_add(model.focus, (sx * h, sy * h * 0.8, sz * h * 0.35)) for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1)]
+            else:
+                self._center = tuple((lo[i] + hi[i]) / 2 for i in range(3))
+                self._fit = None
         self._scene = None
         self.redraw()
 
@@ -133,6 +162,18 @@ class RamView(D._BaseView):
         self.pan = [px + e.x - x0, py + e.y - y0]; self.redraw()
 
     # ---------- vẽ ----------
+    def _gradient(self, spts, base, inten, tags, bands=10):
+        """Tô đa giác theo các dải ngang, sáng ở trên → tối ở dưới (giống RAM)."""
+        y0, y1 = min(p[1] for p in spts), max(p[1] for p in spts)
+        h = (y1 - y0) / bands
+        for b in range(bands):
+            ya, yb = y0 + b * h, y0 + (b + 1) * h + 0.8
+            poly = _clip_y(spts, ya, yb)
+            if len(poly) < 3: continue
+            t = (b + 0.5) / bands
+            col = D.shade(base, min(inten * (1.10 - 0.22 * t), 1.15))
+            self.create_polygon(*[c for p in poly for c in p], fill=col, outline=col, width=1, tags=tags)
+
     def _plane(self, i, j):
         key = (i, j)
         if key not in self._planes:
@@ -150,12 +191,12 @@ class RamView(D._BaseView):
             return
         cy, sy = math.cos(math.radians(self.yaw)), math.sin(math.radians(self.yaw))
         cp, sp = math.cos(math.radians(self.pitch)), math.sin(math.radians(self.pitch))
-        dist = self._diag * 2.6
+        dist = self._diag * 6.0                               # tiêu cự dài: phối cảnh nhẹ, ít méo
         cam = v_add(self._center, (dist * cp * sy, dist * sp, dist * cp * cy))
         f = v_norm(v_sub(self._center, cam))
         r = v_norm(v_cross(f, (0.0, 1.0, 0.0)))
         u = v_cross(r, f)
-        light = v_norm(v_add(v_add(v_mul(r, -0.30), v_mul(u, 0.45)), v_mul(f, -0.85)))     # đèn gần hướng nhìn (như RAM)
+        light = v_norm(v_add(v_add(v_mul(r, 0.25), v_mul(u, 0.55)), v_mul(f, -0.80)))      # đèn gần hướng nhìn, hơi lệch phải-trên
 
         def proj(p):
             v = v_sub(p, cam)
@@ -217,6 +258,9 @@ class RamView(D._BaseView):
                 if indeg[b] == 0 and not done[b]:
                     heapq.heappush(heap, (-vis[b]["d"], b))
 
+        if getattr(self, "_fit", None):
+            fp = [proj(p) for p in self._fit]
+            xs, ys = [p[0] for p in fp], [p[1] for p in fp]
         x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
         pad = 6 if self.thumb else 30
         k = min((W - 2 * pad) / max(x1 - x0, 1e-9), (H - 2 * pad) / max(y1 - y0, 1e-9)) * self.zoom
@@ -233,15 +277,24 @@ class RamView(D._BaseView):
             tags = tuple("t_" + g for g in so.tags) + (("hl",) if on else ())
             faces = vis[kk]["faces"] if so.convex else sorted(vis[kk]["faces"], key=lambda fc: -fc[0])
             weld = so.color == WELD and heat is None
+            stiff = so.color == STIFF and heat is None
             for _d, q, nrm in faces:
-                inten = min(0.38 + 0.70 * max(0.0, v_dot(nrm, light)), 1.15)
+                inten = min(0.62 + 0.48 * max(0.0, v_dot(nrm, light)), 1.12)
                 col = D.shade(base, inten)
-                pts = [c for x, y in q for c in (ox + k * (x - cxw), oy - k * (y - cyw))]
+                spts = [(ox + k * (x - cxw), oy - k * (y - cyw)) for x, y in q]
+                pts = [c for p in spts for c in p]
                 if weld:                       # đường hàn: nét vàng dày theo điểm ảnh, như RAM
                     self.create_polygon(*pts, fill=col, outline="#F7B733", width=2 if self.thumb else 3, tags=tags)
                     continue
                 edge = D.C_HL if on else (D.shade(base, 0.62) if so.color == BOLT else D.shade(base, 0.5 * min(inten, 1.0) + 0.12))
-                self.create_polygon(*pts, fill=col, outline=edge, width=2 if on else 1, tags=tags)
+                if stiff and not on:
+                    edge = "#F2C230"           # sườn ngang: viền vàng (đường hàn) như RAM
+                ys_ = [p[1] for p in spts]
+                if not self.thumb and max(ys_) - min(ys_) > 60 and so.color != BOLT:
+                    self._gradient(spts, base, inten, tags)          # mặt lớn: chuyển màu sáng → tối theo chiều đứng
+                    self.create_polygon(*pts, fill="", outline=edge, width=2 if on or stiff else 1, tags=tags)
+                else:
+                    self.create_polygon(*pts, fill=col, outline=edge, width=2 if on or stiff else 1, tags=tags)
         if not self.thumb:
             self.create_text(8, H - 8, anchor="sw", text="Kéo trái: xoay · kéo phải: di chuyển · lăn: zoom · nhấp đúp: góc mặc định",
                              fill="#6F86AD", font=("Segoe UI", 8))

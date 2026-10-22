@@ -352,6 +352,9 @@ def side_static(G, inp, side, bolt):
         nearest = min(rows, key=lambda r: abs(r["s"] - sEnd))
         pcpRaw = abs(nearest["s"] - (sEnd + float(sup.get("tcap") or 0)))
         de = abs(nearest["s"] - sEnd)
+        if T and outer is not None and outer["s"] < sEnd - 1e-6 and cond != "endplate":
+            W.append("Hàng bu lông ngoài (phần bản nhô) nằm ngoài đỉnh cấu kiện gối: phía gối ở đó chỉ có bản nối — "
+                     "Yc phía gối vẫn tính theo điều kiện đã chọn; cân nhắc điều kiện 'Bản đầu (như end-plate)' hoặc tắt 'Đỉnh gối bằng cánh kèo'.")
         if cond == "cont_stiff" and not (stS and stS.get("on")):
             W.append(f"Chọn 'cánh liên tục có sườn' nhưng chưa khai báo sườn ngang tại cánh {'ngoài' if T else 'trong'}.")
         Ys = support_Yc(cond, bs, pl["g"], rows, psiRaw, psoRaw, pcpRaw, de, stiff_between=outer is not None)
@@ -384,10 +387,16 @@ def normalize(inp: dict) -> dict:
        • plate.extension  → plate.extE / extI
        • plate.alignment  → type (+ plate.mitre)
        • stiff (1 bộ sườn ngang như RAM) + stiff.at → sup.stE / sup.stI
-       • sup.useFlange = False (RAM knee luôn có connection plate)"""
+       • sup.useFlange = False (RAM knee luôn có connection plate)
+       • sup.topAuto (mặc định bật, như RAM): đỉnh cấu kiện gối bằng mặt ngoài cánh ngoài của cấu kiện có bản
+         → topOffset = −(phần bản nhô: pfo + Lev, hoặc flushExt); phần bản nhô không có cấu kiện gối phía sau"""
     pl = inp["plate"]
     if pl.get("extension") in EXT_MAP:
         pl["extE"], pl["extI"] = EXT_MAP[pl["extension"]]
+    sp = inp.get("sup", {})
+    if sp.get("topAuto", True):
+        # topOffset > 0: gối cao hơn mép bản; < 0: thấp hơn → −(phần nhô) đưa đỉnh gối về mặt ngoài cánh ngoài
+        sp["topOffset"] = -((float(pl["pfoE"]) + float(pl["Lev"])) if pl.get("extE") else float(pl.get("flushExt") or 0))
     if pl.get("alignment") in ALIGN_TYPE:
         t, m = ALIGN_TYPE[pl["alignment"]]
         inp["type"] = t

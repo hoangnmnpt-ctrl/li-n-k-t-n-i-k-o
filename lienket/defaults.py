@@ -19,7 +19,7 @@ BASE = {
     "weld": {"electrode": "E70XX", "flE": {"type": "fillet", "D": 5, "w": 7.94, "electrode": "E70XX"},
              "flI": {"type": "fillet", "D": 5, "w": 7.94, "electrode": "E70XX"}, "web": {"D": 4, "w": 6.35, "electrode": "E70XX"}},
     "sup": {"useFlange": False, "bAuto": True, "t": 20, "b": 200, "mat": "Q345", "condE": "top_cap", "condI": "cont_stiff",
-            "topOffset": 0, "tcap": 14, "kw": 6,
+            "topAuto": True, "topOffset": 0, "tcap": 14, "kw": 6,
             "stE": {"on": True, "bs": 110, "ts": 12, "clip": 15, "mat": "Q345", "wf": 8, "ww": 8, "fullDepth": True},
             "stI": {"on": True, "bs": 110, "ts": 12, "clip": 15, "mat": "Q345", "wf": 8, "ww": 8, "fullDepth": True},
             "doubler": 0, "diag": {"on": True, "b": 80, "t": 10, "mat": "Q345"}},
@@ -50,6 +50,13 @@ def merge(base: dict, over: dict) -> dict:
 
 PRESETS = {
     "Mẫu knee đứng (Vertical)": {},
+    "RAM — MEP Knee BCF Vertical (bích nhô 2 phía, 4ES)": {
+        "name": "K-RAM",
+        "plate": {"extension": "both", "tp": 20, "g": 110, "nE": 1, "nI": 1,
+                  "stiffE": {"on": True, "ts": 10, "L": 160}, "stiffI": {"on": True, "ts": 10, "L": 160}},
+        "stiff": {"on": True, "at": "internal"},
+        "sup": {"condE": "top_cap", "condI": "cont_stiff", "diag": {"on": False}},
+    },
     "Mẫu knee ngang (Horizontal)": {
         "name": "K-02",
         "beam": {"sec": "(680-380).6-200.10"},
@@ -69,7 +76,7 @@ PRESETS = {
         "plate": {"extension": "external", "alignment": "perpendicular", "tp": 16, "g": 125, "Leh": 50, "Lev": 50, "flushExt": 25.4,
                   "pfoE": 50, "pfiE": 50, "nE": 1, "pfiI": 50, "nI": 1},
         "weld": {"flE": {"type": "cjp", "D": 8, "w": 12.7}, "flI": {"type": "fillet", "D": 8, "w": 12.7}, "web": {"D": 8, "w": 12.7}},
-        "sup": {"t": 16, "condE": "cont_unstiff", "condI": "cont_stiff", "topOffset": 600, "tcap": 0, "kw": 25.4,
+        "sup": {"t": 16, "condE": "cont_unstiff", "condI": "cont_stiff", "topAuto": False, "topOffset": 600, "tcap": 0, "kw": 25.4,
                 "diag": {"on": False}},
         "stiff": {"on": True, "at": "internal", "fullDepth": True, "bs": 82.5, "cc": 10, "ts": 16, "electrode": "AS E41XX", "D": 8},
         "opt": {"webBuckling": False},

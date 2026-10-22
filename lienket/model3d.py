@@ -16,11 +16,11 @@ from dataclasses import dataclass, field
 import drawing as D
 
 # màu theo ảnh RAM Connection
-STEEL = "#ABABAB"
-END_PLATE = "#6C6698"
-SUPPORT_PLATE = "#2EA043"
-STIFF = "#8FAA7F"
-PLATE_STIFF = "#7B76A8"
+STEEL = "#B9B9B9"
+END_PLATE = "#5E5486"
+SUPPORT_PLATE = "#22B92B"
+STIFF = "#86A878"
+PLATE_STIFF = "#ADA8EE"
 BOLT = "#D87A28"
 WELD = "#F2B42C"
 
@@ -41,6 +41,9 @@ class Solid:
 @dataclass
 class Model:
     solids: list = field(default_factory=list)
+    focus: tuple | None = None        # tâm vùng nút (camera nhắm vào đây)
+    focus_size: float = 0.0           # kích thước vùng nút để phóng hình (mm)
+    frame: tuple | None = None        # hộp (min, max) vùng hiển thị như RAM: nút + một đoạn cấu kiện
 
     def bbox(self):
         vs = [p for so in self.solids for p in so.verts]
@@ -140,9 +143,19 @@ def classify(it) -> str | None:
     return STEEL
 
 
+def _bbox2(pts):
+    return min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts)
+
+
 def from_scene(m: Model, sc):
+    # bản nắp (supportE, không phải bản gối): sườn trùng cao độ bản nắp thì bỏ — bản nắp đã làm sườn (như RAM)
+    caps = [_bbox2(it["pts"]) for it in sc.items if it["k"] == "poly" and it.get("fill") == D.C_PANEL and tuple(it.get("tags", ())) == ("supportE",)]
     for it in sc.items:
         if it["k"] != "poly" or not it.get("z"): continue
+        if caps and set(it.get("tags", ())) & {"supEstiff", "supIstiff"}:
+            b = _bbox2(it["pts"])
+            if any(b[1] < c[3] - 1e-6 and b[3] > c[1] + 1e-6 and b[0] < c[2] and b[2] > c[0] for c in caps):
+                continue
         col = classify(it)
         if col is None: continue
         pts = _clean(it["pts"])
@@ -208,6 +221,19 @@ def knee_model(st: dict, R: dict) -> Model:
     ts = G["M2"]["tfI"] if sup["useFlange"] else float(sup["t"])
     rows = [(r["s"], "boltsE") for r in G["rowsE"]] + [(r["s"], "boltsI") for r in G["rowsI"]]
     bolts(m, rows, C, nn, float(st["plate"]["g"]), float(st["bolt"]["d"]), tp, ts, None)
+    mid = C((G["sTop"] + G["sBot"]) / 2)
+    m.focus = (mid[0] + face[0] / 2, mid[1] + face[1] / 2, 0.0)
+    m.focus_size = 2.3 * max(G["dp"], G["M2"]["d"], G["sBot"] - G["sTop"])
+    # khung như RAM: cột (hoặc kèo với knee ngang) + ~1.25d kèo về phía có bản, bản đầu ở giữa
+    ends = [C(G["sTop"]), C(G["sBot"])]
+    xs = [p[0] for p in ends]; ys = [p[1] for p in ends]
+    d = max(G["dp"], G["M2"]["d"])
+    bf = max(M1["bfE"], M1["bfI"], G["M2"]["bfE"])
+    if T == "ngang":
+        lo = (min(xs) - 0.25 * d, min(ys) - 0.75 * d, -bf / 2); hi = (max(xs) + 1.35 * d, max(ys) + 1.05 * d, bf / 2)
+    else:
+        lo = (min(xs) - G["M2"]["d"] - 40, min(ys) - 0.55 * d, -bf / 2); hi = (max(xs) + 1.25 * d, max(ys) + 60, bf / 2)
+    m.frame = (lo, hi)
     return m
 
 
@@ -232,6 +258,8 @@ def splice_model(st: dict, R: dict) -> Model:
     C = lambda s: (0.0, -s)
     rows = [(r["s"], "boltsT") for r in G["rowsT"]] + [(r["s"], "boltsB") for r in G["rowsB"]]
     bolts(m, rows, C, (-1.0, 0.0), float(pl["g"]), float(st["bolt"]["d"]), tp1, tp2, None)
+    m.focus = ((tp2 - tp1) / 2, -(G["sTop"] + G["sBot"]) / 2, 0.0)
+    m.focus_size = 3.2 * (G["sBot"] - G["sTop"])
     return m
 
 
