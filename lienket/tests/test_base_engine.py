@@ -274,6 +274,16 @@ def test_optimize_plate_list():
     assert BE.tp_candidates({"colRole": "gable", "tpMin": 6, "tpMax": 45}, 300)[0] == 12
 
 
+def test_default_plate_size():
+    """N = d + 20 làm tròn lên bội số 10; B = max(180, bf)."""
+    f = lambda sec: BE.default_plate({"sec": sec, "mat": "Q345", "L": 6, "jointEnd": "I"})
+    assert f("I 300x215x5x10") == (340.0, 215.0)          # d = 320
+    assert f("400.8-200.12") == (450.0, 200.0)            # d = 424 → 444 → 450
+    assert f("300.6-150.8") == (340.0, 180.0)             # d = 316 → 336 → 340; bf 150 < 180
+    st = merge(BASE, {}); st["col"]["sec"] = "580.8-250.12"
+    assert BE.apply_default_plate(st) and (st["plate"]["N"], st["plate"]["B"]) == (630, 250)
+
+
 if __name__ == "__main__":
     fails = 0
     for n, f in list(globals().items()):

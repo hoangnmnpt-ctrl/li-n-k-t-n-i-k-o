@@ -107,6 +107,11 @@ def test_export_mixed_project():
         assert p4["IsApex"] == "1" and float(p4["SlopeAngle"]) == -10.0
         assert [r[0] for r in b.execute("select JointFamily from Joints order by JointID")] == [1, 10, 4, 4]
         assert b.execute("select count(*) from ConnectionObjects").fetchone()[0] == 5
+        # điều kiện tải dùng chung theo vị trí: chân cột (5 tải) nằm ở 5 điều kiện đầu, không có dòng của nút khác chen trên
+        n_lc = max(len(st["loads"]) for st in states)
+        assert int(b.execute("select PropertyValue from ModelData_LoadConditions where PropertyName='Count'").fetchone()[0]) == n_lc
+        cb = [k for (k,) in b.execute("select Estados from Joints_Estados where Joints=2 order by Estados")]
+        assert cb and max(cb) < len(states[1]["loads"]), cb
         assert b.execute("pragma integrity_check").fetchone()[0] == "ok"
         b.close()
 

@@ -288,6 +288,8 @@ class ConnectionPad(tk.Toplevel):
         elif self.kind != "knee":
             PJ.KINDS[self.kind]["normalize"](self.S)
         if structural: self._visibility()
+        if self.kind == "base" and sp["p"] == "col.sec" and PJ.BE.apply_default_plate(self.S):
+            self._load()                                     # N, B theo cột: N = d + 20 (làm tròn lên 10), B = max(180, bf)
         if sp["p"].endswith(".sec"): self._info(); self._visibility()
         self.schedule()
 

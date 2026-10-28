@@ -46,7 +46,8 @@ Dự án lưu một file `*.lkt` (mặc định `lienket\du_an.lkt`).
   Global critical strength ratio); nút *Export report (.docx)*.
 - **Export RAM Connection (.rcnx)**: nút **Home → RAM Connection → Export RAM .rcnx** (hoặc Output → RAM .rcnx) xuất **mọi liên kết**
   của dự án vào 1 file: knee → `Bentley.AISC.MEPlateKneeBCF`, chân cột → `Bentley.AISC.BasePlate`, nối dầm / apex →
-  `Bentley.AISC.MEPlateBeamSplice` (apex: IsApex = 1, SlopeAngle = −độ dốc), kèm bảng tải và điều kiện tải chung.
+  `Bentley.AISC.MEPlateBeamSplice` (apex: IsApex = 1, SlopeAngle = −độ dốc), kèm bảng tải. RAM chỉ có 1 danh sách điều kiện tải cho cả file → tải thứ k của mọi nút dùng chung
+  điều kiện k (tên chung nếu trùng, vd. Mmax… như file RAM; khác thì ghép tên), nên mỗi nút chỉ thấy tổ hợp của mình ở đầu bảng.
   Dựng từ khuôn `ram_proto.rcnx` lấy từ file RAM Connection **24.0.4** thật (`tools/make_ram_proto.py`; tên bu lông kiểu RAM 24 "M24 G88").
   Đối chứng: CB 1 "Pinned BP" và nối dầm BS #20 xuất ra trùng từng thuộc tính + bảng tải với connection gốc (chỉ khác cách ghi đơn vị,
   in ↔ mm); knee #11 (RAM 23, `tests/data/ram23_knee11.rcnx`) trùng như trước. Tool không đặt Optimize → RAM giữ đúng kích thước tool.
@@ -159,12 +160,16 @@ M22 > 0 → mép +z chịu nén. Nội lực tại tâm cột (lệch tâm cột
 - Cắt: neo (hàn vào bản đế: mọi neo; không hàn: một nửa) hoặc bản chắn cắt; Include friction giảm lực cắt 0.75·0.55·Pu. ASD: φRn/1.5.
 - Hàn cột – bản đế: đàn hồi trên chu vi hàn (Outer welds flanges only: chỉ mặt ngoài cánh), lực nén truyền bằng tì ép.
 
+### Kích thước bản đế mặc định
+Khi tạo chân cột mới hoặc nhập / đổi tiết diện cột (bước Data hoặc Connection Pad): **N = chiều cao tổng cột + 20 mm, làm tròn lên
+bội số 10**; **B = max(180 mm, bề rộng cánh cột)**. Sửa tay được sau đó.
+
 ### Lấy tải chân cột từ SAP2000 (phản lực gối)
 
 Bước **Loads** của Column base có khung *Lấy phản lực chân cột từ SAP2000*: Kết nối SAP2000 → chọn nguồn tải
 (Design Combos / Load Cases / …, nút *nguồn ▾* để tick từng combo) → chọn **nút gối chân cột** (hoặc chọn cột, lấy đầu dưới)
 trong SAP → **Lấy phản lực**. Tool đọc `Results.JointReact` và lấy cực trị theo bảng tải RAM:
-**Mmax, Pmax (nén lớn nhất), Vmax (√(V2²+V3²) lớn nhất), Mmin, Pmin (kéo lớn nhất)**. Chân cột không lấy trường hợp mô men:
+**Mmax, Pmax (nén lớn nhất), Vmax (|V2| lớn nhất — phương chính, = |F1| của SAP với cột trục mặc định), Mmin, Pmin (kéo lớn nhất)**. Chân cột không lấy trường hợp mô men:
 dòng Mmax / Mmin giữ lại với giá trị 0. Description chỉ là tên dòng (không kèm tên combo SAP); chọn nhiều chân cột → lấy bao.
 
 Quy đổi dấu, chiếu lên hệ trục cột (trục dọc hướng lên từ chân, trục 2 = trục 2 của thanh trong SAP, trục 3 = dọc × 2):

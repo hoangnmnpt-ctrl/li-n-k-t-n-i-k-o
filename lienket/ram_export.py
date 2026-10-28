@@ -482,14 +482,19 @@ def export_rcnx(states: list[dict], out_path: str, make_sections: bool = True, s
             db.execute(f"delete from {t}")
         db.execute("delete from ConnectionObjects where PropertyName != 'ConnectionVersion'")
 
-        # điều kiện tải toàn mô hình = hợp các mô tả (giữ thứ tự)
+        # RAM chỉ có MỘT danh sách điều kiện tải cho cả file, mọi nút đều hiện đủ danh sách đó. Để mỗi nút chỉ thấy tổ hợp của
+        # nó (không có dòng của nút khác chen phía trên): tải thứ k của mọi nút dùng chung điều kiện k. Tên điều kiện = tên chung
+        # nếu các nút trùng tên ở vị trí đó (vd. Mmax, Pmax… như file RAM), khác nhau thì ghép các tên.
+        n_lc = max([len(st.get("loads", [])) for st in states] + [1])
         all_desc = []
-        for st in states:
-            for l in st.get("loads", []):
-                d = _clean(l.get("name"))
-                if d not in all_desc:
-                    all_desc.append(d)
-        n_lc = max(len(all_desc), 1)
+        for k in range(n_lc):
+            names = []
+            for st in states:
+                ls = st.get("loads", [])
+                if k < len(ls) and _clean(ls[k].get("name")) not in names:
+                    names.append(_clean(ls[k].get("name")))
+            nm = " / ".join(n[:24] for n in names) if len(names) > 1 else (names[0] if names else f"LC{k + 1}")
+            all_desc.append(nm if len(nm) <= 90 else nm[:89] + "…")
         codes = []
         for i, (st, kind) in enumerate(zip(states, kinds), 1):
             cls = RAM_CLASS.get(kind)
@@ -513,20 +518,21 @@ def export_rcnx(states: list[dict], out_path: str, make_sections: bool = True, s
             for name, typ, val in pr["props"]:
                 db.execute(f'insert into "{ref}" values (?,?,?)', (name, typ, P.get(name, val)))
             loads = LD["loads"]
+            pad = loads + [{}] * (n_lc - len(loads))             # đủ n_lc điều kiện, phần thiếu = 0
             rows = []
             for name, typ, val in pr["loads"]:
                 if name == "Count":
-                    v = str(len(loads))
+                    v = str(n_lc)
                 elif name == "Description":
-                    v = "[" + ",".join(_clean(l.get("name")) for l in loads) + "]"
+                    v = "[" + ",".join(all_desc) + "]"
                 elif name == "LoadType":
-                    v = "[" + ",".join("0" for _ in loads) + "]"
+                    v = "[" + ",".join("0" for _ in pad) + "]"
                 elif name in LD["cols"]:
                     key, unit = LD["cols"][name]
-                    v = "[" + ",".join(f"{g(l.get(key) or 0)} {unit}" for l in loads) + "]"
+                    v = "[" + ",".join(f"{g(l.get(key) or 0)} {unit}" for l in pad) + "]"
                 else:
                     unit = _unit_of(val, "kN")
-                    v = "[" + ",".join(f"0 {unit}" for _ in loads) + "]"
+                    v = "[" + ",".join(f"0 {unit}" for _ in pad) + "]"
                 rows.append((name, typ, v))
             db.executemany(f'insert into "{ref}_Loads" values (?,?,?)', rows)
 
@@ -539,11 +545,10 @@ def export_rcnx(states: list[dict], out_path: str, make_sections: bool = True, s
                 jr["JointNotes"] = str(st.get("name", ""))
             jr["JointID"] = i
             db.execute(f"insert into Joints ({','.join(jcols)}) values ({','.join('?' for _ in jcols)})", [jr[c] for c in jcols])
-            for l in loads:
-                vals = {c: (float(l.get(k) or 0) or None) for c, k in LD["est"].items() if c in ecols}
+            for k, l in enumerate(loads):
+                vals = {c: (float(l.get(key) or 0) or None) for c, key in LD["est"].items() if c in ecols}
                 if not any(vals.values()):
                     continue                                   # như RAM: bỏ tổ hợp toàn 0
-                k = all_desc.index(_clean(l.get("name")))
                 cols = ["Joints", "Estados"] + list(vals)
                 db.execute(f"insert into Joints_Estados ({','.join(cols)}) values ({','.join('?' for _ in cols)})", [i, k] + list(vals.values()))
             db.execute("insert into ConnectionObjects values (?, 0, ?)", (str(i), ref))

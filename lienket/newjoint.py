@@ -617,6 +617,7 @@ def default_state(key: str, name: str = "") -> dict:
         st = KD.merge(KD.BASE, {})
     elif key == "base":
         st = BD.merge(BD.BASE, {})
+        BE.apply_default_plate(st)
     else:
         st = SD.merge(SD.BASE, {"type": key.split(":")[1]})
         if st["type"] == "apex" and not st.get("slope"): st["slope"] = 10.0
@@ -790,6 +791,8 @@ class NewJointDialog(tk.Toplevel):
         self._help_panel(kind)
 
     def _data_changed(self, path):
+        if path == "col.sec" and self._kind() == "base":
+            BE.apply_default_plate(self.S)                 # N = d + 20 (làm tròn lên 10), B = max(180, bf)
         if path == "type" and self.S.get("type") == "apex" and not float(self.S.get("slope") or 0):
             self.S["slope"] = 10.0
         if path in ("type",):

@@ -432,14 +432,14 @@ def base_reactions(conn: SAP2000Connector, allowed_for: Callable[[str], Optional
 
 def base_extremes(recs: list[dict]) -> list[dict]:
     """
-    Bảng tải chân cột như RAM: Mmax, Pmax (nén lớn nhất), Vmax (√(V2²+V3²) lớn nhất), Mmin, Pmin (kéo lớn nhất).
+    Bảng tải chân cột như RAM: Mmax, Pmax (nén lớn nhất), Vmax (|V2| lớn nhất = |F1| SAP với cột trục mặc định), Mmin, Pmin (kéo lớn nhất).
     Chân cột không lấy trường hợp mô men: dòng Mmax / Mmin giữ lại với giá trị 0. Description = tên dòng (không kèm combo).
     """
     if not recs:
         return []
     pick = {
         "Pmax": min(recs, key=lambda r: r["N"]),
-        "Vmax": max(recs, key=lambda r: math.hypot(r["V2"], r["V3"])),
+        "Vmax": max(recs, key=lambda r: (abs(r["V2"]), abs(r["V3"]))),
         "Pmin": max(recs, key=lambda r: r["N"]),
     }
     out = []

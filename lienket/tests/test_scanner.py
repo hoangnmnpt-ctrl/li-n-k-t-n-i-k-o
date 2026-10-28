@@ -125,6 +125,10 @@ def test_base_reactions():
     assert [r["name"] for r in ex] == ["Mmax", "Pmax", "Vmax", "Mmin", "Pmin"], ex
     assert [r["case"] for r in ex] == ["", "U0", "U4", "", "U4"]
     assert all(ex[i][k] == 0 for i in (0, 3) for k in scanner.BASE_KEYS) and ex[1]["N"] == -200 and ex[4]["N"] == 40
+    # Vmax theo |V2| (như sắp xếp F1 trong SAP), không theo hợp lực: 33.4 > 32.448 dù √(32.448² + 11.712²) = 34.5
+    r2 = [dict(joint="142", frame="C", case="LRFD: 23", step="", N=-98.57, V2=-33.4, V3=-0.012, M22=0, M33=0),
+          dict(joint="169", frame="C", case="LRFD: 29", step="", N=-100.753, V2=-32.448, V3=-11.712, M22=0, M33=0)]
+    assert scanner.base_extremes(r2)[2]["V2"] == -33.4
 
 
 if __name__ == "__main__":

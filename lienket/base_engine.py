@@ -209,6 +209,30 @@ def w_dims(name):
     return dict(d=d, bf_top=bf, bf_bot=bf, tw=tw, tf_top=tf, tf_bot=tf)
 
 
+def default_plate(col: dict) -> tuple[float, float] | None:
+    """Kích thước bản đế mặc định theo tiết diện cột: N = chiều cao tổng cột + 20 mm, làm tròn LÊN bội số 10;
+    B = max(180 mm, bề rộng cánh cột). None nếu chưa đọc được tiết diện."""
+    cm = dict(col, topIsOuter=True)
+    if not cm.get("dims") and w_dims(cm.get("sec", "")):
+        cm["dims"] = w_dims(cm["sec"])
+    try:
+        c = member_at_joint(cm, "cột")
+    except Exception:  # noqa: BLE001
+        return None
+    N = math.ceil((c["d"] + 20.0) / 10.0 - 1e-9) * 10.0
+    B = max(180.0, c["bfE"], c["bfI"])
+    return N, B
+
+
+def apply_default_plate(st: dict) -> bool:
+    """Gán N, B mặc định cho bản đế theo cột (khi nhập / đổi tiết diện cột). Trả về True nếu đã gán."""
+    nb = default_plate(st["col"])
+    if not nb:
+        return False
+    st["plate"]["N"], st["plate"]["B"] = (int(v) if float(v).is_integer() else round(v, 1) for v in nb)
+    return True
+
+
 def build_geometry(inp: dict) -> dict:
     W: list[str] = []
     cm = dict(inp["col"], topIsOuter=True)
