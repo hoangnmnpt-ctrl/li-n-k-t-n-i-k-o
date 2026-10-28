@@ -32,7 +32,7 @@ VAL = "#E6EEFA"
 BAR = "#0A1A3E"            # nền thanh công cụ
 BTN = "#0E2756"
 BTN_ON = "#1F6FEB"
-GOLD, RED = "#E5AC0B", "#D23B3B"
+GOLD, RED, GREEN = "#E5AC0B", "#D23B3B", "#55C800"     # như RAM: xanh = đạt, vàng = đạt có cảnh báo, đỏ = không đạt
 F = ("Segoe UI", 9)
 F_HEAD = ("Segoe UI", 13)
 F_SUB = ("Segoe UI", 11)
@@ -347,9 +347,11 @@ class ConnectionPad(tk.Toplevel):
         g = self.R.get("gov")
         r = g["ratio"] if g else 0.0
         ok = r <= 1.0001 and self.R.get("geoFail", 0) == 0
-        self.box.configure(text="∞" if math.isinf(r) else f"{r:.2f}", bg=GOLD if ok else RED)
+        notes = self.R.get("notes") or []
+        self.box.configure(text="∞" if math.isinf(r) else f"{r:.2f}", bg=(GOLD if notes else GREEN) if ok else RED)
         self.lbl_msg.configure(text=(f"Critical ratio {r:.2f} — {g['name']} ({g['combo']})" if g else "")
-                               + ("" if self.R.get("geoFail", 0) == 0 else f" · {self.R['geoFail']} lỗi cấu tạo"))
+                               + ("" if self.R.get("geoFail", 0) == 0 else f" · {self.R['geoFail']} lỗi cấu tạo")
+                               + (" · Notes: " + "; ".join(notes) if notes else ""))
         try:
             self.view.show_model(model3d.build(self.kind, self.st, self.R))
         except Exception as e:  # noqa: BLE001
