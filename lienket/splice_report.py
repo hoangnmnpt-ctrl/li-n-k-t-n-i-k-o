@@ -109,7 +109,7 @@ def build(S: dict, R: dict, file_name: str = "") -> dict:
     for c in R["checks"]:
         grp, name, ref, rk = check_en(c["id"], c)
         checks.setdefault(grp, []).append([name, f"[{UNIT_EN.get(c['unit'], c['unit'])}]", _num(c["cap"]), _num(abs(c["dem"])),
-                                           c["combo"], _num(c["ratio"]), ref, c["ratio"], c["info"]])
+                                           c["combo"], _num(c["ratio"]), ref, c["ratio"], c["info"], c["id"]])
         rank[grp] = min(rank.get(grp, 999), rk)
     order = sorted(checks, key=lambda g: (rank[g], g))
     for rows in checks.values():

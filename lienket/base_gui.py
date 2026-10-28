@@ -1,13 +1,14 @@
 """
-base_gui.py — Form nhập CHÂN CỘT (Column base — CB) cho Connection Pad, theo thứ tự & nhãn của RAM Connection "Base plate":
-General information → Members (Column) → Base plate (Connector, Weld) → Anchors → Concrete support → Shear transfer → Options.
-Rê chuột lên nhãn để xem chú thích tiếng Việt.
+base_gui.py — Form nhập CHÂN CỘT (Column base — CB) cho Connection Pad, đúng thứ tự & nhãn của RAM Connection "Base plate":
+General information (Analysis · Design criteria · Optimization criteria) → Members (Column) →
+Base plate (Base plate · Support · Anchor · Anchor reinforcement). Rê chuột lên nhãn để xem chú thích tiếng Việt.
 """
 
 from __future__ import annotations
 
 import base_engine as BE
 import engine as K
+from knee_section import SectionError, parse_section
 
 MATS = list(K.MATERIALS)
 
@@ -27,83 +28,104 @@ def tip(spec, text):
     return spec
 
 
+def _tapered(sec):
+    try:
+        return parse_section(sec).tapered
+    except SectionError:
+        return False
+
+
 def build_sections(app):
     S = lambda: app.S
-    shear = lambda *v: S()["shear"].get("mode") in v
-    reinf = lambda: bool(S()["ped"].get("reinf"))
+    g = lambda k: S()["gen"].get(k)
+    o = lambda k: S()["opt"].get(k)
+    an = lambda k: S()["anchor"].get(k)
+    lug = lambda: bool(S()["lug"].get("on"))
     ELEC = list(K.ELECTRODES)
     return [
         ("General information", True, [
             sub("Analysis"),
             btn("Loads   <Loads>  →  mở bảng tải", lambda: app.tabs.set("Loads")),
+            tip(sel("gen.axis", "Analysis axis", list(BE.AXES.items())),
+                "Major: chỉ M33/V2 · Minor: chỉ M22/V3 · Both axes: từng phương độc lập · Biaxial: giải đồng thời hai mô men (bản cứng)"),
+            tip(sel("gen.pressure", "Pressure distribution", [("uniform", "Uniform"), ("triangular", "Triangular")]),
+                "Uniform: khối ứng suất đều fp,max (DG1) · Triangular: phân bố tam giác / hình thang"),
+            tip(chk("gen.compat", "Consider strain compatibility", show=lambda: g("pressure") == "triangular"),
+                "Tương thích biến dạng bê tông – neo (Ec, Es, bản cứng) để tìm lực neo và áp lực ép"),
             sub("Design criteria"),
-            tip(sel("gen.designCode", "Design code", ["AISC 2010 LRFD", "AISC 2016 LRFD"]), "Tiêu chuẩn thiết kế (LRFD). AISC 2016: Fnv neo = 0.45Fu / 0.563Fu"),
-            sub("Construction criteria"),
-            tip(chk("opt.bear", "Column finished to bear"), "Đầu cột mài phẳng tì lên bản đế: lực nén truyền bằng tì ép, hàn chỉ chịu kéo + cắt"),
-            tip(chk("opt.sheared", "Consider sheared edges"), "Mép bản cắt bằng cưa/đột → khoảng cách mép tối thiểu lớn hơn (J3.4)"),
-            tip(chk("opt.aci", "Check anchors in concrete (ACI 318-11 App. D)"), "Kiểm tra phá hoại bê tông quanh neo theo ACI 318-11 Phụ lục D"),
+            sel("gen.designCode", "Steel design code", BE.STEEL_CODES),
+            sel("gen.concCode", "Concrete design code", BE.CONC_CODES),
+            tip(chk("gen.seismic", "Seismic provisions"), "Vùng động đất: sức kháng neo ×0.75 (ACI D.3.3)"),
+            tip(sel("gen.bearCalc", "Bearing stress calculation", [("complete", "Complete area"), ("effective", "Effective area")]),
+                "Complete area: toàn bộ bản đế (DG1) · Effective area: vùng cách thép cột ≤ c = tp·√(φFy/(2fp,max))"),
+            tip(chk("gen.friction", "Include friction between base plate and support"), "Ma sát 0.75·0.55·Pu giảm lực cắt cho neo / bản chắn cắt"),
+            sub("Optimization criteria"),
+            chk("opt.optTp", "Optimize base plate thickness"),
+            num("opt.tpMax", "Maximum thickness", show=lambda: o("optTp")), num("opt.tpMin", "Minimum thickness", show=lambda: o("optTp")),
+            num("opt.tpInc", "Thickness increment", show=lambda: o("optTp")),
+            tip(chk("opt.optN", "Optimize longitudinal base plate dimension"), "Khoảng cách từ mặt cột tới mép bản theo phương N"),
+            num("opt.pMax", "Maximum distance to plate edge", show=lambda: o("optN") or o("optB")),
+            num("opt.pMin", "Minimum distance to plate edge", show=lambda: o("optN") or o("optB")),
+            chk("opt.optB", "Optimize transversal base plate dimension"),
+            num("opt.dimInc", "Plate dimensions increment", show=lambda: o("optN") or o("optB")),
+            chk("opt.optD", "Optimize anchor diameter"),
+            num("opt.hefMin", "Minimum effective embedment depth", show=lambda: o("optD")),
+            tip(sel("opt.keepPos", "Keep anchor position during optimization", [("initial", "Initial positions"), ("edge", "Edge distances")]),
+                "Initial positions: giữ toạ độ neo khi đổi kích thước bản · Edge distances: giữ khoảng cách mép ex, ey"),
         ]),
         ("Members", True, [
             sub("Column"),
+            note("Column type: Tapered member" if _tapered(S()["col"]["sec"]) else "Column type: Prismatic member"),
             tip(txt("col.sec", "Section"), "Quy cách tiết diện — 400.8-200.12 (bụng 400×8, cánh 200×12) hoặc (300-500).6-200.10 (vát)"), info("col.sec"),
             sel("col.mat", "Material", MATS),
-            tip(num("col.L", "Length", "m"), "Chiều dài cột (chỉ dùng cho tiết diện vát)"),
-            tip(sel("col.jointEnd", "Joint end (SAP)", [("I", "End I (bottom)"), ("J", "End J")]), "Đầu cột tại chân (chỉ dùng cho tiết diện vát)"),
-            note("Cánh trên (+2) của cột nằm ở phía +x (phải) trên hình."),
+            num("col.L", "Length", "m", show=lambda: _tapered(S()["col"]["sec"])),
+            sel("col.jointEnd", "Joint end", [("I", "End I"), ("J", "End J")], show=lambda: _tapered(S()["col"]["sec"])),
+            tip(num("col.ox", "Longitudinal offset"), "Lệch tâm cột so với tâm bản đế theo phương N (cánh trên +2 ở phía +x)"),
+            tip(num("col.oz", "Transversal offset"), "Lệch tâm cột so với tâm bản đế theo phương B"),
         ]),
         ("Base plate", True, [
-            sub("Connector"),
-            tip(num("plate.N", "N: Length (along column depth)"), "Chiều dài bản đế theo phương chiều cao tiết diện cột (uốn M33)"),
-            tip(num("plate.B", "B: Width (along flanges)"), "Bề rộng bản đế theo phương bề rộng cánh (uốn M22)"),
-            num("plate.tp", "tp: Thickness"), sel("plate.mat", "Material", MATS),
-            sub("Weld"),
-            sel("weld.electrode", "Electrode", ELEC),
-            tip(num("weld.fl.D", "D1: Weld size to flanges (1/16in)", "/16"), "Cỡ hàn góc cánh cột theo 1/16 inch (5 → 7.9 mm)"),
-            tip(num("weld.web.D", "D2: Weld size to web (1/16in)", "/16"), "Cỡ hàn góc bụng cột theo 1/16 inch"),
-        ]),
-        ("Anchors", True, [
-            sub("Anchor rods"),
-            sel("anchor.grade", "Grade", list(BE.ANCHOR_GRADES)),
-            sel("anchor.d", "Diameter", [(d, f"M{d}") for d in BE.ANCHOR_DIAS]),
-            sel("anchor.thread", "Threads", [("N", "N — included"), ("X", "X — excluded")]),
-            tip(num("anchor.hef", "hef: Embedment depth"), "Chiều sâu chôn hiệu quả (tới mặt chịu lực của đầu neo)"),
-            tip(sel("anchor.head", "Embedded end", [("hex", "Heavy hex nut"), ("plate", "Anchor plate")]), "Đầu neo trong bê tông: đai ốc lục giác nặng hoặc bản đầu neo"),
-            num("anchor.plateB", "Anchor plate size", show=lambda: S()["anchor"].get("head") == "plate"),
-            sub("Layout"),
-            tip(sel("anchor.nx", "Anchors along N (columns)", [2, 3, 4]), "Số neo theo phương N; neo chỉ đặt trên chu vi lưới"),
-            tip(sel("anchor.ny", "Anchors along B (rows)", [2, 3, 4]), "Số neo theo phương B"),
-            tip(num("anchor.ex", "ex: Edge distance (N direction)"), "Từ tâm neo tới mép bản theo phương N. Neo đặt trong hai cánh khi N/2 − ex < d/2 − tf"),
-            tip(num("anchor.ey", "ey: Edge distance (B direction)"), "Từ tâm neo tới mép bản theo phương B"),
-            sub("Plate washers"),
-            tip(num("anchor.washer", "Washer size"), "Cạnh long đen tấm (DG1 Table 2.3)"), num("anchor.washerT", "Washer thickness"),
-            sub("Shear"),
-            tip(chk("anchor.shearAll", "All anchors resist shear"), "Bỏ chọn: chỉ một nửa số neo chịu cắt (lỗ quá cỡ, DG1 §3.5.2)"),
-            tip(chk("anchor.torqued", "Torqued anchors"), "Neo được siết: khoảng cách mép bệ ≥ 6da (ACI D.8.2)"),
-        ]),
-        ("Concrete support", True, [
-            sub("Pedestal"),
-            tip(num("ped.N2", "N2: Length"), "Kích thước bệ theo phương N (đồng tâm với bản đế)"),
-            tip(num("ped.B2", "B2: Width"), "Kích thước bệ theo phương B"), num("ped.h", "h: Height"),
-            num("ped.fc", "f'c: Concrete strength", "MPa"), tip(num("ped.grout", "Grout thickness"), "Lớp vữa không co ngót"),
-            tip(chk("ped.cracked", "Cracked concrete"), "Bê tông nứt (thiên an toàn): ψc = 1.0 thay vì 1.25 / 1.4"),
-            tip(num("ped.lw", "λ: Lightweight factor", ""), "1.0 bê tông thường"),
+            sub("Base plate"),
+            sel("plate.shape", "Plate shape", [("rect", "Rectangular")]),
+            sel("plate.ctype", "Connection type", [("unstiffened", "Unstiffened")]),
+            sel("plate.pos", "Position on the support", [("center", "Center"), ("custom", "Custom")]),
+            tip(num("plate.px", "Longitudinal offset on the support", show=lambda: S()["plate"].get("pos") == "custom"), "Lệch tâm bản đế so với tâm gối theo phương N"),
+            num("plate.pz", "Transversal offset on the support", show=lambda: S()["plate"].get("pos") == "custom"),
+            tip(num("plate.N", "N: Longitudinal dimension"), "Theo phương chiều cao tiết diện cột (uốn M33)"),
+            tip(num("plate.B", "B: Transversal dimension"), "Theo phương bề rộng cánh (uốn M22)"),
+            num("plate.tp", "Thickness"), sel("plate.mat", "Material", MATS),
+            sel("weld.electrode", "Column weld", ELEC),
+            tip(chk("weld.outerOnly", "Outer welds flanges only"), "Chỉ hàn mặt ngoài hai cánh (không hàn mặt trong cánh, bụng)"),
+            tip(num("weld.D", "D: Column weld size (1/16 in)", "/16"), "Cỡ hàn góc theo 1/16 inch (5 → 7.9 mm)"),
+            chk("plate.overA2", "Override A2/A1 ratio"),
+            tip(num("plate.A2A1", "A2/A1", "", show=lambda: S()["plate"].get("overA2")), "√(A2/A1) ≤ 2"),
+            tip(chk("lug.on", "Include shear lug"), "Bản chắn cắt chịu toàn bộ lực cắt (thay cho neo)"),
+            num("lug.bl", "Shear lug width", show=lug), num("lug.H", "Shear lug height", show=lug), num("lug.tl", "Shear lug thickness", show=lug),
+            sel("lug.mat", "Shear lug material", MATS, show=lug), num("lug.D", "Shear lug weld size (1/16 in)", "/16", show=lug),
+            sub("Support"),
+            tip(chk("ped.isPed", "With pedestal"), "Bệ (pedestal) hay móng / sàn"),
+            num("ped.N2", "Longitudinal dimension"), num("ped.B2", "Transversal dimension"), num("ped.h", "Thickness"),
+            tip(sel("ped.mat", "Material", [(k, f"{k}  (f'c = {v:g} MPa)") for k, v in BE.CONC_MATS.items()]), "Bê tông gối"),
+            chk("ped.groutOn", "Include grouting"), num("ped.grout", "Grout thickness", show=lambda: S()["ped"].get("groutOn")),
+            sub("Anchor"),
+            sel("anchor.layout", "Anchor position", list(BE.LAYOUTS.items())),
+            tip(sel("anchor.nr", "Rows number per side", [1, 2, 3]), "Số hàng neo ở mỗi đầu bản"),
+            tip(num("anchor.sr", "Spacing between rows", show=lambda: int(an("nr") or 1) > 1), "Khoảng cách giữa các hàng neo cùng phía"),
+            sel("anchor.npr", "Anchors per row", [1, 2, 3, 4, 5]),
+            tip(num("anchor.ex", "Longitudinal edge distance on the plate"), "Từ tâm neo tới mép bản theo phương N"),
+            tip(num("anchor.ey", "Transverse edge distance on the plate"), "Từ tâm neo tới mép bản theo phương B"),
+            sel("anchor.type", "Anchor type", [("headed", "Headed"), ("hooked", "Hooked")]),
+            sel("anchor.head", "Head type", list(BE.HEADS.items()), show=lambda: an("type") != "hooked"),
+            tip(num("anchor.eh", "Hook length eh", show=lambda: an("type") == "hooked"), "3da ≤ eh ≤ 4.5da (ACI D.5.3)"),
+            chk("anchor.lockNut", "Include lock nut"),
+            sel("anchor.d", "Anchor", [(d, f"M{d}") for d in BE.ANCHOR_DIAS]),
+            num("anchor.hef", "Effective embedment depth"),
+            sel("anchor.grade", "Material", list(BE.ANCHOR_GRADES)),
+            tip(chk("anchor.cracked", "Cracked concrete"), "Bê tông nứt: ψc = 1.0 thay vì 1.25 / 1.4"),
+            tip(chk("anchor.brittle", "Brittle steel"), "Thép neo giòn: φ = 0.65 (kéo), 0.60 (cắt)"),
+            tip(chk("anchor.welded", "Anchors welded to base plate"), "Neo hàn vào bản đế: mọi neo chịu cắt; không hàn: một nửa số neo (lỗ quá cỡ)"),
             sub("Anchor reinforcement"),
-            tip(chk("ped.reinf", "Anchor reinforcement"), "Có cốt thép neo ôm neo (D.5.2.9 / D.6.2.9): thay kiểm tra phá vỡ bê tông bằng kiểm tra cốt thép"),
-            num("ped.fyr", "fy: Reinforcement yield", "MPa", show=reinf),
-            tip(num("ped.AsN", "As (tension)", "mm²", show=reinf), "Tổng diện tích cốt thép neo hiệu quả khi kéo (vd 8Ø16 = 1608)"),
-            tip(num("ped.AsV", "As (shear)", "mm²", show=reinf), "Tổng diện tích cốt thép neo hiệu quả khi cắt (đai / chữ U)"),
-        ]),
-        ("Shear transfer", True, [
-            tip(sel("shear.mode", "Shear resisted by", [("friction", "Friction"), ("anchors", "Anchors"), ("lug", "Shear lug")]),
-                "Ma sát bản đế – vữa (DG1 §3.5.1) · Bu lông neo · Bản chắn cắt (DG1 §3.5.3)"),
-            tip(num("shear.mu", "μ: Friction coefficient", "", show=lambda: shear("friction")), "0.55 thép trên vữa (DG1)"),
-            sub("Shear lug", show=lambda: shear("lug")),
-            tip(num("lug.bl", "Width (perpendicular to V2)", show=lambda: shear("lug")), "Bề rộng bản chắn cắt — mặt ép vuông góc V2"),
-            tip(num("lug.H", "Height (below base plate)", show=lambda: shear("lug")), "Chiều cao bản chắn tính từ đáy bản đế (gồm lớp vữa)"),
-            num("lug.tl", "Thickness", show=lambda: shear("lug")), sel("lug.mat", "Material", MATS, show=lambda: shear("lug")),
-            num("lug.D", "Weld size (1/16in)", "/16", show=lambda: shear("lug")),
-        ]),
-        ("Options (tool)", False, [
-            txt("name", "Connection name"),
+            tip(sel("reinf.type", "Type of reinforcement", [("primary", "Primary"), ("supplementary", "Supplementary")]),
+                "Primary: cốt thép neo thay kiểm tra phá vỡ bê tông (báo As yêu cầu) · Supplementary: Condition A, φ = 0.75"),
+            chk("reinf.T", "Tension reinforcement"), chk("reinf.V", "Shear reinforcement"),
         ]),
     ]

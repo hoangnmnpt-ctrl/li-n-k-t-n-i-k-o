@@ -280,7 +280,7 @@ class ConnectionPad(tk.Toplevel):
             s = f["var"].get().replace(",", ".").strip()
             try: v = float(s)
             except ValueError: return
-            if v.is_integer() and sp["p"] in ("plate.nE", "plate.nI", "plate.nT", "plate.nB", "bolt.d", "anchor.d", "anchor.nx", "anchor.ny"): v = int(v)
+            if v.is_integer() and sp["p"] in ("plate.nE", "plate.nI", "plate.nT", "plate.nB", "bolt.d", "anchor.d", "anchor.nr", "anchor.npr"): v = int(v)
         else: v = f["var"].get()
         _setp(self.S, sp["p"], v)
         if self.kind == "knee" and sp["p"] == "plate.alignment":
@@ -288,7 +288,7 @@ class ConnectionPad(tk.Toplevel):
         elif self.kind != "knee":
             PJ.KINDS[self.kind]["normalize"](self.S)
         if structural: self._visibility()
-        if sp["p"].endswith(".sec"): self._info()
+        if sp["p"].endswith(".sec"): self._info(); self._visibility()
         self.schedule()
 
     def _visibility(self):
@@ -405,47 +405,19 @@ class ConnectionPad(tk.Toplevel):
             messagebox.showwarning("Optimize", "Không tính được phương án nào — kiểm tra lại số liệu.", parent=self); return
         PJ.apply_auto(self.kind, self.S, res)
         self._load(); self.run()
-        msg = f"Optimize: tp = {res['tp']} mm, {'neo' if self.kind == 'base' else 'bu lông'} M{res['d']} — D/C = {res['ratio']:.2f}"
+        msg = (f"Optimize: bản đế {res['N']:g}×{res['B']:g}×{res['tp']:g}, neo M{res['d']} hef {res['hef']:g} — D/C = {res['ratio']:.2f}" if self.kind == "base"
+               else f"Optimize: tp = {res['tp']} mm, bu lông M{res['d']} — D/C = {res['ratio']:.2f}")
         if res.get("fail"): msg += " (không có phương án đạt trong dải thử)"
         self.lbl_msg.configure(text=msg)
 
     def results(self):
-        if not self.R:
-            messagebox.showerror("Results", self.err or "Chưa có kết quả.", parent=self); return None
-        w = tk.Toplevel(self); w.title("Results — " + self.S.get("name", "")); w.geometry("1150x720")
-        pan = ttk.PanedWindow(w, orient="vertical"); pan.pack(fill="both", expand=True)
-        fr = ttk.Frame(pan); pan.add(fr, weight=3)
-        cols = ("dc", "cap", "dem", "unit", "combo", "ref")
-        tv = ttk.Treeview(fr, columns=cols)
-        for c, h, wd, an in (("#0", "Check", 330, "w"), ("dc", "Ratio", 60, "center"), ("cap", "Capacity", 90, "e"), ("dem", "Demand", 90, "e"),
-                             ("unit", "Unit", 50, "center"), ("combo", "Ctrl EQ", 130, "w"), ("ref", "Reference", 260, "w")):
-            tv.heading(c, text=h); tv.column(c, width=wd, anchor=an, stretch=c in ("#0", "ref"))
-        tv.tag_configure("grp", font=("Segoe UI", 9, "bold"), background="#E8EEF8")
-        tv.tag_configure("bad", foreground=RED); tv.tag_configure("info", foreground="#8A94A3")
-        sb = ttk.Scrollbar(fr, orient="vertical", command=tv.yview); tv.configure(yscrollcommand=sb.set)
-        tv.pack(side="left", fill="both", expand=True); sb.pack(side="right", fill="y")
-        det = tk.Text(pan, height=10, font=("Consolas", 10), wrap="word", padx=8, pady=6); pan.add(det, weight=1)
-        groups, byid = {}, {}
-        for c in self.R["checks"]:
-            gid = groups.get(c["grp"])
-            if gid is None:
-                gid = groups[c["grp"]] = tv.insert("", "end", text=c["grp"], open=True, tags=("grp",))
-            r = c["ratio"]
-            iid = tv.insert(gid, "end", text=c["name"], tags=("info",) if c["info"] else (("bad",) if r > 1.0001 else ()),
-                            values=("—" if c["info"] else ("∞" if math.isinf(r) else f"{r:.2f}"), f"{c['cap']:.2f}", f"{c['dem']:.2f}",
-                                    c["unit"], c["combo"], c["ref"]))
-            byid[iid] = c
-
-        def show(_e=None):
-            c = byid.get((tv.selection() or [""])[0])
-            det.configure(state="normal"); det.delete("1.0", "end")
-            if c:
-                det.insert("end", f"{c['name']}  —  {c['ref']}\nCapacity = {c['cap']:.2f} {c['unit']};  Demand = {c['dem']:.2f} {c['unit']};"
-                                  f"  Ratio = {c['ratio']:.3f}  ({c['combo']})\n\n" + "\n".join(c["detail"]))
-                self.view.show_model(self.view._model, set(c.get("tags", ())))
-            det.configure(state="disabled")
-        tv.bind("<<TreeviewSelect>>", show)
-        return w
+        """Results theo form báo cáo RAM (tiếng Anh); nhấp dòng Design check → diễn giải tiếng Việt ở khung dưới + tô sáng 3D."""
+        res = self._report()
+        if not res: return None
+        from results_view import ResultsWindow
+        RP, rep = res
+        return ResultsWindow(self, rep, RP, self.R["checks"], title="Results — " + self.S.get("name", ""),
+                             on_select=lambda tags: self.view.show_model(self.view._model, tags))
 
     def _edit_page(self, page):
         """Bảng Data / Loads (như bước 2–3 của New joint) — không chặn vòng lặp sự kiện."""

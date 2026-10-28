@@ -333,31 +333,35 @@ def base_model(st: dict, R: dict) -> Model:
     G = R["G"]; c = G["col"]; an = st["anchor"]
     N, B, N2, B2, tp, gr = G["N"], G["B"], G["N2"], G["B2"], G["tp"], G["grout"]
     d, tw, tfE, tfI = G["d"], c["tw"], c["tfE"], c["tfI"]
+    ox, oz, sx, sz = G["ox"], G["oz"], -G["px"], -G["pz"]          # tâm cột, tâm gối (toạ độ bản đế)
     hshow = min(G["ha"], 0.55 * max(N2, B2))
-    box(m, (-N2 / 2, -gr - hshow, -B2 / 2), (N2 / 2, -gr, B2 / 2), CONCRETE, ("conc",))
+    box(m, (sx - N2 / 2, -gr - hshow, sz - B2 / 2), (sx + N2 / 2, -gr, sz + B2 / 2), CONCRETE, ("conc",))
     if gr > 0:
         box(m, (-N / 2 - 25, -gr, -B / 2 - 25), (N / 2 + 25, 0.0, B / 2 + 25), GROUT, ("conc",))
     box(m, (-N / 2, 0.0, -B / 2), (N / 2, tp, B / 2), END_PLATE, ("bp",))
     Hc = max(1.6 * d, 500.0)
-    box(m, (d / 2 - tfE, tp, -c["bfE"] / 2), (d / 2, tp + Hc, c["bfE"] / 2), STEEL, ("col", "wflange"))
-    box(m, (-d / 2, tp, -c["bfI"] / 2), (-d / 2 + tfI, tp + Hc, c["bfI"] / 2), STEEL, ("col", "wflange"))
-    box(m, (-d / 2 + tfI, tp, -tw / 2), (d / 2 - tfE, tp + Hc, tw / 2), STEEL, ("col", "wweb"))
+    box(m, (ox + d / 2 - tfE, tp, oz - c["bfE"] / 2), (ox + d / 2, tp + Hc, oz + c["bfE"] / 2), STEEL, ("col", "wflange"))
+    box(m, (ox - d / 2, tp, oz - c["bfI"] / 2), (ox - d / 2 + tfI, tp + Hc, oz + c["bfI"] / 2), STEEL, ("col", "wflange"))
+    box(m, (ox - d / 2 + tfI, tp, oz - tw / 2), (ox + d / 2 - tfE, tp + Hc, oz + tw / 2), STEEL, ("col", "wweb"))
     wf = max(float(st["weld"]["fl"].get("w", 8)), 5.0)
     ww = max(float(st["weld"]["web"].get("w", 6)), 5.0)
     up = (0.0, 1.0, 0.0)
-    weld_bead(m, (d / 2, tp, -c["bfE"] / 2), (1.0, 0.0, 0.0), up, (0.0, 0.0, c["bfE"]), wf, ("wflange",))
-    weld_bead(m, (-d / 2, tp, -c["bfI"] / 2), (-1.0, 0.0, 0.0), up, (0.0, 0.0, c["bfI"]), wf, ("wflange",))
-    for s in (1, -1):
-        weld_bead(m, (-d / 2 + tfI, tp, s * tw / 2), (0.0, 0.0, float(s)), up, (d - tfE - tfI, 0.0, 0.0), ww, ("wweb",))
-    da = float(an["d"]); wB = float(an.get("washer") or 3 * da); wT = float(an.get("washerT") or 8)
+    weld_bead(m, (ox + d / 2, tp, oz - c["bfE"] / 2), (1.0, 0.0, 0.0), up, (0.0, 0.0, c["bfE"]), wf, ("wflange",))
+    weld_bead(m, (ox - d / 2, tp, oz - c["bfI"] / 2), (-1.0, 0.0, 0.0), up, (0.0, 0.0, c["bfI"]), wf, ("wflange",))
+    if not st["weld"].get("outerOnly"):
+        for s in (1, -1):
+            weld_bead(m, (ox - d / 2 + tfI, tp, oz + s * tw / 2), (0.0, 0.0, float(s)), up, (d - tfE - tfI, 0.0, 0.0), ww, ("wweb",))
+    da = float(an["d"]); wB, wT = G["washer"]
+    nuts = 2 if an.get("lockNut") else 1
     for a in G["anchors"]:
         x, z = a["x"], a["y"]
         box(m, (x - wB / 2, tp, z - wB / 2), (x + wB / 2, tp + wT, z + wB / 2), WASHER, ("anchors",))
-        hex_prism(m, (x, tp + wT, z), up, (1.0, 0.0, 0.0), 0.92 * da, 0.9 * da, BOLT, ("anchors",))
-        hex_prism(m, (x, tp + wT + 0.9 * da, z), up, (1.0, 0.0, 0.0), 0.5 * da, 0.6 * da, BOLT, ("anchors",))
-    m.focus = (0.0, tp + 0.15 * Hc, 0.0)
+        for k in range(nuts):
+            hex_prism(m, (x, tp + wT + k * 0.9 * da, z), up, (1.0, 0.0, 0.0), 0.92 * da, 0.9 * da, BOLT, ("anchors",))
+        hex_prism(m, (x, tp + wT + nuts * 0.9 * da, z), up, (1.0, 0.0, 0.0), 0.5 * da, 0.6 * da, BOLT, ("anchors",))
+    m.focus = (sx, tp + 0.15 * Hc, sz)
     m.focus_size = 1.5 * max(N2, B2, d)
-    m.frame = ((-0.6 * N2, -gr - hshow, -0.6 * B2), (0.6 * N2, tp + 1.1 * Hc, 0.6 * B2))
+    m.frame = ((sx - 0.6 * N2, -gr - hshow, sz - 0.6 * B2), (sx + 0.6 * N2, tp + 1.1 * Hc, sz + 0.6 * B2))
     m.view = (32.0, 24.0)
     return m
 

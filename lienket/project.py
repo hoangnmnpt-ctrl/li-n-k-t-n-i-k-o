@@ -53,7 +53,9 @@ def apply_auto(kind: str, st: dict, res: dict):
     """Ghi kết quả Smart connection / Optimize (tp, đường kính bu lông / neo) vào state."""
     if kind == "knee": st["plate"]["tp"] = res["tp"]
     elif kind == "splice": st["plate"]["tp1"] = st["plate"]["tp2"] = res["tp"]
-    else: st["plate"]["tp"] = res["tp"]
+    else:
+        st["plate"].update({k: res[k] for k in ("tp", "N", "B") if k in res})
+        st["anchor"].update({k: res[k] for k in ("ex", "ey", "hef") if k in res})
     (st["anchor"] if kind == "base" else st["bolt"])["d"] = res["d"]
 
 
@@ -102,8 +104,7 @@ def connection_text(j: dict) -> str:
 
 
 def neo_count(a: dict) -> int:
-    nx, ny = max(int(a["nx"]), 2), max(int(a["ny"]), 2)
-    return 2 * nx + 2 * ny - 4
+    return 2 * max(int(a.get("nr", 1)), 1) * max(int(a.get("npr", 2)), 1)
 
 
 class Project:
