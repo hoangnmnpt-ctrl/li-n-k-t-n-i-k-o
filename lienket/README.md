@@ -178,7 +178,8 @@ Quy tắc dành cho chân cột khớp; chân cột có mô men lớn có thể 
 Bước **Loads** của Column base có khung *Lấy phản lực chân cột từ SAP2000*: Kết nối SAP2000 → chọn nguồn tải
 (Design Combos / Load Cases / …, nút *nguồn ▾* để tick từng combo) → chọn **nút gối chân cột** (hoặc chọn cột, lấy đầu dưới)
 trong SAP → **Lấy phản lực**. Tool đọc `Results.JointReact` và lấy cực trị theo bảng tải RAM:
-**Mmax, Pmax (nén lớn nhất), Vmax (|V2| lớn nhất — phương chính, = |F1| của SAP với cột trục mặc định), Mmin, Pmin (kéo lớn nhất)**. Chân cột không lấy trường hợp mô men:
+**Mmax, Pmax (nén lớn nhất), Vmax (|V2| lớn nhất — phương chính, = |F1| của SAP với cột trục mặc định), Mmin, Pmin (kéo lớn nhất)**. Đồng thời lấy **tiết diện cột** tại các nút đó
+(nhiều tiết diện → tiết diện cho D/C lớn nhất) và dựng lại bản đế / neo theo quy tắc. Chân cột không lấy trường hợp mô men:
 dòng Mmax / Mmin giữ lại với giá trị 0. Description chỉ là tên dòng (không kèm tên combo SAP); chọn nhiều chân cột → lấy bao.
 
 Quy đổi dấu, chiếu lên hệ trục cột (trục dọc hướng lên từ chân, trục 2 = trục 2 của thanh trong SAP, trục 3 = dọc × 2):
