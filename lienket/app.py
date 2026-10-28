@@ -580,7 +580,11 @@ class App(ctk.CTk):
         t.configure(state="disabled")
         code = st.get("gen", {}).get("designCode", "AISC 2010 LRFD")
         self.cmb_code.set(next((k for k, v in DESIGN_CODES.items() if v == code), "AISC-10 LRFD"))
-        self.notes.insert("1.0", st.get("notes", ""))
+        notes = st.get("notes", "")
+        if j["kind"] == "base" and not str(notes).strip():                 # chân cột: ghi chú mặc định theo thiết kế
+            import base_engine as BE
+            notes = BE.short_text(st)[1].replace("\r\n", "\n")
+        self.notes.insert("1.0", notes)
         self.ent_label.insert(0, st.get("label", ""))
 
     def _label_changed(self):
@@ -605,6 +609,21 @@ class App(ctk.CTk):
         j = self._joint(False)
         if not j: return
         txt = self.notes.get("1.0", "end").rstrip("\n")
+        if j["kind"] == "base":
+            # Additional notes ↔ Description ↔ Column type liên kết: dòng 1 = loại cột (Main / EW Column), dòng 2 = quy cách
+            import base_engine as BE
+            st = PJ.full_state(j)
+            if txt == str(st.get("notes") or "").strip() or (not str(st.get("notes") or "").strip() and txt == BE.short_text(st)[1].replace("\r\n", "\n")):
+                return
+            role0 = st["opt"].get("colRole", "main")
+            st["notes"] = txt
+            BE.link_texts(st, "notes")
+            for k in ("notes", "desc"): j["state"][k] = st[k]
+            j["state"].setdefault("opt", {})["colRole"] = st["opt"]["colRole"]
+            self.project.dirty = True; self._title()
+            if st["opt"]["colRole"] != role0: self.refresh()
+            else: self._show_info()
+            return
         if txt != j["state"].get("notes", ""):
             j["state"]["notes"] = txt; self.project.dirty = True; self._title()
 

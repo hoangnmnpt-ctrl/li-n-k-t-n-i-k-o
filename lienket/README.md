@@ -177,7 +177,11 @@ Quy tắc dành cho chân cột khớp; chân cột có mô men lớn có thể 
 - Geometric considerations có thêm 3 dòng theo quy định: **bề dày bản đế ≥ 14 mm (khung chính) / ≥ 12 mm (đầu hồi) và ≥ hw/50**;
   **neo ≥ M24 (khung chính) / ≥ M20 (đầu hồi)**; **tim neo → mép bản ≥ 1.75D** (không đạt → báo đỏ như các kiểm tra khác).
 - Ô **Joint name** (cửa sổ chính, trên Additional notes): thẻ nhỏ hiện "Column Base: B1".
-- Xuất RAM: Description = `4M20(4.6)_PL-14mm`, Additional notes = `Main Column` / `M20(4.6)_PL14mm` (+ ghi chú nhập trong tool).
+- **Column type** (Main column — mặc định / EW column) nằm ở góc phải Connection Pad, cùng ô mô tả (chữ trắng nền xanh).
+  Ba ô liên kết nhau: **Additional notes** (cửa sổ chính) = `Main Column` / `M24(4.6)_PL-14mm` (+ ghi chú thêm); **mô tả** = `4M24(4.6)_PL-14mm`.
+  Sửa mô tả → dòng 2 của notes đổi theo; sửa notes (dòng 1 = loại cột, dòng 2 = quy cách) → Column type + mô tả đổi theo; đổi Column type → dòng 1 của notes.
+  Sau **Optimize** mô tả + notes được ghi lại theo thiết kế đã tính. Xuất RAM: Description và Additional notes ghi **đúng như trong tool**.
+- Tải chân cột từ SAP: không còn ô Đổi dấu / Thay bảng tải (dấu giữ như SAP, luôn thay bảng tải).
 
 ### Lấy tải chân cột từ SAP2000 (phản lực gối)
 

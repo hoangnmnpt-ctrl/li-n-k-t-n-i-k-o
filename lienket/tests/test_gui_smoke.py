@@ -145,6 +145,12 @@ def main() -> int:
     jb = app.project.add(d.result["kind"], d.result["state"]); app.refresh(); app.select(jb["id"]); _spin(app)
     check("tạo Column base", jb["kind"] == "base" and app.result(jb)[1]["gov"] is not None)
     app.ent_label.delete(0, "end"); app.ent_label.insert(0, "B1"); app._label_changed(); _spin(app)
+    # Additional notes ↔ Description ↔ Column type (chân cột)
+    app.select(jb["id"]); _spin(app)
+    check("notes mặc định 'Main Column / M…_PL-…mm'", app.notes.get("1.0", "end").startswith("Main Column\nM"))
+    app.notes.delete("1.0", "end"); app.notes.insert("1.0", "EW Column\nM20(4.6)_PL-12mm"); app._notes_changed(); _spin(app)
+    sb = app.project.get(jb["id"])["state"]
+    check("sửa notes → Description + Column type", sb["desc"] == "4M20(4.6)_PL-12mm" and sb["opt"]["colRole"] == "gable")
     check("tên liên kết: thẻ hiện 'Column Base: B1'", app.project.get(jb["id"])["state"]["label"] == "B1"
           and app.cards[jb["id"]]["parts"][2].cget("text") == "Column Base: B1")
     # Home → RAM Connection → Export: mọi liên kết của dự án
@@ -181,7 +187,19 @@ def main() -> int:
     rid = next(iter(w.row_boxes)); w.select(rid); _spin(app, 3)
     check("Results chân cột (form RAM, chọn dòng → diễn giải)", w.det.get("1.0", "end").strip().startswith(w.byid[rid]["name"])); w.destroy()
     w = ed.print_preview(); check("Print chân cột", w is not None); w.destroy()
+    # góc phải Connection Pad: Column type (mặc định Main) + mô tả; liên kết với Additional notes
+    import base_defaults as BD
+    check("Pad: Column type theo trạng thái (mặc định tạo mới = Main), mô tả hiện",
+          BD.BASE["opt"]["colRole"] == "main" and ed.cmb_role.get() == "EW column" and ed.txt_desc.get("1.0", "end").strip() == "4M20(4.6)_PL-12mm")
+    ed.cmb_role.set("EW column"); ed._role_changed(); _spin(app, 5)
+    check("Pad: đổi Column type → notes dòng 1 'EW Column'", ed.S["opt"]["colRole"] == "gable" and ed.S["notes"].startswith("EW Column"))
+    ed.cmb_role.set("Main column"); ed._role_changed()
     ed.optimize(); _spin(app, 5)
+    ed._sync_corner()
+    check("Pad: sau Optimize mô tả = <số neo><quy cách>", ed.txt_desc.get("1.0", "end").strip() == ed.S["desc"]
+          and ed.S["desc"].startswith(("4M", "6M")) and "_PL-" in ed.S["desc"] and ed.S["notes"].split("\n")[1] == ed.S["desc"][1:])
+    ed.txt_desc.delete("1.0", "end"); ed.txt_desc.insert("1.0", "4M30(5.6)_PL-18mm"); ed._desc_edited()
+    check("Pad: sửa mô tả → notes dòng 2 theo", ed.S["notes"].split("\n")[1] == "M30(5.6)_PL-18mm")
     ed.open_loads(); _spin(app, 5)
     check("Loads chân cột mở được", ed.loads_win is not None and ed.loads_win.winfo_exists()); ed.loads_win.destroy(); _spin(app)
     ed.ok(); _spin(app)

@@ -404,7 +404,7 @@ class BaseSapPanel(tk.LabelFrame):
         super().__init__(master, text=" Lấy phản lực chân cột từ SAP2000 ", bg="#FFFFFF", fg="#1B2430", font=("Segoe UI", 9, "bold"))
         self.S, self.grid_ = S, grid
         cfg = S.setdefault("sap", {})
-        cfg.setdefault("signs", {k: 1 for k, _ in self.SIGN_KEYS})
+        cfg.setdefault("signs", {k: 1 for k, _ in self.SIGN_KEYS})        # dấu giữ nguyên như SAP (không có ô lật dấu)
         self.cfg = cfg
         r1 = tk.Frame(self, bg="#FFFFFF"); r1.pack(fill="x", pady=2)
         ttk.Button(r1, text="Kết nối SAP2000", command=self._connect).pack(side="left", padx=3)
@@ -415,15 +415,7 @@ class BaseSapPanel(tk.LabelFrame):
         cb = ttk.Combobox(r2, textvariable=self.src, values=list(self._menu()), state="readonly", width=16); cb.pack(side="left", padx=3)
         cb.bind("<<ComboboxSelected>>", lambda _e: self._source_changed())
         self.btn_pick = ttk.Button(r2, text="nguồn ▾", command=self._pick); self.btn_pick.pack(side="left", padx=3)
-        r3 = tk.Frame(self, bg="#FFFFFF"); r3.pack(fill="x", pady=2)
-        tk.Label(r3, text="Đổi dấu", bg="#FFFFFF", font=("Segoe UI", 9)).pack(side="left", padx=3)
-        self.flip = {}
-        for k, t in self.SIGN_KEYS:
-            v = self.flip[k] = tk.BooleanVar(value=float(cfg["signs"].get(k, 1)) < 0)
-            tk.Checkbutton(r3, text=t, variable=v, bg="#FFFFFF", font=("Segoe UI", 9), command=self._save_signs).pack(side="left")
         r4 = tk.Frame(self, bg="#FFFFFF"); r4.pack(fill="x", pady=2)
-        self.replace = tk.BooleanVar(value=cfg.get("replace", True))
-        tk.Checkbutton(r4, text="Thay bảng tải", variable=self.replace, bg="#FFFFFF", font=("Segoe UI", 9)).pack(side="left")
         ttk.Button(r4, text="Lấy phản lực (nút / cột đang chọn)", command=self._get).pack(side="right", padx=3)
         tk.Label(self, text="Chọn nút chân cột (hoặc cột) trong SAP rồi bấm Lấy phản lực. Axial: lực cột lên bản đế (< 0 nén); "
                             "V2, V3 giữ dấu phản lực SAP (trục 2, 3 của cột); Mmax / Mmin = 0 (chân cột không lấy mô men).",
@@ -449,9 +441,6 @@ class BaseSapPanel(tk.LabelFrame):
 
     def _src(self):
         return self._menu().get(self.src.get(), "4")
-
-    def _save_signs(self):
-        self.cfg["signs"] = {k: (-1 if v.get() else 1) for k, v in self.flip.items()}
 
     def _connect(self):
         from tkinter import messagebox
@@ -510,7 +499,6 @@ class BaseSapPanel(tk.LabelFrame):
             def allowed_for(frame):
                 if frame not in cache: cache[frame] = conn.allowed_loads_for_frame(frame, src, chosen)
                 return cache[frame]
-            self._save_signs()
             recs, warn = scanner.base_reactions(conn, allowed_for, self.cfg["signs"])
         except Exception as e:  # noqa: BLE001
             messagebox.showerror("SAP2000", f"Lỗi khi đọc SAP: {e}\n{conn.last_error}", parent=self); return
@@ -518,9 +506,7 @@ class BaseSapPanel(tk.LabelFrame):
             messagebox.showinfo("SAP2000", "Không lấy được phản lực.\nChọn nút gối chân cột (hoặc cột) trong SAP, "
                                 "kiểm tra đã chạy phân tích và nguồn tải.\n" + "\n".join(warn), parent=self); return
         rows = [{k: r[k] for k in ("name", "N", "V2", "V3", "M22", "M33")} for r in scanner.base_extremes(recs)]
-        self.cfg["replace"] = bool(self.replace.get())
-        if self.replace.get(): self.S["loads"][:] = rows
-        else: self.S["loads"].extend(rows)
+        self.S["loads"][:] = rows
         # tiết diện cột tại các nút đã lấy phản lực — nhiều tiết diện: lấy tiết diện nguy hiểm nhất (D/C lớn nhất)
         sec_txt = ""
         try:
@@ -805,6 +791,8 @@ class NewJointDialog(tk.Toplevel):
         self._help_panel(kind)
 
     def _data_changed(self, path):
+        if path == "desc" and self._kind() == "base":
+            BE.link_texts(self.S, "desc")
         if path == "col.sec" and self._kind() == "base":
             BE.apply_default_plate(self.S)                 # N = d + 20 (làm tròn lên 10), B = max(180, bf)
         if path == "type" and self.S.get("type") == "apex" and not float(self.S.get("slope") or 0):

@@ -315,6 +315,21 @@ def test_critical_section():
     assert len(scores) == 2 and best["sec"] == max(scores, key=lambda x: x[1])[0]
 
 
+def test_link_desc_notes_role():
+    """Description ↔ Additional notes ↔ Column type liên kết; mặc định Main."""
+    st = merge(BASE, PRESETS["RAM CB 1 — Pinned BP (I 300x215x5x10)"])
+    assert st["opt"]["colRole"] == "main"
+    assert BE.short_text(st) == ("4M27(4.6)_PL-16mm", "Main Column\r\nM27(4.6)_PL-16mm")
+    BE.link_texts(st, "auto")
+    assert st["desc"] == "4M27(4.6)_PL-16mm" and st["notes"] == "Main Column\nM27(4.6)_PL-16mm"
+    st["desc"] = "4M24(4.6)_PL-14mm"; BE.link_texts(st, "desc")                    # sửa mô tả → dòng quy cách của notes
+    assert st["notes"] == "Main Column\nM24(4.6)_PL-14mm"
+    st["notes"] = "EW Column\nM20(4.6)_PL-12mm\nthêm"; BE.link_texts(st, "notes")   # sửa notes → loại cột + mô tả
+    assert st["opt"]["colRole"] == "gable" and st["desc"] == "4M20(4.6)_PL-12mm" and st["notes"].endswith("\nthêm")
+    st["opt"]["colRole"] = "main"; BE.link_texts(st, "role")
+    assert st["notes"].startswith("Main Column\nM20")
+
+
 if __name__ == "__main__":
     fails = 0
     for n, f in list(globals().items()):

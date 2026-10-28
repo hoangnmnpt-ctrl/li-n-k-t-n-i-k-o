@@ -61,8 +61,6 @@ def build_sections(app):
                 "Complete area: toàn bộ bản đế (DG1) · Effective area: vùng cách thép cột ≤ c = tp·√(φFy/(2fp,max))"),
             tip(chk("gen.friction", "Include friction between base plate and support"), "Ma sát 0.75·0.55·Pu giảm lực cắt cho neo / bản chắn cắt"),
             sub("Optimization criteria"),
-            tip(sel("opt.colRole", "Column type", list(BE.COL_ROLES.items())),
-                "Cột chính: bản đế ≥ 14 mm, neo ≥ M24 · Cột đầu hồi: bản đế ≥ 12 mm, neo ≥ M20"),
             tip(chk("opt.optTp", "Optimize base plate thickness"),
                 "Chọn trong 6 8 10 12 14 16 18 20 22 25 30 35 40 45 mm: ≥ 14 mm cột chính / ≥ 12 mm đầu hồi, ≥ hw/50"),
             num("opt.tpMax", "Maximum thickness", show=lambda: o("optTp")), num("opt.tpMin", "Minimum thickness", show=lambda: o("optTp")),

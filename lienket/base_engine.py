@@ -1157,7 +1157,7 @@ def _frange(a, b, s):
     return out
 
 
-COL_ROLES = {"main": "Main column (cột chính)", "gable": "Gable column (cột đầu hồi)"}
+COL_ROLES = {"main": "Main column", "gable": "EW column"}      # khung chính | đầu hồi (End Wall)
 TP_ROLE_MIN = {"main": 14.0, "gable": 12.0}      # bản đế tối thiểu theo loại cột (mm)
 
 
@@ -1225,15 +1225,61 @@ def anchor_sequence(o: dict, d0=None, grade0=None) -> list:
     return [(gr, dd) for gr in ANCHOR_SEQ_GRADES for dd in ANCHOR_SEQ_D if dd >= dmin]
 
 
-def short_text(st: dict) -> tuple[str, str]:
-    """Ghi chú gọn của chân cột: (Description "4M20(4.6)_PL-14mm", Notes "Main Column\r\nM20(4.6)_PL14mm")."""
+ROLE_TEXT = {"main": "Main Column", "gable": "EW Column"}
+
+
+def role_from_text(line: str, default: str = "main") -> str:
+    """'Main Column' → main; 'EW Column' / 'Gable…' / 'End wall…' → gable."""
+    k = (line or "").strip().lower()
+    if k.startswith(("ew", "gable", "end")): return "gable"
+    if k.startswith("main"): return "main"
+    return default
+
+
+def spec_text(st: dict) -> str:
+    """Quy cách gọn không kèm số neo: 'M24(4.6)_PL-14mm'."""
     an, pl = st["anchor"], st["plate"]
-    n = 2 * max(int(an.get("nr", 1)), 1) * max(int(an.get("npr", 2)), 1)
     gr = str(an.get("grade", "")).replace("Class ", "").replace(" ", "")
-    lab = anchor_label(an["d"])
-    tp = f"{float(pl['tp']):g}"
-    role = "Main Column" if st.get("opt", {}).get("colRole", "main") == "main" else "Gable Column"
-    return f"{n}{lab}({gr})_PL-{tp}mm", f"{role}\r\n{lab}({gr})_PL{tp}mm"
+    return f"{anchor_label(an['d'])}({gr})_PL-{float(pl['tp']):g}mm"
+
+
+def anchor_count(st: dict) -> int:
+    an = st["anchor"]
+    return 2 * max(int(an.get("nr", 1)), 1) * max(int(an.get("npr", 2)), 1)
+
+
+def short_text(st: dict) -> tuple[str, str]:
+    """(Description '4M24(4.6)_PL-14mm', Notes 'Main Column\\r\\nM24(4.6)_PL-14mm')."""
+    spec = spec_text(st)
+    role = ROLE_TEXT.get(st.get("opt", {}).get("colRole", "main"), ROLE_TEXT["main"])
+    return f"{anchor_count(st)}{spec}", f"{role}\r\n{spec}"
+
+
+def _lines(txt: str) -> list[str]:
+    return str(txt or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")
+
+
+def link_texts(st: dict, source: str) -> None:
+    """Đồng bộ Description (desc) ↔ Additional notes (notes) ↔ Column type (opt.colRole) theo nguồn vừa sửa:
+    notes = [loại cột, quy cách, …ghi chú thêm]; desc = số neo + quy cách.
+      source 'desc'  → dòng quy cách của notes theo desc;
+      source 'notes' → loại cột từ dòng 1, desc = số neo + dòng 2;
+      source 'role'  → dòng 1 của notes theo loại cột;
+      source 'auto'  → tạo lại desc + 2 dòng đầu notes từ thiết kế hiện tại (giữ các dòng ghi chú thêm)."""
+    n = anchor_count(st)
+    lines = _lines(st.get("notes", ""))
+    while len(lines) < 2: lines.append("")
+    if source == "auto":
+        st["desc"] = f"{n}{spec_text(st)}"
+        lines[1] = spec_text(st)
+    elif source == "desc":
+        d = str(st.get("desc", "")).strip()
+        lines[1] = d[len(str(n)):] if d.startswith(str(n)) else d
+    elif source == "notes":
+        st.setdefault("opt", {})["colRole"] = role_from_text(lines[0], st.get("opt", {}).get("colRole", "main"))
+        if lines[1].strip(): st["desc"] = f"{n}{lines[1].strip()}"
+    lines[0] = ROLE_TEXT.get(st.get("opt", {}).get("colRole", "main"), ROLE_TEXT["main"])
+    st["notes"] = "\n".join(lines).rstrip("\n")
 
 
 def critical_section(st: dict, cands: list[dict]) -> tuple[dict | None, list]:

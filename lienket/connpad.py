@@ -104,6 +104,50 @@ class ConnectionPad(tk.Toplevel):
         self.view = RamView(mid)
         self.view.pack(fill="both", expand=True)
         self._toolbar(mid)
+        if self.kind == "base":
+            self._corner(mid)
+
+    # ── chân cột: Column type + mô tả (chữ trắng nền xanh) ở góc phải, liên kết với Additional notes ──
+    def _corner(self, parent):
+        import base_engine as BE
+        S = self.S
+        if not str(S.get("desc") or "").strip() or not str(S.get("notes") or "").strip():
+            d0, n0 = BE.short_text(S)
+            if not str(S.get("desc") or "").strip(): S["desc"] = d0
+            if not str(S.get("notes") or "").strip(): S["notes"] = n0.replace("\r\n", "\n")
+        box = tk.Frame(parent, bg=NAVY)
+        box.place(relx=1.0, x=-6, y=112, anchor="ne")
+        row = tk.Frame(box, bg=NAVY); row.pack(anchor="e")
+        tk.Label(row, text="Column type", bg=NAVY, fg="#FFFFFF", font=("Segoe UI", 9)).pack(side="left", padx=(0, 6))
+        self.cmb_role = ttk.Combobox(row, state="readonly", width=14, values=list(BE.COL_ROLES.values()), font=("Segoe UI", 9))
+        self.cmb_role.pack(side="left")
+        self.cmb_role.bind("<<ComboboxSelected>>", lambda e: self._role_changed())
+        self.txt_desc = tk.Text(box, width=34, height=2, bg=NAVY, fg="#FFFFFF", insertbackground="#FFFFFF", relief="flat",
+                                highlightthickness=0, font=("Segoe UI", 11, "bold"), wrap="word", padx=2, pady=2)
+        self.txt_desc.pack(anchor="e", pady=(4, 0))
+        self.txt_desc.bind("<FocusOut>", lambda e: self._desc_edited())
+        self.txt_desc.bind("<Return>", lambda e: (self._desc_edited(), "break")[1])
+        self._sync_corner()
+
+    def _sync_corner(self):
+        if self.kind != "base" or not hasattr(self, "txt_desc"): return
+        import base_engine as BE
+        self.cmb_role.set(BE.COL_ROLES.get(self.S.get("opt", {}).get("colRole", "main"), BE.COL_ROLES["main"]))
+        self.txt_desc.delete("1.0", "end"); self.txt_desc.insert("1.0", str(self.S.get("desc") or ""))
+
+    def _role_changed(self):
+        import base_engine as BE
+        lab = self.cmb_role.get()
+        self.S["opt"]["colRole"] = next((k for k, v in BE.COL_ROLES.items() if v == lab), "main")
+        BE.link_texts(self.S, "role")
+        self.schedule()
+
+    def _desc_edited(self):
+        import base_engine as BE
+        txt = self.txt_desc.get("1.0", "end").strip().replace("\n", " ")
+        if txt != str(self.S.get("desc") or ""):
+            self.S["desc"] = txt
+            BE.link_texts(self.S, "desc")
 
     def _wheel(self, e):
         self.cv.yview_scroll(-1 if e.delta > 0 else 1, "units")
@@ -264,7 +308,7 @@ class ConnectionPad(tk.Toplevel):
             elif k == "sel": f["var"].set(next((l for key, l in sp["opts"] if str(key) == str(v)), sp["opts"][0][1]))
             else: f["var"].set("" if v is None else (f"{v:g}" if isinstance(v, float) else str(v)))
         self._suspend = False
-        self._visibility(); self._info()
+        self._visibility(); self._info(); self._sync_corner()
 
     def _normalize(self):
         PJ.KINDS[self.kind]["normalize"](self.S)
@@ -411,6 +455,8 @@ class ConnectionPad(tk.Toplevel):
         if not res:
             messagebox.showwarning("Optimize", "Không tính được phương án nào — kiểm tra lại số liệu.", parent=self); return
         PJ.apply_auto(self.kind, self.S, res)
+        if self.kind == "base":
+            PJ.BE.link_texts(self.S, "auto")                    # mô tả + ghi chú theo thiết kế đã tính: 4M24(4.6)_PL-14mm
         self._load(); self.run()
         msg = (f"Optimize: bản đế {res['N']:g}×{res['B']:g}×{res['tp']:g}, neo {res['nr'] * res['npr'] * 2}{PJ.BE.anchor_label(res['d'])} ({res['grade']}), ex = {res['ex']:g}, ey = {res['ey']:g}, hàn D = {res['D']}/16 — D/C = {res['ratio']:.2f}" if self.kind == "base"
                else f"Optimize: tp = {res['tp']} mm, bu lông M{res['d']} — D/C = {res['ratio']:.2f}")
