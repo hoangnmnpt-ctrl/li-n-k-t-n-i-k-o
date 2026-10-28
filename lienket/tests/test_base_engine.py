@@ -72,7 +72,8 @@ def test_uplift_anchor_forces_and_rod_strength():
     assert all(near(t, 50.0) for t in R["demands"][0]["T"])            # 200 kN / 4 neo
     da = BASE["anchor"]["d"]
     c = chk(R, "aci_sa")                                                    # RAM: Anchor tension φ·Ase·futa (Eq. D-3)
-    assert near(c["cap"], 0.75 * BE.ASE_ISO[da] * 500 / 1e3) and near(c["dem"], 50.0)
+    fu = BE.ANCHOR_GRADES[BASE["anchor"]["grade"]][1]
+    assert near(c["cap"], 0.75 * BE.ASE_ISO[da] * fu / 1e3) and near(c["dem"], 50.0)
     # neo ngoài cánh (DG1): Mpl = Tu·x/B với x = f − d/2 + tf/2, Tu = tổng 2 neo cùng hàng
     G = R["G"]
     x = G["ax"] - G["d"] / 2 + G["tf"] / 2
@@ -159,13 +160,34 @@ def test_biaxial_warning_and_presets_run():
 
 
 def test_auto_design():
-    st = merge(BASE, {"plate": {"tp": 12}, "anchor": {"d": 16}})
+    """Optimize theo quy tắc (chân cột khớp): N = h + 20 ↑10, B = max(180, bf); neo ≥ M24 (khung chính), ex = (N − a)/2,
+    ey = (B − a)/2 ≥ 1.75D; tp trong danh sách; đạt mọi kiểm tra."""
+    cb1 = PRESETS["RAM CB 1 — Pinned BP (I 300x215x5x10)"]
+    st = merge(BASE, {"plate": {"tp": 12}, "anchor": {"d": 16}, "loads": cb1["loads"], "ped": cb1["ped"]})
     res = BE.auto_design(st)
-    assert res and not res.get("fail") and res["tp"] > 12
+    assert res and not res.get("fail"), res
+    h = 400 + 2 * 12                                                         # 400.8-200.12
+    assert res["N"] == 450 and res["d"] >= 24 and res["tp"] in BE.K.TP_LIST and res["tp"] >= 14
+    a = BE.anchor_a(res["d"])
+    assert res["npr"] == 2 and res["ex"] == (res["N"] - a) / 2 and res["ey"] == (res["B"] - a) / 2 >= 1.75 * res["d"]
+    assert res["B"] >= 200 and h < 500
     import project as PJ
     PJ.apply_auto("base", st, res)
     R = BE.compute(st)
-    assert max(c["ratio"] for c in R["checks"] if c["id"].startswith(("bp_comp", "bp_ten", "anc_", "aci_"))) <= 1.0
+    assert R["gov"]["ratio"] <= 1.0 and not any(not g["ok"] for g in R["geo"])
+
+
+def test_rule_layout_large_column():
+    """Cột h ≥ 500: 2 hàng (hai bên bụng) × 3 neo theo phương N, ex = (N − 2a)/2."""
+    st = merge(BASE, {}); st["col"]["sec"] = "600.8-250.12"
+    BE.apply_default_plate(st)
+    an = st["anchor"]
+    assert (st["plate"]["N"], st["plate"]["B"]) == (650, 250) and an["npr"] == 3 and an["d"] == 24
+    assert an["ex"] == (650 - 240) / 2 and an["ey"] == (250 - 120) / 2
+    xs = sorted({a["x"] for a in BE.build_geometry(st)["anchors"]})
+    assert xs == [-120.0, 0.0, 120.0]
+    st["opt"]["colRole"] = "gable"; st["anchor"]["d"] = 20; BE.rule_layout(st, 20)
+    assert st["anchor"]["ey"] == (250 - 100) / 2 >= 35
 
 
 def test_ram_cb1_pinned_bp():
@@ -282,6 +304,15 @@ def test_default_plate_size():
     assert f("300.6-150.8") == (340.0, 180.0)             # d = 316 → 336 → 340; bf 150 < 180
     st = merge(BASE, {}); st["col"]["sec"] = "580.8-250.12"
     assert BE.apply_default_plate(st) and (st["plate"]["N"], st["plate"]["B"]) == (630, 250)
+
+
+def test_critical_section():
+    """Nhiều tiết diện cột tại các chân cột lấy phản lực → chọn tiết diện cho D/C lớn nhất."""
+    st = merge(BASE, {"loads": PRESETS["RAM CB 1 — Pinned BP (I 300x215x5x10)"]["loads"]})
+    cands = [dict(sec="400.8-200.12", L=6, jointEnd="I"), dict(sec="300.5-150.8", L=6, jointEnd="I"),
+             dict(sec="400.8-200.12", L=6, jointEnd="I")]
+    best, scores = BE.critical_section(st, cands)
+    assert len(scores) == 2 and best["sec"] == max(scores, key=lambda x: x[1])[0]
 
 
 if __name__ == "__main__":

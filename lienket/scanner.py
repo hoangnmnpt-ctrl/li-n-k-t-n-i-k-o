@@ -449,3 +449,19 @@ def base_extremes(recs: list[dict]) -> list[dict]:
         row.update({k: (round(r[k], 3) + 0.0 if r else 0.0) for k in BASE_KEYS})
         out.append(row)
     return out
+
+
+def base_sections(conn: SAP2000Connector) -> list[dict]:
+    """Tiết diện cột tại các chân cột đang chọn: [dict(joint, frame, sec, L, jointEnd, dims)] (dims qua API khi tên không theo quy cách)."""
+    out = []
+    for pt, g in base_supports(conn):
+        try:
+            info = conn.get_frame_info(g.name)
+        except Exception:  # noqa: BLE001
+            continue
+        end = "I" if g.p1 == pt else "J"
+        sec = info.section_name or info.prop_name
+        tmp = type("W", (), {"warn": []})()
+        dims = api_dims(conn, sec, info, end, tmp)
+        out.append(dict(joint=pt, frame=g.name, sec=sec, L=round(info.length, 3), jointEnd=end, dims=dims))
+    return out

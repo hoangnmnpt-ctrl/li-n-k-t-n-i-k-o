@@ -17,20 +17,20 @@ BASE = {
               "pos": "center", "px": 0.0, "pz": 0.0, "overA2": False, "A2A1": 4.0},
     # gối bê tông: bệ (pedestal) hoặc móng; mat → f'c (Custom: nhập f'c); lớp vữa
     "ped": {"isPed": True, "N2": 850, "B2": 550, "h": 800, "mat": "C25/30", "fc": 25.0, "groutOn": True, "grout": 50},
-    # neo (Anchor position): longitudinal (hàng neo ở hai đầu theo phương N) | transversal (hai đầu theo phương B)
+    # neo (Anchor position): longitudinal (hàng neo song song phương N, hai bên bụng; neo trong hàng rải theo N) | transversal (song song B)
     "anchor": {"layout": "longitudinal", "nr": 1, "npr": 2, "sr": 80, "ex": 60, "ey": 60,
                "type": "headed", "head": "hex", "eh": 100, "lockNut": False,
-               "grade": "Class 5.6", "d": 30, "hef": 400, "cracked": True, "brittle": False, "welded": False},
+               "grade": "Class 4.6", "d": 24, "hef": 400, "cracked": True, "brittle": False, "welded": False},
     # cốt thép neo: primary (anchor reinforcement — thay phá vỡ bê tông, báo As yêu cầu) | supplementary (Condition A, φ = 0.75)
     "reinf": {"type": "primary", "T": True, "barT": "no. 5", "fyT": 413.69, "nT": 8,
               "V": True, "barV": "no. 4", "fyV": 413.69, "nVx": 4, "nVy": 4},
     # một cỡ hàn D (1/16 in) như RAM; outerOnly: chỉ hàn mặt ngoài hai cánh
     "weld": {"electrode": "E70XX", "D": 5, "outerOnly": False, "fl": {"D": 5, "w": 7.9375}, "web": {"D": 5, "w": 7.9375}},
     "lug": {"on": False, "bl": 200, "H": 150, "tl": 20, "mat": "Q345", "D": 6, "w": 9.525},
-    # Optimization criteria (như RAM)
+    # Optimization criteria — quy tắc: N, B theo cột; neo M20…M36 Class 4.6 → 10.9; tp theo danh sách bản mã; hàn tăng 1/16 in
     "opt": {"optTp": True, "tpMax": 45, "tpMin": 6, "colRole": "main",
             "optN": True, "pMaxN": 381, "pMinN": 38.1, "optB": True, "pMaxB": 381, "pMinB": 38.1, "dimInc": 25.4,
-            "optD": True, "hefMin": 304.8, "keepPos": "initial", "vsaMax": 0.4},
+            "optD": True, "hefMin": 304.8, "keepPos": "initial", "vsaMax": 0.4, "optWeld": True},
     # N > 0 kéo (nhổ) · V2 dọc phương N · V3 dọc phương B · M33 > 0: mép +x chịu nén · M22 > 0: mép +z chịu nén
     "loads": [
         {"name": "N_max (nén)", "N": -650, "V2": 40, "V3": 0, "M33": 30, "M22": 0},
@@ -52,13 +52,13 @@ def merge(base: dict, over: dict) -> dict:
 
 
 PRESETS = {
-    "Mẫu chân cột ngàm — 4 neo hai đầu": {},
+    "Mẫu chân cột ngàm — 4 neo hai đầu": {"anchor": {"grade": "Class 5.6", "d": 30}},
     "Mẫu chân cột ngàm — 6 neo + bản chắn cắt": {
         "name": "CB-02",
         "col": {"sec": "500.8-250.14"},
         "plate": {"N": 760, "B": 400, "tp": 45},
         "ped": {"N2": 1000, "B2": 650, "h": 900},
-        "anchor": {"d": 30, "npr": 3, "ex": 65, "ey": 60, "hef": 450},
+        "anchor": {"grade": "Class 5.6", "layout": "transversal", "d": 30, "npr": 3, "ex": 65, "ey": 60, "hef": 450},
         "lug": {"on": True, "bl": 250, "H": 180, "tl": 28, "D": 8},
         "loads": [
             {"name": "N_max (nén)", "N": -900, "V2": 60, "V3": 0, "M33": 60, "M22": 0},
@@ -71,7 +71,7 @@ PRESETS = {
         "col": {"sec": "350.6-180.10"},
         "plate": {"N": 470, "B": 230, "tp": 20},
         "ped": {"N2": 600, "B2": 400, "h": 700},
-        "anchor": {"d": 22, "ex": 160, "ey": 65, "hef": 450, "welded": True},
+        "anchor": {"grade": "Class 5.6", "d": 22, "ex": 160, "ey": 65, "hef": 450, "welded": True},
         "loads": [
             {"name": "N_max (nén)", "N": -420, "V2": 35, "V3": 0, "M33": 0, "M22": 0},
             {"name": "Uplift", "N": 90, "V2": 20, "V3": 8, "M33": 0, "M22": 0},
@@ -83,7 +83,7 @@ PRESETS = {
         "col": {"sec": "400.8-250.14"},
         "plate": {"N": 650, "B": 450, "tp": 40},
         "ped": {"N2": 900, "B2": 700, "h": 900},
-        "anchor": {"npr": 3, "ex": 60, "ey": 60, "d": 27, "hef": 450, "welded": True},
+        "anchor": {"grade": "Class 5.6", "layout": "transversal", "npr": 3, "ex": 60, "ey": 60, "d": 27, "hef": 450, "welded": True},
         "weld": {"D": 8},
         "loads": [
             {"name": "Biaxial 1", "N": -400, "V2": 60, "V3": 30, "M33": 150, "M22": 40},

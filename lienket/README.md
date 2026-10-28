@@ -46,8 +46,8 @@ Dự án lưu một file `*.lkt` (mặc định `lienket\du_an.lkt`).
   Global critical strength ratio); nút *Export report (.docx)*.
 - **Export RAM Connection (.rcnx)**: nút **Home → RAM Connection → Export RAM .rcnx** (hoặc Output → RAM .rcnx) xuất **mọi liên kết**
   của dự án vào 1 file: knee → `Bentley.AISC.MEPlateKneeBCF`, chân cột → `Bentley.AISC.BasePlate`, nối dầm / apex →
-  `Bentley.AISC.MEPlateBeamSplice` (apex: IsApex = 1, SlopeAngle = −độ dốc), kèm bảng tải. RAM chỉ có 1 danh sách điều kiện tải cho cả file → tải thứ k của mọi nút dùng chung
-  điều kiện k (tên chung nếu trùng, vd. Mmax… như file RAM; khác thì ghép tên), nên mỗi nút chỉ thấy tổ hợp của mình ở đầu bảng.
+  `Bentley.AISC.MEPlateBeamSplice` (apex: IsApex = 1, SlopeAngle = −độ dốc), kèm bảng tải. RAM chỉ có 1 danh sách điều kiện tải cho cả file → các nút có bảng tải khác nhau (Description / số dòng)
+  được ghi ra file riêng `<tên>_1.rcnx`, `<tên>_2.rcnx`…; trong mỗi file bảng tải của từng nút giống hệt bảng trong tool.
   Dựng từ khuôn `ram_proto.rcnx` lấy từ file RAM Connection **24.0.4** thật (`tools/make_ram_proto.py`; tên bu lông kiểu RAM 24 "M24 G88").
   Đối chứng: CB 1 "Pinned BP" và nối dầm BS #20 xuất ra trùng từng thuộc tính + bảng tải với connection gốc (chỉ khác cách ghi đơn vị,
   in ↔ mm); knee #11 (RAM 23, `tests/data/ram23_knee11.rcnx`) trùng như trước. Tool không đặt Optimize → RAM giữ đúng kích thước tool.
@@ -160,9 +160,18 @@ M22 > 0 → mép +z chịu nén. Nội lực tại tâm cột (lệch tâm cột
 - Cắt: neo (hàn vào bản đế: mọi neo; không hàn: một nửa) hoặc bản chắn cắt; Include friction giảm lực cắt 0.75·0.55·Pu. ASD: φRn/1.5.
 - Hàn cột – bản đế: đàn hồi trên chu vi hàn (Outer welds flanges only: chỉ mặt ngoài cánh), lực nén truyền bằng tì ép.
 
-### Kích thước bản đế mặc định
-Khi tạo chân cột mới hoặc nhập / đổi tiết diện cột (bước Data hoặc Connection Pad): **N = chiều cao tổng cột + 20 mm, làm tròn lên
-bội số 10**; **B = max(180 mm, bề rộng cánh cột)**. Sửa tay được sau đó.
+### Kích thước bản đế, bố trí neo mặc định và Optimize (quy tắc)
+Khi tạo chân cột mới hoặc nhập / đổi tiết diện cột (bước Data, Connection Pad, hoặc khi lấy phản lực SAP):
+- **N = chiều cao tổng cột h + 20 mm, làm tròn lên bội số 10**; **B = max(180 mm, bề rộng cánh)**.
+- Neo *Longitudinal position*, 1 hàng mỗi bên bụng (hàng song song phương N, neo trong hàng rải theo N):
+  h < 500 → **2 neo / hàng, ex = (N − a)/2**; h ≥ 500 → **3 neo / hàng, ex = (N − 2a)/2**; **ey = (B − a)/2**;
+  a = 100 (M20), 120 (M24, M27), 150 (M30, M36). Tim neo → mép bản ≥ 1.75D, thiếu thì tăng N / B theo bội số 10.
+- Neo tối thiểu: **M24 cột khung chính, M20 cột đầu hồi** (ô *Column type* trong Optimization criteria). Mặc định M24 Class 4.6.
+
+**Optimize** (nút Optimize của Connection Pad): N, B theo quy tắc trên → neo thử lần lượt **M20…M36 Class 4.6 → 5.6 → 8.8 → 10.9**
+(bỏ cỡ dưới mức tối thiểu), lấy neo đầu tiên đạt mọi kiểm tra neo và Anchor shear ≤ 0.4 → **tp** nhỏ nhất trong
+6 8 10 12 14 16 18 20 22 25 30 35 40 45 (≥ 14 cột chính / ≥ 12 đầu hồi, ≥ hw/50) → **cỡ hàn D** tăng từng 1/16 in tới khi đạt.
+Quy tắc dành cho chân cột khớp; chân cột có mô men lớn có thể không đạt với N, B theo cột (báo "không có phương án đạt").
 
 ### Lấy tải chân cột từ SAP2000 (phản lực gối)
 

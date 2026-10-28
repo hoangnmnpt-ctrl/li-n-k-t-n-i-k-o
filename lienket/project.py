@@ -55,7 +55,11 @@ def apply_auto(kind: str, st: dict, res: dict):
     elif kind == "splice": st["plate"]["tp1"] = st["plate"]["tp2"] = res["tp"]
     else:
         st["plate"].update({k: res[k] for k in ("tp", "N", "B") if k in res})
-        st["anchor"].update({k: res[k] for k in ("ex", "ey", "hef") if k in res})
+        st["anchor"].update({k: res[k] for k in ("ex", "ey", "hef", "grade", "layout", "nr", "npr") if k in res})
+        if "D" in res:
+            st["weld"]["D"] = res["D"]
+            for k in ("fl", "web"):
+                st["weld"].setdefault(k, {})["D"] = res["D"]
     (st["anchor"] if kind == "base" else st["bolt"])["d"] = res["d"]
 
 

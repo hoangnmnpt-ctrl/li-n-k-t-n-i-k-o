@@ -452,15 +452,47 @@ def _unit_of(val: str, default: str) -> str:
     return m.group(1).strip() if m else default
 
 
+def load_groups(states: list[dict]) -> list[list[int]]:
+    """Nhóm liên kết có cùng bảng tải (cùng Description, cùng thứ tự). RAM chỉ có 1 danh sách điều kiện tải cho cả file,
+    nên mỗi nhóm = 1 file thì bảng tải của từng nút trong RAM giống hệt bảng trong tool (tên + số dòng)."""
+    groups: dict[tuple, list[int]] = {}
+    for i, st in enumerate(states):
+        groups.setdefault(tuple(_clean(l.get("name")) for l in st.get("loads", [])), []).append(i)
+    return list(groups.values())
+
+
 def export_rcnx(states: list[dict], out_path: str, make_sections: bool = True, sec_dir: str = SEC_DIR,
-                kinds: list[str] | None = None) -> dict:
-    """Ghi file .rcnx gồm các liên kết trong `states` (kinds[i] = knee / base / splice; mặc định knee).
-    Trả về {path, n, warnings, sections}."""
+                kinds: list[str] | None = None, split: bool = True) -> dict:
+    """Ghi file .rcnx cho các liên kết trong `states` (kinds[i] = knee / base / splice; mặc định knee).
+    split: các nút có bảng tải khác nhau ghi ra file riêng <tên>_1.rcnx, <tên>_2.rcnx… (mỗi file 1 bảng tải chung).
+    Trả về {path, paths, files: [(path, [tên nút])], n, warnings, sections}."""
+    kinds = list(kinds or ["knee"] * len(states))
+    groups = load_groups(states) if split else [list(range(len(states)))]
+    if len(groups) <= 1:
+        res = _export_one(states, out_path, make_sections, sec_dir, kinds)
+        return dict(res, paths=[out_path], files=[(out_path, [str(st.get("name", "")) for st in states])])
+    stem, ext = os.path.splitext(out_path)
+    out = dict(path=None, paths=[], files=[], n=0, warnings=[], sections=None)
+    for k, idx in enumerate(groups, 1):
+        p = f"{stem}_{k}{ext or '.rcnx'}"
+        r = _export_one([states[i] for i in idx], p, make_sections, sec_dir, [kinds[i] for i in idx])
+        out["paths"].append(p); out["files"].append((p, [str(states[i].get("name", "")) for i in idx]))
+        out["path"] = out["path"] or p
+        out["n"] += r["n"]; out["warnings"] += r["warnings"]
+        if r.get("sections"):
+            sec = out["sections"] or dict(added=[], existed=[], conflict=[], path=r["sections"]["path"])
+            for key in ("added", "existed", "conflict"):
+                sec[key] += [x for x in r["sections"][key] if x not in sec[key]]
+            out["sections"] = sec
+    return out
+
+
+def _export_one(states: list[dict], out_path: str, make_sections: bool, sec_dir: str, kinds: list[str]) -> dict:
+    """Ghi 1 file .rcnx."""
     if not os.path.exists(PROTO):
         raise FileNotFoundError("Thiếu file khuôn ram_proto.rcnx (chạy tools/make_ram_proto.py).")
     if not states:
         raise ValueError("Chưa có liên kết nào để xuất.")
-    kinds = list(kinds or ["knee"] * len(states))
     warnings, members = [], []
     if os.path.exists(out_path):
         os.remove(out_path)

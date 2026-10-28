@@ -412,7 +412,7 @@ class ConnectionPad(tk.Toplevel):
             messagebox.showwarning("Optimize", "Không tính được phương án nào — kiểm tra lại số liệu.", parent=self); return
         PJ.apply_auto(self.kind, self.S, res)
         self._load(); self.run()
-        msg = (f"Optimize: bản đế {res['N']:g}×{res['B']:g}×{res['tp']:g}, neo {PJ.BE.anchor_label(res['d'])} hef {res['hef']:g} — D/C = {res['ratio']:.2f}" if self.kind == "base"
+        msg = (f"Optimize: bản đế {res['N']:g}×{res['B']:g}×{res['tp']:g}, neo {res['nr'] * res['npr'] * 2}{PJ.BE.anchor_label(res['d'])} ({res['grade']}), ex = {res['ex']:g}, ey = {res['ey']:g}, hàn D = {res['D']}/16 — D/C = {res['ratio']:.2f}" if self.kind == "base"
                else f"Optimize: tp = {res['tp']} mm, bu lông M{res['d']} — D/C = {res['ratio']:.2f}")
         if res.get("fail"): msg += " (không có phương án đạt trong dải thử)"
         self.lbl_msg.configure(text=msg)

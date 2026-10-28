@@ -408,7 +408,7 @@ class BaseSapPanel(tk.LabelFrame):
         self.cfg = cfg
         r1 = tk.Frame(self, bg="#FFFFFF"); r1.pack(fill="x", pady=2)
         ttk.Button(r1, text="Kết nối SAP2000", command=self._connect).pack(side="left", padx=3)
-        self.lbl = tk.Label(r1, text="Chưa kết nối", bg="#FFFFFF", fg="#B42318", font=("Segoe UI", 9)); self.lbl.pack(side="left", padx=6)
+        self.lbl = tk.Label(r1, text="Chưa kết nối", bg="#FFFFFF", fg="#B42318", font=("Segoe UI", 9), wraplength=290, justify="left"); self.lbl.pack(side="left", padx=6)
         r2 = tk.Frame(self, bg="#FFFFFF"); r2.pack(fill="x", pady=2)
         tk.Label(r2, text="Nguồn tải", bg="#FFFFFF", font=("Segoe UI", 9)).pack(side="left", padx=3)
         self.src = tk.StringVar(value=cfg.get("source", "Design Combos"))
@@ -521,9 +521,23 @@ class BaseSapPanel(tk.LabelFrame):
         self.cfg["replace"] = bool(self.replace.get())
         if self.replace.get(): self.S["loads"][:] = rows
         else: self.S["loads"].extend(rows)
+        # tiết diện cột tại các nút đã lấy phản lực — nhiều tiết diện: lấy tiết diện nguy hiểm nhất (D/C lớn nhất)
+        sec_txt = ""
+        try:
+            cands = scanner.base_sections(conn)
+        except Exception:  # noqa: BLE001
+            cands = []
+        best, scores = BE.critical_section(self.S, cands)
+        if best:
+            self.S["col"].update(sec=best["sec"], L=best.get("L", self.S["col"].get("L")), jointEnd=best.get("jointEnd", "I"))
+            self.S["col"].pop("dims", None)
+            if best.get("dims"): self.S["col"]["dims"] = best["dims"]
+            BE.apply_default_plate(self.S)
+            many = len({s for s, _ in scores}) > 1
+            sec_txt = f" · cột {best['sec']}" + (" (nguy hiểm nhất: " + ", ".join(f"{s} {r:.2f}" for s, r in scores) + ")" if many else "")
         self.grid_.fill()
         joints = sorted({r["joint"] for r in recs})
-        self.lbl.configure(text=f"{len(rows)} tải từ {len(recs)} kết quả · nút {', '.join(joints)}", fg="#1F7A1F")
+        self.lbl.configure(text=f"{len(rows)} tải · nút {', '.join(joints)}{sec_txt}", fg="#1F7A1F")
         if warn: messagebox.showwarning("SAP2000", "\n".join(warn), parent=self)
 
 

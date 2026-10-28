@@ -46,7 +46,7 @@ SQ2 = math.sqrt(2) / 2                                         # họng hàn gó
 
 # bu lông neo: Fy, Fu (MPa)
 ANCHOR_GRADES = {
-    "Class 4.6": (240, 400), "Class 5.6": (300, 500), "Class 6.6": (360, 600), "Class 8.8": (640, 800),
+    "Class 4.6": (240, 400), "Class 5.6": (300, 500), "Class 6.6": (360, 600), "Class 8.8": (640, 800), "Class 10.9": (900, 1000),
     "F1554 Gr36": (248, 400), "F1554 Gr55": (380, 517), "F1554 Gr105": (724, 862), "A307": (248, 414),
 }
 ANCHOR_METRIC = [16, 20, 22, 24, 27, 30, 33, 36, 42, 48]
@@ -179,16 +179,18 @@ def anchor_layout(an: dict, N: float, B: float) -> list[tuple[float, float]]:
     lay = an.get("layout", "longitudinal")
     spread = lambda a, n: [0.0] if n <= 1 else [-a + 2 * a * i / (n - 1) for i in range(n)]
     nr, npr, sr = max(int(an.get("nr", 1)), 1), max(int(an.get("npr", 2)), 1), float(an.get("sr", 80))
-    rows = [(ax if lay == "longitudinal" else ay) - k * sr for k in range(nr)]
+    # Longitudinal: hàng neo song song phương N, mỗi bên bụng (±y) nr hàng; neo trong hàng rải theo N giữa hai khoảng cách mép ex.
+    # Transversal: hàng neo song song phương B, mỗi phía (±x) nr hàng; neo trong hàng rải theo B.
+    rows = [(ay if lay == "longitudinal" else ax) - k * sr for k in range(nr)]
     if rows[-1] <= 0:
         raise ValueError("Hàng neo trong vượt quá tâm bản — giảm số hàng hoặc khoảng cách hàng.")
     pts = []
     for r in rows:
         for s in (1, -1):
             if lay == "longitudinal":
-                pts += [(s * r, y) for y in spread(ay, npr)]
-            else:
                 pts += [(x, s * r) for x in spread(ax, npr)]
+            else:
+                pts += [(s * r, y) for y in spread(ay, npr)]
     return pts
 
 
@@ -225,11 +227,14 @@ def default_plate(col: dict) -> tuple[float, float] | None:
 
 
 def apply_default_plate(st: dict) -> bool:
-    """Gán N, B mặc định cho bản đế theo cột (khi nhập / đổi tiết diện cột). Trả về True nếu đã gán."""
-    nb = default_plate(st["col"])
-    if not nb:
+    """Gán kích thước bản đế + bố trí neo mặc định theo cột (khi tạo mới / nhập / đổi tiết diện cột): xem rule_layout.
+    Neo nhỏ hơn mức tối thiểu theo loại cột (M24 khung chính, M20 đầu hồi) được nâng lên. Trả về True nếu đã gán."""
+    if not default_plate(st["col"]):
         return False
-    st["plate"]["N"], st["plate"]["B"] = (int(v) if float(v).is_integer() else round(v, 1) for v in nb)
+    d = float(st["anchor"]["d"])
+    if _inch(d) is None:
+        d = max(d, ANCHOR_ROLE_MIN.get(st.get("opt", {}).get("colRole", "main"), 24))
+    rule_layout(st, d)
     return True
 
 
@@ -1157,98 +1162,163 @@ def tp_candidates(o: dict, hw: float) -> list:
     return [float(t) for t in TP_LIST if lo - 1e-9 <= t <= hi + 1e-9 and t >= hw / 50.0 - 1e-9]
 
 
-def auto_design(inp: dict, dias=tuple(ANCHOR_DIAS), tps=None, progress: Optional[Callable] = None):
-    """Theo Optimization criteria của RAM: tìm (N, B, tp) nhẹ nhất đạt các kiểm tra bê tông / bản đế, rồi đường kính neo nhỏ nhất
-    (hef tăng dần từ hef,min nếu cần) đạt các kiểm tra neo — riêng Anchor shear phải ≤ opt.vsaMax (mặc định 0.4). Trả về dict(tp, d, N, B, ex, ey, hef, ratio[, fail]) hoặc None."""
+# ── Quy tắc thiết kế chân cột (tiêu chuẩn công ty) ───────────────────────────────────────────────
+ANCHOR_SEQ_GRADES = ("Class 4.6", "Class 5.6", "Class 8.8", "Class 10.9")   # tăng cấp bền khi M36 vẫn chưa đủ
+ANCHOR_SEQ_D = (20, 24, 27, 30, 36)
+ANCHOR_ROLE_MIN = {"main": 24, "gable": 20}                                 # neo tối thiểu: khung chính M24, đầu hồi M20
+ANCHOR_A = {20: 100.0, 24: 120.0, 27: 120.0, 30: 150.0, 36: 150.0}          # khoảng cách tim neo a (cả hai phương)
+SMALL_COL = 500.0                                                            # cột h < 500: 2 neo / hàng; h ≥ 500: 3 neo / hàng
+
+
+def anchor_a(d) -> float:
+    d = float(d)
+    return ANCHOR_A.get(int(d), ANCHOR_A[min(ANCHOR_A, key=lambda k: abs(k - d))])
+
+
+def rule_layout(st: dict, d=None) -> None:
+    """Bản đế + bố trí neo theo quy tắc: N = h + 20 (làm tròn lên 10), B = max(180, bf);
+    Longitudinal, 1 hàng mỗi bên bụng: cột h < 500 → 2 neo / hàng, ex = (N − a)/2; h ≥ 500 → 3 neo / hàng, ex = (N − 2a)/2;
+    ey = (B − a)/2 (a theo đường kính neo); tim neo → mép bản ≥ 1.75D, thiếu thì tăng N / B theo bội số 10."""
+    an, pl = st["anchor"], st["plate"]
+    d = float(d if d is not None else an["d"])
+    nb = default_plate(st["col"])
+    if nb:
+        pl["N"], pl["B"] = nb
+    N, B = float(pl["N"]), float(pl["B"])
+    cm = dict(st["col"], topIsOuter=True)
+    if not cm.get("dims") and w_dims(cm.get("sec", "")): cm["dims"] = w_dims(cm["sec"])
+    try:
+        h = member_at_joint(cm, "cột")["d"]
+    except Exception:  # noqa: BLE001
+        h = N - 20
+    emin = 1.75 * d
+    up10 = lambda v: (math.floor(v / 10.0 + 1e-9) + 1) * 10.0
+    a = anchor_a(d)
+    npr = 2 if h < SMALL_COL else 3
+    an.update(layout="longitudinal", nr=1, npr=npr)
+    sN = (npr - 1) * a                                        # khoảng cách hai neo ngoài cùng theo N
+    while (N - sN) / 2 < emin - 1e-9: N = up10(N)
+    while (B - a) / 2 < emin - 1e-9: B = up10(B)
+    an["ex"], an["ey"] = (N - sN) / 2, (B - a) / 2
+    pl["N"], pl["B"] = N, B
+    an["d"] = int(d) if float(d).is_integer() else d
+    for k in ("N", "B"):
+        if float(pl[k]).is_integer(): pl[k] = int(pl[k])
+    for k in ("ex", "ey"):
+        an[k] = round(float(an[k]), 2)
+        if float(an[k]).is_integer(): an[k] = int(an[k])
+
+
+def anchor_sequence(o: dict, d0=None, grade0=None) -> list:
+    """(cấp bền, đường kính) theo thứ tự thử: M20…M36 Class 4.6 → 5.6 → 8.8 → 10.9, bỏ cỡ nhỏ hơn mức tối thiểu theo loại cột."""
+    if not o.get("optD", True):
+        return [(grade0, d0)]
+    dmin = ANCHOR_ROLE_MIN.get(o.get("colRole", "main"), 24)
+    return [(gr, dd) for gr in ANCHOR_SEQ_GRADES for dd in ANCHOR_SEQ_D if dd >= dmin]
+
+
+def critical_section(st: dict, cands: list[dict]) -> tuple[dict | None, list]:
+    """Chọn tiết diện cột nguy hiểm nhất trong các tiết diện tại chân cột (cands: dict(sec, L, jointEnd, dims)):
+    với mỗi tiết diện dựng bản đế / neo theo quy tắc (rule_layout) và tính với bảng tải hiện tại → D/C lớn nhất.
+    Trả về (ứng viên được chọn, [(sec, D/C)])."""
+    seen, scores = {}, []
+    for c in cands:
+        key = (c["sec"], tuple(sorted((c.get("dims") or {}).items())))
+        if key in seen: continue
+        t = copy.deepcopy(st)
+        t["col"].update(sec=c["sec"], L=c.get("L", t["col"].get("L")), jointEnd=c.get("jointEnd", "I"))
+        t["col"].pop("dims", None)
+        if c.get("dims"): t["col"]["dims"] = c["dims"]
+        try:
+            apply_default_plate(t)
+            R = compute(t)
+            r = R["gov"]["ratio"] if R.get("gov") else 0.0
+        except Exception:  # noqa: BLE001
+            r = -1.0
+        seen[key] = (r, c)
+        scores.append((c["sec"], r))
+    if not seen:
+        return None, scores
+    return max(seen.values(), key=lambda v: v[0])[1], scores
+
+
+def auto_design(inp: dict, progress: Optional[Callable] = None, **_kw):
+    """Optimize chân cột theo quy tắc:
+    1) N, B theo cột (rule_layout); 2) neo: lần lượt M20…M36 Class 4.6 → 5.6 → 8.8 → 10.9 (≥ M24 khung chính, ≥ M20 đầu hồi),
+       neo đầu tiên đạt mọi kiểm tra neo (Anchor shear ≤ opt.vsaMax); 3) tp nhỏ nhất trong danh sách bản mã đạt kiểm tra bản đế / bê tông;
+    4) cỡ hàn tăng từng 1/16 in tới khi đạt. Trả về dict(tp, d, grade, hef, N, B, ex, ey, D, ratio[, fail]) hoặc None."""
     base = copy.deepcopy(inp)
     normalize(base)
     o = base["opt"]
+    an0 = base["anchor"]
     try:
         G0 = build_geometry(base)
     except Exception:  # noqa: BLE001
         return None
-    d, bf = G0["d"], G0["bf"]
-    ox, oz = abs(G0["ox"]), abs(G0["oz"])
-    if tps is None:
-        tps = tp_candidates(o, G0["col"]["hw"]) if o.get("optTp", True) else [G0["tp"]]
-    tps = sorted(tps) or [G0["tp"]]
-    inc = o.get("dimInc", 25.4)
-    projN = _frange(o.get("pMinN", 38.1), o.get("pMaxN", 381), inc)
-    projB = _frange(o.get("pMinB", 38.1), o.get("pMaxB", 381), inc)
-    Ns = sorted({round(d + 2 * (p + ox), 1) for p in projN}) if o.get("optN", True) else [G0["N"]]
-    Bs = sorted({round(bf + 2 * (p + oz), 1) for p in projB}) if o.get("optB", True) else [G0["B"]]
-    keep = o.get("keepPos", "initial")
-    an0 = base["anchor"]
-    ax0, ay0 = G0["N"] / 2 - float(an0["ex"]), G0["B"] / 2 - float(an0["ey"])
+    tps = (tp_candidates(o, G0["col"]["hw"]) if o.get("optTp", True) else []) or [G0["tp"]]
+    D0 = int(round(float(base["weld"].get("D", 5))))
+    Ds = list(range(2, 17)) if o.get("optWeld", True) else [D0]
+    vlim = float(o.get("vsaMax", 0.4) or 1.0)
 
-    def trial(N, B, tp, dd=None, hef=None, fast=True):
+    def trial(gr, dd, tp, D):
         t = copy.deepcopy(base)
-        t["plate"].update(N=N, B=B, tp=tp)
-        if keep == "initial":
-            t["anchor"]["ex"], t["anchor"]["ey"] = round(N / 2 - ax0, 2), round(B / 2 - ay0, 2)
-        if dd is not None: t["anchor"]["d"] = dd
-        if hef is not None: t["anchor"]["hef"] = hef
-        if fast: t["_fast"] = True
+        t["anchor"]["grade"] = gr
+        if o.get("optN", True) or o.get("optB", True):
+            keepN, keepB = t["plate"]["N"], t["plate"]["B"]
+            rule_layout(t, dd)
+            if not o.get("optN", True): t["plate"]["N"] = keepN
+            if not o.get("optB", True): t["plate"]["B"] = keepB
+        else:
+            t["anchor"]["d"] = dd
+        t["plate"]["tp"] = tp
+        t["weld"]["D"] = D
+        normalize(t)
         try:
             return t, compute(t)
         except Exception:  # noqa: BLE001
             return t, None
 
-    def plate_ratio(R):
+    def worst(R, pref, geo_grp=(), lim=None):
         if R is None: return math.inf
-        mx = max((c["ratio"] for c in R["checks"] if c["id"].startswith(("bp_", "conc_"))), default=0.0)
-        bad = [x for x in R["geo"] if not x["ok"] and (x["grp"] == "Bản đế" or "mép" in x["name"] or "hở" in x["name"])]
-        return mx if not bad else max(mx, 1.0 + 1e-6)
+        cs = [c for c in R["checks"] if c["id"].startswith(pref) and not c["info"]]
+        mx = max((c["ratio"] / (lim(c["id"]) if lim else 1.0) for c in cs), default=0.0)
+        bad = [g for g in R["geo"] if not g["ok"] and geo_grp and geo_grp(g)]
+        return max(mx, 1.0 + 1e-6) if bad else mx
 
-    best, fallback = None, None
-    for N, B in sorted(((N, B) for N in Ns for B in Bs), key=lambda nb: nb[0] * nb[1]):
-        if best and N * B * tps[0] >= best[0]: continue
-        if keep == "initial" and (N / 2 - ax0 < 1 or B / 2 - ay0 < 1): continue
-        rmax = plate_ratio(trial(N, B, tps[-1])[1])
-        if rmax > 1.0:
-            if fallback is None or rmax < fallback[3]: fallback = (math.inf, N, B, rmax, tps[-1])
-            continue
-        lo, hi, found = 0, len(tps) - 1, len(tps) - 1
-        while lo <= hi:                                       # tp nhỏ nhất đạt (đơn điệu theo tp)
-            mid = (lo + hi) // 2
-            if plate_ratio(trial(N, B, tps[mid])[1]) <= 1.0:
-                found, hi = mid, mid - 1
-            else:
-                lo = mid + 1
-        w = N * B * tps[found]
-        if best is None or w < best[0]:
-            best = (w, N, B, plate_ratio(trial(N, B, tps[found])[1]), tps[found])
-        if progress: progress(N)
-    best = best or fallback
-    if best is None: return None
-    _w, N, B, rp, tp = best
-    tpl, _R = trial(N, B, tp)
-    ex, ey = tpl["anchor"]["ex"], tpl["anchor"]["ey"]
+    anc_ok = lambda R: worst(R, ("aci_", "anc_", "bp_ten"), lambda g: g["grp"] in ("Bu lông neo", "Bê tông") and "long đen" not in g["name"],
+                             lambda cid: vlim if cid == "aci_vsa" else 1.0)
+    plate_ok = lambda R: worst(R, ("bp_", "conc_"), lambda g: g["grp"] == "Bản đế" and "hàn" not in g["name"])
+    weld_ok = lambda R: worst(R, ("w_",), lambda g: "hàn" in g["name"])
 
-    hef0 = float(base["anchor"]["hef"])
-    hmax = float(base["ped"]["h"]) - 50
-    hefs = ([h for h in _frange(max(float(o.get("hefMin", 304.8)), 50), hmax, 25.4)] or [hef0]) if o.get("optD", True) else [hef0]
-    d0 = base["anchor"]["d"]
-    same = (lambda v: _inch(v) is not None) if _inch(d0) else (lambda v: _inch(v) is None)   # cùng hệ (mét / inch) với neo đang dùng
-    dlist = [v for v in dias if same(v)] if o.get("optD", True) else [d0]
-    vlim = float(o.get("vsaMax", 0.4) or 1.0)                 # giới hạn tỷ số Anchor shear khi tối ưu (mặc định 0.4)
-    lim = lambda cid: vlim if cid == "aci_vsa" else 1.0
-    anc = lambda R: [c for c in R["checks"] if c["id"].startswith(("anc_", "aci_", "bp_ten")) and not c["info"]]
-    score = lambda R: max((c["ratio"] / lim(c["id"]) for c in anc(R)), default=0.0)     # ≤ 1: đạt mọi giới hạn
-    pick = lambda R: max((c["ratio"] for c in anc(R)), default=0.0)
-    bestA, done = None, False
-    for dd in dlist:
-        for hef in hefs:
-            _t, R = trial(N, B, tp, dd, hef, fast=False)
-            if R is None: continue
-            sc, mx = score(R), pick(R)
-            gfail = [g for g in R["geo"] if not g["ok"] and g["grp"] in ("Bu lông neo", "Bê tông") and "long đen" not in g["name"]]
-            if bestA is None or sc < bestA[3]: bestA = (dd, hef, mx, sc)
-            if sc <= 1.0 and not gfail:
-                bestA, done = (dd, hef, mx, sc), True
-                break
-        if done: break
-    if bestA is None: return None
-    res = dict(tp=tp, d=bestA[0], hef=bestA[1], N=N, B=B, ex=ex, ey=ey, ratio=max(rp, bestA[2]))
-    if res["ratio"] > 1.0 or bestA[3] > 1.0: res["fail"] = True
+    # 1–2) neo: bản dày nhất + hàn lớn nhất để chỉ còn kiểm tra neo quyết định
+    seq = anchor_sequence(o, an0["d"], an0["grade"])
+    pickA, bestA = None, None
+    for k, (gr, dd) in enumerate(seq):
+        if progress: progress(k)
+        _t, R = trial(gr, dd, tps[-1], Ds[-1])
+        sc = anc_ok(R)
+        if bestA is None or sc < bestA[2]: bestA = (gr, dd, sc)
+        if sc <= 1.0:
+            pickA = (gr, dd); break
+    gr, dd = pickA or bestA[:2]
+    # 3) tp nhỏ nhất đạt (kiểm tra bản đế / bê tông + neo không xấu đi)
+    tp = tps[-1]
+    for t in tps:
+        _t, R = trial(gr, dd, t, Ds[-1])
+        if plate_ok(R) <= 1.0 and (pickA is None or anc_ok(R) <= 1.0):
+            tp = t; break
+    # 4) cỡ hàn tăng dần 1/16 in
+    D = Ds[-1]
+    for Dw in Ds:
+        _t, R = trial(gr, dd, tp, Dw)
+        if weld_ok(R) <= 1.0:
+            D = Dw; break
+    t, R = trial(gr, dd, tp, D)
+    if R is None: return None
+    ratio = R["gov"]["ratio"] if R.get("gov") else 0.0
+    res = dict(tp=tp, d=dd, grade=gr, hef=t["anchor"]["hef"], N=t["plate"]["N"], B=t["plate"]["B"],
+               ex=t["anchor"]["ex"], ey=t["anchor"]["ey"], D=D, layout=t["anchor"]["layout"], nr=t["anchor"]["nr"], npr=t["anchor"]["npr"],
+               ratio=ratio)
+    vsa = next((c["ratio"] for c in R["checks"] if c["id"] == "aci_vsa"), 0.0)
+    if ratio > 1.0 or vsa > vlim + 1e-9 or any(not g["ok"] for g in R["geo"]): res["fail"] = True
     return res

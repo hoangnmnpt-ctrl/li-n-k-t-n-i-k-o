@@ -97,7 +97,7 @@ def test_export_mixed_project():
     states = [merge(BASE, PRESETS["Đối chứng RAM #11"]), BD.merge(BD.BASE, {}), splice_bs20(), ap]
     with tempfile.TemporaryDirectory() as tmp:
         out = os.path.join(tmp, "all.rcnx")
-        res = X.export_rcnx(states, out, False, kinds=["knee", "base", "splice", "splice"])
+        res = X.export_rcnx(states, out, False, kinds=["knee", "base", "splice", "splice"], split=False)
         b = sqlite3.connect(out)
         cls = [b.execute(f'select PropertyValue from "{r}" where PropertyName=\'ClassName\'').fetchone()[0]
                for r, in b.execute("select CnxRef from Cnx order by CnxID")]
@@ -122,7 +122,7 @@ def test_export_matches_ram_knee11():
         sec = os.path.join(tmp, "sec"); os.makedirs(sec)
         st = merge(BASE, PRESETS["Đối chứng RAM #11"]); st["gen"]["designCode"] = "AISC 2016 LRFD"
         out = os.path.join(tmp, "t.rcnx")
-        res = X.export_rcnx([st, merge(BASE, {})], out, True, sec)
+        res = X.export_rcnx([st, merge(BASE, {})], out, True, sec, split=False)
         assert res["n"] == 2 and res["sections"]["added"], res
         a = sqlite3.connect(f"file:{KNEE11}?mode=ro", uri=True); b = sqlite3.connect(out)
         ra = a.execute("select CnxRef from Cnx").fetchone()[0]
@@ -162,9 +162,28 @@ def test_report_english():
         minidom.parseString(zipfile.ZipFile(os.path.join(tmp, "r.docx")).read("word/document.xml"))
 
 
+def test_export_split_by_load_table():
+    """Bảng tải trong RAM = bảng tải trong tool: các nút khác bảng tải → file riêng; cùng bảng tải → chung 1 file."""
+    import base_defaults as BD
+    cb = BD.merge(BD.BASE, BD.PRESETS["RAM CB 1 — Pinned BP (I 300x215x5x10)"])
+    cb2 = BD.merge(BD.BASE, BD.PRESETS["RAM CB 1 — Pinned BP (I 300x215x5x10)"]); cb2["name"] = "CB 2"
+    knee = merge(BASE, PRESETS["Đối chứng RAM #11"])
+    with tempfile.TemporaryDirectory() as tmp:
+        res = X.export_rcnx([knee, cb, cb2], os.path.join(tmp, "p.rcnx"), False, kinds=["knee", "base", "base"])
+        assert len(res["paths"]) == 2 and res["n"] == 3, res["files"]
+        b = sqlite3.connect(res["paths"][1])
+        assert b.execute("select count(*) from Joints").fetchone()[0] == 2
+        assert b.execute("select PropertyValue from ModelData_LoadConditions where PropertyName='EstadosIdCarga'").fetchone()[0] == \
+            "[Mmax,Pmax,Vmax,Mmin,Pmin]"
+        for (ref,) in b.execute("select CnxRef from Cnx"):
+            assert dict((r[0], r[2]) for r in b.execute(f'select * from "{ref}_Loads"'))["Description"] == "[Mmax,Pmax,Vmax,Mmin,Pmin]"
+        b.close()
+
+
 if __name__ == "__main__":
     test_export_matches_ram_knee11(); print("PASS test_export_matches_ram_knee11")
     test_report_english(); print("PASS test_report_english")
     test_export_base_matches_ram_cb1(); print("PASS test_export_base_matches_ram_cb1")
     test_export_splice_matches_ram_bs20(); print("PASS test_export_splice_matches_ram_bs20")
     test_export_mixed_project(); print("PASS test_export_mixed_project")
+    test_export_split_by_load_table(); print("PASS test_export_split_by_load_table")

@@ -1168,6 +1168,10 @@ def export_rcnx_dialog(states: list[dict], make_sections: bool = True, extra: st
     kinds = kinds or ["knee"] * len(states)
     cnt = ", ".join(f"{kinds.count(k)} {ram_export.KIND_LABEL[k]}" for k in ram_export.RAM_CLASS if kinds.count(k))
     msg = [f"Đã xuất {res['n']} connection ({cnt}) → {path}"]
+    if len(res.get("paths", [])) > 1:
+        msg = [f"Đã xuất {res['n']} connection ({cnt}) ra {len(res['paths'])} file — mỗi file 1 bảng tải chung "
+               "(RAM chỉ có 1 danh sách điều kiện tải cho cả file):"]
+        msg += [f"  • {os.path.basename(p)}: {', '.join(names)}" for p, names in res["files"]]
     sec = res.get("sections")
     if sec:
         msg.append(f"\nDatabase tiết diện: {sec['path']}")
