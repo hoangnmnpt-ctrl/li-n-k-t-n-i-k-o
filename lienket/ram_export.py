@@ -350,7 +350,10 @@ def base_props(st: dict) -> tuple[dict, dict, list, dict]:
     loads = st.get("loads", [])
     LD = dict(cols={"ColAxial": ("N", "kN"), "ColV2": ("V2", "kN"), "ColV3": ("V3", "kN"), "ColM22": ("M22", "kN*m"), "ColM33": ("M33", "kN*m")},
               est={"JointColAxial": "N", "JointColV2": "V2", "JointColV3": "V3"}, loads=loads)
-    J = dict(JointDescription=st.get("desc") or st.get("name"), JointSection1=None, JointMaterial1=None,
+    desc, note = BE.short_text(st)
+    if st.get("notes"):
+        note += "\r\n" + str(st["notes"]).replace("\r\n", "\n").replace("\n", "\r\n")
+    J = dict(JointDescription=desc, JointNotes=note, JointSection1=None, JointMaterial1=None,
              JointSection2=col["name"], JointMaterial2=col["mat"])
     return P, J, warn, LD | dict(members=[col], template=st.get("name") or "Pinned BP", button=None)
 

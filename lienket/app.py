@@ -456,7 +456,8 @@ class App(ctk.CTk):
         fr.pack(side="left", padx=4, pady=6); fr.pack_propagate(False)
         head = tk.Frame(fr, bg=CARD); head.pack(fill="x")
         l1 = tk.Label(head, text=str(j["id"]), bg=CARD, fg="#FFFFFF", font=("Segoe UI", 14, "bold")); l1.pack(side="left", padx=6)
-        l2 = tk.Label(head, text=PJ.KINDS[j["kind"]]["family"], bg=CARD, fg="#FFFFFF", font=("Segoe UI", 11)); l2.pack(side="right", padx=6)
+        lab = self._card_title(j)
+        l2 = tk.Label(head, text=lab, bg=CARD, fg="#FFFFFF", font=("Segoe UI", 11 if len(lab) <= 8 else 9)); l2.pack(side="right", padx=6)
         th = RamView(fr, thumb=True, width=178, height=110)
         th.configure(background=CARD); th.pack(padx=2)
         if not err:
@@ -477,6 +478,13 @@ class App(ctk.CTk):
             w.bind("<Double-Button-1>", lambda e, i=j["id"]: (self.select(i), self.edit_joint()))
             w.bind("<MouseWheel>", lambda e: self.strip.xview_scroll(-1 if e.delta > 0 else 1, "units"))
         return dict(frame=fr, parts=(head, l1, l2, l3), thumb=th)
+
+    @staticmethod
+    def _card_title(j) -> str:
+        """Tiêu đề thẻ: 'Column Base: B1' khi nút có tên, không thì mã họ (CB, BCF, BS)."""
+        fam = PJ.KINDS[j["kind"]]["family"]
+        lab = str(j["state"].get("label") or "").strip()
+        return f"{newjoint.FAMILY.get(fam, fam)}: {lab}" if lab else fam
 
     def _mark_cards(self):
         for jid, c in self.cards.items():
@@ -500,7 +508,7 @@ class App(ctk.CTk):
     def _build_info(self, parent):
         box = tk.Frame(parent, bg=NAVY, width=360); box.pack(side="right", fill="y"); box.pack_propagate(False)
         self.info = tk.Text(box, bg=NAVY, fg="#FFFFFF", relief="flat", highlightthickness=0, font=("Segoe UI", 10), wrap="word",
-                            padx=12, pady=10, cursor="arrow", height=22)
+                            padx=12, pady=10, cursor="arrow", height=20)
         self.info.pack(fill="x")
         t = self.info
         t.tag_configure("jid", font=("Segoe UI", 10, "bold"))
@@ -514,7 +522,12 @@ class App(ctk.CTk):
         self.cmb_code = ttk.Combobox(row, state="readonly", width=17, values=list(DESIGN_CODES), font=("Segoe UI", 9))
         self.cmb_code.pack(side="left", padx=6); self.cmb_code.bind("<<ComboboxSelected>>", lambda e: self._code_changed())
         tk.Button(box, text="Edit...", width=10, bg="#C7CBD1", relief="flat", font=("Segoe UI", 8), command=self.edit_joint).pack(anchor="e", padx=10, pady=6)
-        tk.Label(box, text="Additional notes", bg=NAVY, fg="#FFFFFF", font=("Segoe UI", 7, "bold"), anchor="w").pack(fill="x", padx=6, pady=(30, 0))
+        tk.Label(box, text="Joint name", bg=NAVY, fg="#FFFFFF", font=("Segoe UI", 7, "bold"), anchor="w").pack(fill="x", padx=6, pady=(22, 0))
+        self.ent_label = tk.Entry(box, bg="#FFFFFF", fg="#1E3A8A", relief="flat", font=("Segoe UI", 10))
+        self.ent_label.pack(fill="x", padx=6, ipady=3)
+        self.ent_label.bind("<FocusOut>", lambda e: self._label_changed())
+        self.ent_label.bind("<Return>", lambda e: self._label_changed())
+        tk.Label(box, text="Additional notes", bg=NAVY, fg="#FFFFFF", font=("Segoe UI", 7, "bold"), anchor="w").pack(fill="x", padx=6, pady=(8, 0))
         self.notes = tk.Text(box, height=5, bg="#FFFFFF", fg="#1E3A8A", relief="flat", font=("Segoe UI", 9), wrap="word", padx=8, pady=6)
         self.notes.pack(fill="x", padx=6, pady=(0, 6))
         self.notes.bind("<FocusOut>", lambda e: self._notes_changed())
@@ -524,6 +537,7 @@ class App(ctk.CTk):
         t.configure(state="normal"); t.delete("1.0", "end")
         j = self._joint(False)
         self.notes.delete("1.0", "end")
+        self.ent_label.delete(0, "end")
         if not j:
             t.insert("end", "Chưa chọn nút.", "r"); t.configure(state="disabled"); self.cmb_code.set(""); return
         st = PJ.full_state(j)
@@ -567,6 +581,19 @@ class App(ctk.CTk):
         code = st.get("gen", {}).get("designCode", "AISC 2010 LRFD")
         self.cmb_code.set(next((k for k, v in DESIGN_CODES.items() if v == code), "AISC-10 LRFD"))
         self.notes.insert("1.0", st.get("notes", ""))
+        self.ent_label.insert(0, st.get("label", ""))
+
+    def _label_changed(self):
+        """Tên liên kết (vd. B1) → thẻ nhỏ hiện 'Column Base: B1'."""
+        j = self._joint(False)
+        if not j: return
+        txt = self.ent_label.get().strip()
+        if txt != j["state"].get("label", ""):
+            j["state"]["label"] = txt; self.project.dirty = True; self._title()
+            c = self.cards.get(j["id"])
+            if c:
+                lab = self._card_title(j)
+                c["parts"][2].configure(text=lab, font=("Segoe UI", 11 if len(lab) <= 8 else 9))
 
     def _code_changed(self):
         j = self._joint(False)

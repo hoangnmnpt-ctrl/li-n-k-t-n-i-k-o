@@ -50,7 +50,8 @@ def test_export_base_matches_ram_cb1():
         assert a.execute("select * from Joints_Estados where Joints=1").fetchall() == \
             [(r[0] and 1,) + r[1:] for r in b.execute("select * from Joints_Estados").fetchall()]
         jb = b.execute("select JointFamily, JointSection2, JointMaterial2, JointDescription from Joints").fetchone()
-        assert jb == (10, "I 300x215x5x10", "Q345", "COT KHUNG CHINH: 4M27 (4.6), PL.16mm"), jb
+        assert jb == (10, "I 300x215x5x10", "Q345", "4M27(4.6)_PL-16mm"), jb
+        assert b.execute("select JointNotes from Joints").fetchone()[0] == "Main Column\r\nM27(4.6)_PL16mm"
         assert b.execute("pragma integrity_check").fetchone()[0] == "ok"
         a.close(); b.close()
 

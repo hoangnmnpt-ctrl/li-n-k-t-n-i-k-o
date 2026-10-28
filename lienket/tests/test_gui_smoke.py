@@ -144,6 +144,9 @@ def main() -> int:
     d._ok()
     jb = app.project.add(d.result["kind"], d.result["state"]); app.refresh(); app.select(jb["id"]); _spin(app)
     check("tạo Column base", jb["kind"] == "base" and app.result(jb)[1]["gov"] is not None)
+    app.ent_label.delete(0, "end"); app.ent_label.insert(0, "B1"); app._label_changed(); _spin(app)
+    check("tên liên kết: thẻ hiện 'Column Base: B1'", app.project.get(jb["id"])["state"]["label"] == "B1"
+          and app.cards[jb["id"]]["parts"][2].cget("text") == "Column Base: B1")
     # Home → RAM Connection → Export: mọi liên kết của dự án
     import knee_gui
     import ram_export

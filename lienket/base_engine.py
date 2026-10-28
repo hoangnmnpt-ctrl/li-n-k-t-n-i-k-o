@@ -1089,6 +1089,14 @@ def compute(inp: dict) -> dict:
     gchk("Bản đế", "Khoảng cách neo tới mép bản", min(float(an["ex"]), float(an["ey"])) - da / 2, 6.35, None, "")
     Dw = float(inp["weld"].get("D", inp["weld"]["fl"]["D"]))
     gchk("Bản đế", "Cỡ hàn cột", Dw, float(weld_min16(min(tf, tw, tp) if not outer else min(tf, tp))), None, "table J2.4", unit="1/16in")
+    # quy định thiết kế: bản đế ≥ 14 mm (khung chính) / 12 mm (đầu hồi) và ≥ hw/50; neo ≥ M24 / M20; tim neo → mép bản ≥ 1.75D
+    role = inp.get("opt", {}).get("colRole", "main")
+    gchk("Bản đế", "Bề dày bản đế tối thiểu", tp, max(TP_ROLE_MIN.get(role, 14.0), hw / 50.0), None,
+         f"{'Main' if role == 'main' else 'Gable'} column, ≥ hw/50")
+    if _inch(da) is None:
+        gchk("Bu lông neo", "Đường kính neo tối thiểu", da, float(ANCHOR_ROLE_MIN.get(role, 24)), None,
+             f"{'Main' if role == 'main' else 'Gable'} column")
+    gchk("Bu lông neo", "Tim neo tới mép bản", min(float(an["ex"]), float(an["ey"])), 1.75 * da, None, "≥ 1.75D")
     if any(a["zone"] == "clash" for a in G["anchors"]) or min(a["clear"] for a in G["anchors"]) < anchor_hole(da) / 2:
         W.append("Neo quá gần / trùng thép cột — kiểm tra lại vị trí neo.")
     # như RAM — Anchors: bước neo (D.8.1, ≥ 4da), lớp bê tông bảo vệ (7.7.1, ≥ 3"), chiều dài hiệu quả (hef + đầu neo ≤ h − đầu neo)
@@ -1215,6 +1223,17 @@ def anchor_sequence(o: dict, d0=None, grade0=None) -> list:
         return [(grade0, d0)]
     dmin = ANCHOR_ROLE_MIN.get(o.get("colRole", "main"), 24)
     return [(gr, dd) for gr in ANCHOR_SEQ_GRADES for dd in ANCHOR_SEQ_D if dd >= dmin]
+
+
+def short_text(st: dict) -> tuple[str, str]:
+    """Ghi chú gọn của chân cột: (Description "4M20(4.6)_PL-14mm", Notes "Main Column\r\nM20(4.6)_PL14mm")."""
+    an, pl = st["anchor"], st["plate"]
+    n = 2 * max(int(an.get("nr", 1)), 1) * max(int(an.get("npr", 2)), 1)
+    gr = str(an.get("grade", "")).replace("Class ", "").replace(" ", "")
+    lab = anchor_label(an["d"])
+    tp = f"{float(pl['tp']):g}"
+    role = "Main Column" if st.get("opt", {}).get("colRole", "main") == "main" else "Gable Column"
+    return f"{n}{lab}({gr})_PL-{tp}mm", f"{role}\r\n{lab}({gr})_PL{tp}mm"
 
 
 def critical_section(st: dict, cands: list[dict]) -> tuple[dict | None, list]:

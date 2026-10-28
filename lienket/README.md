@@ -173,6 +173,12 @@ Khi tạo chân cột mới hoặc nhập / đổi tiết diện cột (bước 
 6 8 10 12 14 16 18 20 22 25 30 35 40 45 (≥ 14 cột chính / ≥ 12 đầu hồi, ≥ hw/50) → **cỡ hàn D** tăng từng 1/16 in tới khi đạt.
 Quy tắc dành cho chân cột khớp; chân cột có mô men lớn có thể không đạt với N, B theo cột (báo "không có phương án đạt").
 
+### Kiểm tra quy định, tên liên kết, ghi chú RAM
+- Geometric considerations có thêm 3 dòng theo quy định: **bề dày bản đế ≥ 14 mm (khung chính) / ≥ 12 mm (đầu hồi) và ≥ hw/50**;
+  **neo ≥ M24 (khung chính) / ≥ M20 (đầu hồi)**; **tim neo → mép bản ≥ 1.75D** (không đạt → báo đỏ như các kiểm tra khác).
+- Ô **Joint name** (cửa sổ chính, trên Additional notes): thẻ nhỏ hiện "Column Base: B1".
+- Xuất RAM: Description = `4M20(4.6)_PL-14mm`, Additional notes = `Main Column` / `M20(4.6)_PL14mm` (+ ghi chú nhập trong tool).
+
 ### Lấy tải chân cột từ SAP2000 (phản lực gối)
 
 Bước **Loads** của Column base có khung *Lấy phản lực chân cột từ SAP2000*: Kết nối SAP2000 → chọn nguồn tải

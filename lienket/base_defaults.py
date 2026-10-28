@@ -68,6 +68,7 @@ PRESETS = {
     },
     "Mẫu chân cột khớp — 4 neo trong cánh": {
         "name": "CB-03",
+        "opt": {"colRole": "gable"},
         "col": {"sec": "350.6-180.10"},
         "plate": {"N": 470, "B": 230, "tp": 20},
         "ped": {"N2": 600, "B2": 400, "h": 700},
