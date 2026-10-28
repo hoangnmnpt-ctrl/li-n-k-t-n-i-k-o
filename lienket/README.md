@@ -129,9 +129,13 @@ Form giữ đúng các mục và tên trường của RAM (tiếng Anh), rê chu
 | Base plate · Anchor | Anchor position (Longitudinal / Transversal) · Rows number per side · Anchors per row · edge distances · Anchor type (Headed / Hooked) · Head type · Include lock nut · Anchor · hef · Material · Cracked concrete · Brittle steel · Anchors welded to base plate |
 | Base plate · Anchor reinforcement | Type (Primary / Supplementary) · Tension reinforcement · Shear reinforcement |
 
-**Results**: cửa sổ theo form báo cáo RAM (tiếng Anh) — Demands, Geometric considerations, Design check (Verification · Unit · Capacity ·
-Demand · Ctrl EQ · Ratio · References), Global critical strength ratio. Nhấp một dòng Design check → diễn giải công thức tiếng Việt ở khung dưới,
-bộ phận liên quan sáng trên hình 3D. Dùng chung cho knee và nối dầm.
+**Results**: trình bày như báo cáo RAM (tiếng Anh, không kẻ ô): Steel Connections / Results · Connection · Family / Type · Design code ·
+Demands (Pu, Mu22, Mu33, Vu2, Vu3) · Design calculations → *Design for major axis* / *Base plate (AISC …)* · Geometric Considerations (Sta. ✔ / ✘) ·
+Design Check (Concrete base, Base plate, Anchors, Column, Shear lug; Ratio xanh / đỏ) · Ratio · dải *Major axis*: hình ứng suất ép bê tông và lực kéo neo
+với dải màu 17 mức, áp lực lớn / nhỏ nhất, lực neo lớn / nhỏ nhất, góc và vị trí trục trung hoà, chiều dài ép, bảng *Anchors tensions* · Notes.
+Nhấp một dòng Design Check → diễn giải tiếng Việt ở khung dưới, bộ phận liên quan sáng trên hình 3D. Knee và nối dầm dùng cùng cách trình bày.
+Hàn cột như RAM: Weld capacity (hợp lực, kds = 1 + 0.5sin^1.5θ), Elastic method weld shear / axial capacity. ASD: như RAM, neo không thiết kế theo ACI
+(ghi chú "Anchors only designed for LRFD code").
 
 ### Quy ước
 N > 0 kéo (nhổ), N < 0 nén (như SAP) · V2 theo phương N (x) · V3 theo phương B (z) · M33 > 0 → mép +x (phía cánh trên +2) chịu nén ·
@@ -148,6 +152,15 @@ M22 > 0 → mép +z chịu nén. Nội lực tại tâm cột (lệch tâm cột
   Primary reinforcement: thay phá vỡ bê tông, báo As yêu cầu (fy = 420 MPa); Supplementary: Condition A φ = 0.75.
 - Cắt: neo (hàn vào bản đế: mọi neo; không hàn: một nửa) hoặc bản chắn cắt; Include friction giảm lực cắt 0.75·0.55·Pu. ASD: φRn/1.5.
 - Hàn cột – bản đế: đàn hồi trên chu vi hàn (Outer welds flanges only: chỉ mặt ngoài cánh), lực nén truyền bằng tì ép.
+
+### Đối chiếu RAM Connection — CB 1 "Pinned BP"
+Ví dụ RAM thật (mẫu *RAM CB 1 — Pinned BP*, nút 2 trong `du_an.lkt`): I 300x215x5x10 Q345, bản 350×220×16, gối C30 1000×1000×2000 + vữa 50,
+4 neo M27 Class 4.6 hef 800, cốt thép neo primary (50 no.10 / 10 no.18, fy 40 ksi), AISC 360-10 LRFD + ACI 318-08, Biaxial.
+Mọi dòng Results khớp RAM (capacity, demand, Ctrl EQ, cấu tạo, Ratio 0.69 / Anchors 0.31 / Global 0.69) — khoá trong `test_ram_cb1_pinned_bp`.
+Cách RAM tính đã áp dụng: tiết diện "I hw x bf x tw x tf" (d = hw + 2tf); hàn: V2 → hàn bụng, V3 → hàn cánh, f = max(P/Lcánh + M·c/I, 0),
+Weld capacity = T/(2a) (DG1 p.35), họng √2/2, FEXX 482.631; ACI theo hệ inch quy đổi (kc = 24, Nb = 16λ√f'c·hef^(5/3) khi 11" ≤ hef ≤ 25");
+Ase theo bảng ISO; Abrg = 0.866025F² − Ag với F = ⌊1.5d⌋ (mét); lực cắt chia cho mọi neo; pryout từng neo và nhóm theo từng phương;
+tương tác chỉ khi Nua > 0.2φNsa và Vua > 0.2φVsa; ASD: không thiết kế neo ("Anchors only designed for LRFD code").
 
 ### Kiểm chứng
 `python lienket\tests\test_base_engine.py` — cân bằng DG1 uniform / triangular, nén đúng tâm (λ), nhổ, tương thích biến dạng & biaxial, ACI một neo,

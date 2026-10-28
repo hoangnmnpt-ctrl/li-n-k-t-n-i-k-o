@@ -280,7 +280,7 @@ class ConnectionPad(tk.Toplevel):
             s = f["var"].get().replace(",", ".").strip()
             try: v = float(s)
             except ValueError: return
-            if v.is_integer() and sp["p"] in ("plate.nE", "plate.nI", "plate.nT", "plate.nB", "bolt.d", "anchor.d", "anchor.nr", "anchor.npr"): v = int(v)
+            if v.is_integer() and sp["p"] in ("plate.nE", "plate.nI", "plate.nT", "plate.nB", "bolt.d", "anchor.d", "anchor.nr", "anchor.npr", "reinf.nT", "reinf.nVx", "reinf.nVy"): v = int(v)
         else: v = f["var"].get()
         _setp(self.S, sp["p"], v)
         if self.kind == "knee" and sp["p"] == "plate.alignment":
@@ -315,7 +315,10 @@ class ConnectionPad(tk.Toplevel):
             m = _getp(self.S, sp["p"].rsplit(".", 1)[0])
             try:
                 if self.kind in ("knee", "base"):
-                    mm = K.member_at_joint(dict(m, topIsOuter=True) if self.kind == "base" else m, "")
+                    if self.kind == "base":
+                        import base_engine as BE
+                        m = dict(m, topIsOuter=True, dims=m.get("dims") or BE.w_dims(m.get("sec", "")))
+                    mm = K.member_at_joint(m, "")
                     f["lbl"].configure(text=f"✓ d = {mm['d']:.1f}, bụng {mm['hw']:.1f}×{mm['tw']:g}, cánh {mm['bfE']:g}×{mm['tfE']:g}"
                                             + (f" · vát {mm['beta']:.1f}°" if mm["beta"] > 1e-6 else ""), fg="#7FD69A")
                 else:
@@ -405,7 +408,7 @@ class ConnectionPad(tk.Toplevel):
             messagebox.showwarning("Optimize", "Không tính được phương án nào — kiểm tra lại số liệu.", parent=self); return
         PJ.apply_auto(self.kind, self.S, res)
         self._load(); self.run()
-        msg = (f"Optimize: bản đế {res['N']:g}×{res['B']:g}×{res['tp']:g}, neo M{res['d']} hef {res['hef']:g} — D/C = {res['ratio']:.2f}" if self.kind == "base"
+        msg = (f"Optimize: bản đế {res['N']:g}×{res['B']:g}×{res['tp']:g}, neo {PJ.BE.anchor_label(res['d'])} hef {res['hef']:g} — D/C = {res['ratio']:.2f}" if self.kind == "base"
                else f"Optimize: tp = {res['tp']} mm, bu lông M{res['d']} — D/C = {res['ratio']:.2f}")
         if res.get("fail"): msg += " (không có phương án đạt trong dải thử)"
         self.lbl_msg.configure(text=msg)

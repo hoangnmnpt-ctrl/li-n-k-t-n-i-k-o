@@ -41,6 +41,7 @@ def build_sections(app):
     o = lambda k: S()["opt"].get(k)
     an = lambda k: S()["anchor"].get(k)
     lug = lambda: bool(S()["lug"].get("on"))
+    prim = lambda k: S()["reinf"].get("type", "primary") == "primary" and bool(S()["reinf"].get(k))
     ELEC = list(K.ELECTRODES)
     return [
         ("General information", True, [
@@ -64,9 +65,11 @@ def build_sections(app):
             num("opt.tpMax", "Maximum thickness", show=lambda: o("optTp")), num("opt.tpMin", "Minimum thickness", show=lambda: o("optTp")),
             num("opt.tpInc", "Thickness increment", show=lambda: o("optTp")),
             tip(chk("opt.optN", "Optimize longitudinal base plate dimension"), "Khoảng cách từ mặt cột tới mép bản theo phương N"),
-            num("opt.pMax", "Maximum distance to plate edge", show=lambda: o("optN") or o("optB")),
-            num("opt.pMin", "Minimum distance to plate edge", show=lambda: o("optN") or o("optB")),
+            num("opt.pMaxN", "Maximum distance to plate edge", show=lambda: o("optN")),
+            num("opt.pMinN", "Minimum distance to plate edge", show=lambda: o("optN")),
             chk("opt.optB", "Optimize transversal base plate dimension"),
+            num("opt.pMaxB", "Maximum distance to plate edge", show=lambda: o("optB")),
+            num("opt.pMinB", "Minimum distance to plate edge", show=lambda: o("optB")),
             num("opt.dimInc", "Plate dimensions increment", show=lambda: o("optN") or o("optB")),
             chk("opt.optD", "Optimize anchor diameter"),
             num("opt.hefMin", "Minimum effective embedment depth", show=lambda: o("optD")),
@@ -117,7 +120,7 @@ def build_sections(app):
             sel("anchor.head", "Head type", list(BE.HEADS.items()), show=lambda: an("type") != "hooked"),
             tip(num("anchor.eh", "Hook length eh", show=lambda: an("type") == "hooked"), "3da ≤ eh ≤ 4.5da (ACI D.5.3)"),
             chk("anchor.lockNut", "Include lock nut"),
-            sel("anchor.d", "Anchor", [(d, f"M{d}") for d in BE.ANCHOR_DIAS]),
+            sel("anchor.d", "Anchor", [(d, BE.anchor_label(d)) for d in BE.ANCHOR_DIAS]),
             num("anchor.hef", "Effective embedment depth"),
             sel("anchor.grade", "Material", list(BE.ANCHOR_GRADES)),
             tip(chk("anchor.cracked", "Cracked concrete"), "Bê tông nứt: ψc = 1.0 thay vì 1.25 / 1.4"),
@@ -126,6 +129,14 @@ def build_sections(app):
             sub("Anchor reinforcement"),
             tip(sel("reinf.type", "Type of reinforcement", [("primary", "Primary"), ("supplementary", "Supplementary")]),
                 "Primary: cốt thép neo thay kiểm tra phá vỡ bê tông (báo As yêu cầu) · Supplementary: Condition A, φ = 0.75"),
-            chk("reinf.T", "Tension reinforcement"), chk("reinf.V", "Shear reinforcement"),
+            chk("reinf.T", "Tension reinforcement"),
+            sel("reinf.barT", "Tension bar size", list(BE.REBAR_US), show=lambda: prim("T")),
+            tip(num("reinf.fyT", "Tension bar grade", "MPa", show=lambda: prim("T")), "Giới hạn chảy cốt thép (40 ksi = 275.79 MPa, 60 ksi = 413.69 MPa)"),
+            num("reinf.nT", "Tension number of bars", "", show=lambda: prim("T")),
+            chk("reinf.V", "Shear reinforcement"),
+            sel("reinf.barV", "Shear bar size", list(BE.REBAR_US), show=lambda: prim("V")),
+            num("reinf.fyV", "Shear bar grade", "MPa", show=lambda: prim("V")),
+            num("reinf.nVx", "Shear number of bars in major axis direction", "", show=lambda: prim("V")),
+            num("reinf.nVy", "Shear number of bars in minor axis direction", "", show=lambda: prim("V")),
         ]),
     ]

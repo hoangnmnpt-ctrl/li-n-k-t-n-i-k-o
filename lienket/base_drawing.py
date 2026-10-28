@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 
+import base_engine as BE
 import drawing as D
 from drawing import C_BOLT, C_DIM, C_PLATE, C_PLATE_L, C_STEEL, C_STEEL_L, C_STIFF, C_WEB, C_WELD, Scene, _arrow  # noqa: F401
 
@@ -91,7 +92,7 @@ def elevation(inp: dict, R: dict, dem: dict | None, flow: bool = True) -> Scene:
     sc.text((ox, tp + Hc * 0.55), "CỘT", color=C_STEEL_L, size=10, bold=True)
     sc.text((sx, -gr - hdraw * 0.55), f"{'BỆ' if inp['ped'].get('isPed', True) else 'MÓNG'} {inp['ped'].get('mat', '')} f'c = {float(inp['ped']['fc']):g} MPa",
             color=C_CONC_L, size=9, bold=True)
-    sc.text((0, -gr - hdraw - 3.4 * gap), f"Bản đế {G['N']:g}×{G['B']:g}×{tp:g} — {len(G['anchors'])} neo M{da:g} cấp {G['am']['name']}"
+    sc.text((0, -gr - hdraw - 3.4 * gap), f"Bản đế {G['N']:g}×{G['B']:g}×{tp:g} — {len(G['anchors'])} neo {BE.anchor_label(da)} cấp {G['am']['name']}"
             f" — {c['sec']}", size=9, bold=True)
     sc.bbox_pts += [(sx - N2 / 2 - 120, tp + Hc + 190), (sx + N2 / 2 + 120, -gr - hdraw - 3.8 * gap)]
 
@@ -174,7 +175,7 @@ def plate_face(inp: dict, R: dict, dem: dict | None) -> Scene:
     _dim_v(sc, sz - B2 / 2, sz + B2 / 2, sx + N2 / 2 + 24, f"B2 = {B2:g}")
     _dim_h(sc, -N / 2, -G["ax"], sz - B2 / 2 - 24, f"ex = {float(an['ex']):g}")
     _dim_v(sc, -B / 2, -G["ay"], sx - N2 / 2 - 24, f"ey = {float(an['ey']):g}", anchor="e")
-    sc.text((0, sz - B2 / 2 - 62), f"MẶT BẰNG BẢN ĐẾ {N:g}×{B:g}×{G['tp']:g} — {len(G['anchors'])} neo M{da:g} (lỗ {G['hole']:g})",
+    sc.text((0, sz - B2 / 2 - 62), f"MẶT BẰNG BẢN ĐẾ {N:g}×{B:g}×{G['tp']:g} — {len(G['anchors'])} neo {BE.anchor_label(da)} (lỗ {G['hole']:g})",
             size=9, bold=True)
     sc.bbox_pts += [(sx - N2 / 2 - 110, sz + B2 / 2 + 80), (sx + N2 / 2 + 170, sz - B2 / 2 - 80)]
     return sc

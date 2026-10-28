@@ -20,16 +20,17 @@ BASE = {
     # neo (Anchor position): longitudinal (hàng neo ở hai đầu theo phương N) | transversal (hai đầu theo phương B)
     "anchor": {"layout": "longitudinal", "nr": 1, "npr": 2, "sr": 80, "ex": 60, "ey": 60,
                "type": "headed", "head": "hex", "eh": 100, "lockNut": False,
-               "grade": "5.6", "d": 30, "hef": 400, "cracked": True, "brittle": False, "welded": False},
+               "grade": "Class 5.6", "d": 30, "hef": 400, "cracked": True, "brittle": False, "welded": False},
     # cốt thép neo: primary (anchor reinforcement — thay phá vỡ bê tông, báo As yêu cầu) | supplementary (Condition A, φ = 0.75)
-    "reinf": {"type": "primary", "T": True, "V": True},
+    "reinf": {"type": "primary", "T": True, "barT": "no. 5", "fyT": 413.69, "nT": 8,
+              "V": True, "barV": "no. 4", "fyV": 413.69, "nVx": 4, "nVy": 4},
     # một cỡ hàn D (1/16 in) như RAM; outerOnly: chỉ hàn mặt ngoài hai cánh
     "weld": {"electrode": "E70XX", "D": 5, "outerOnly": False, "fl": {"D": 5, "w": 7.9375}, "web": {"D": 5, "w": 7.9375}},
     "lug": {"on": False, "bl": 200, "H": 150, "tl": 20, "mat": "Q345", "D": 6, "w": 9.525},
     # Optimization criteria (như RAM)
-    "opt": {"optTp": True, "tpMin": 10, "tpMax": 80, "tpInc": 2,
-            "optN": True, "optB": True, "pMin": 40, "pMax": 380, "dimInc": 25,
-            "optD": True, "hefMin": 300, "keepPos": "initial"},
+    "opt": {"optTp": True, "tpMax": 76.2, "tpMin": 6.35, "tpInc": 3.175,
+            "optN": True, "pMaxN": 381, "pMinN": 38.1, "optB": True, "pMaxB": 381, "pMinB": 38.1, "dimInc": 25.4,
+            "optD": True, "hefMin": 304.8, "keepPos": "initial"},
     # N > 0 kéo (nhổ) · V2 dọc phương N · V3 dọc phương B · M33 > 0: mép +x chịu nén · M22 > 0: mép +z chịu nén
     "loads": [
         {"name": "N_max (nén)", "N": -650, "V2": 40, "V3": 0, "M33": 30, "M22": 0},
@@ -87,6 +88,28 @@ PRESETS = {
         "loads": [
             {"name": "Biaxial 1", "N": -400, "V2": 60, "V3": 30, "M33": 150, "M22": 40},
             {"name": "Biaxial 2", "N": 80, "V2": 40, "V3": 25, "M33": 60, "M22": 25},
+        ],
+    },
+    "RAM CB 1 — Pinned BP (I 300x215x5x10)": {
+        "name": "Pinned BP", "desc": "COT KHUNG CHINH: 4M27 (4.6), PL.16mm",
+        "gen": {"designCode": "AISC 2010 LRFD", "concCode": "ACI 318-08", "seismic": False, "bearCalc": "complete", "friction": False,
+                "axis": "biaxial", "pressure": "uniform", "compat": True},
+        "opt": {"pMinB": 50},
+        "col": {"sec": "I 300x215x5x10", "mat": "Q345", "ox": 0.0, "oz": 0.0},
+        "plate": {"N": 350, "B": 220, "tp": 16, "mat": "Q345", "pos": "center", "overA2": False},
+        "ped": {"isPed": False, "N2": 1000, "B2": 1000, "h": 2000, "mat": "C30", "groutOn": True, "grout": 50},
+        "anchor": {"layout": "longitudinal", "nr": 1, "npr": 2, "ex": 115, "ey": 50, "type": "headed", "head": "hex",
+                   "lockNut": False, "d": 27, "hef": 800, "grade": "Class 4.6", "cracked": False, "brittle": False, "welded": False},
+        "reinf": {"type": "primary", "T": True, "barT": "no. 10", "fyT": 275.79, "nT": 50,
+                  "V": True, "barV": "no. 18", "fyV": 275.79, "nVx": 10, "nVy": 10},
+        "weld": {"electrode": "E70XX", "D": 5, "outerOnly": False},
+        "lug": {"on": False},
+        "loads": [
+            {"name": "Mmax", "N": 0, "V2": 0, "V3": 0, "M22": 0, "M33": 0},
+            {"name": "Pmax", "N": -214, "V2": 60, "V3": 0, "M22": 0, "M33": 0},
+            {"name": "Vmax", "N": -195, "V2": 70, "V3": 10, "M22": 0, "M33": 0},
+            {"name": "Mmin", "N": 0, "V2": 0, "V3": 0, "M22": 0, "M33": 0},
+            {"name": "Pmin", "N": 110, "V2": 23, "V3": 10, "M22": 0, "M33": 0},
         ],
     },
 }

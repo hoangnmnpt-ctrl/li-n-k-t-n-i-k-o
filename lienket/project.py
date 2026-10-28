@@ -98,7 +98,7 @@ def connection_text(j: dict) -> str:
     p = st["plate"]
     if j["kind"] == "base":
         a = st["anchor"]
-        return f"Bản đế {p['N']:g}×{p['B']:g}×{p['tp']:g} · {neo_count(a)} neo M{a['d']} {a['grade']}"
+        return f"Bản đế {p['N']:g}×{p['B']:g}×{p['tp']:g} · {neo_count(a)} neo {BE.anchor_label(a['d'])} {a['grade']}"
     tp = p.get("tp") if j["kind"] == "knee" else (f"{p['tp1']:g}" if p["tp1"] == p["tp2"] else f"{p['tp1']:g}/{p['tp2']:g}")
     return f"Bản {tp} · M{st['bolt']['d']} {st['bolt']['grade']}"
 
