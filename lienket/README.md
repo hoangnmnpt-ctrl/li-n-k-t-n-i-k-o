@@ -129,9 +129,13 @@ Form giữ đúng các mục và tên trường của RAM (tiếng Anh), rê chu
 | Base plate · Anchor | Anchor position (Longitudinal / Transversal) · Rows number per side · Anchors per row · edge distances · Anchor type (Headed / Hooked) · Head type · Include lock nut · Anchor · hef · Material · Cracked concrete · Brittle steel · Anchors welded to base plate |
 | Base plate · Anchor reinforcement | Type (Primary / Supplementary) · Tension reinforcement · Shear reinforcement |
 
-**Results**: cửa sổ theo form báo cáo RAM (tiếng Anh) — Demands, Geometric considerations, Design check (Verification · Unit · Capacity ·
-Demand · Ctrl EQ · Ratio · References), Global critical strength ratio. Nhấp một dòng Design check → diễn giải công thức tiếng Việt ở khung dưới,
-bộ phận liên quan sáng trên hình 3D. Dùng chung cho knee và nối dầm.
+**Results**: trình bày như báo cáo RAM (tiếng Anh, không kẻ ô): Steel Connections / Results · Connection · Family / Type · Design code ·
+Demands (Pu, Mu22, Mu33, Vu2, Vu3) · Design calculations → *Design for major axis* / *Base plate (AISC …)* · Geometric Considerations (Sta. ✔ / ✘) ·
+Design Check (Concrete base, Base plate, Anchors, Column, Shear lug; Ratio xanh / đỏ) · Ratio · dải *Major axis*: hình ứng suất ép bê tông và lực kéo neo
+với dải màu 17 mức, áp lực lớn / nhỏ nhất, lực neo lớn / nhỏ nhất, góc và vị trí trục trung hoà, chiều dài ép, bảng *Anchors tensions* · Notes.
+Nhấp một dòng Design Check → diễn giải tiếng Việt ở khung dưới, bộ phận liên quan sáng trên hình 3D. Knee và nối dầm dùng cùng cách trình bày.
+Hàn cột như RAM: Weld capacity (hợp lực, kds = 1 + 0.5sin^1.5θ), Elastic method weld shear / axial capacity. ASD: như RAM, neo không thiết kế theo ACI
+(ghi chú "Anchors only designed for LRFD code").
 
 ### Quy ước
 N > 0 kéo (nhổ), N < 0 nén (như SAP) · V2 theo phương N (x) · V3 theo phương B (z) · M33 > 0 → mép +x (phía cánh trên +2) chịu nén ·

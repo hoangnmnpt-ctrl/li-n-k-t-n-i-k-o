@@ -17,16 +17,16 @@ import report as KR
 _num = KR._num
 UNIT_EN = dict(KR.UNIT_EN, **{"kN·m/m": "KN*m/m", "N/mm": "N/mm", "MPa": "MPa"})
 
-DEM_HEAD = ["Description", "Pu [kN]", "V2 [kN]", "V3 [kN]", "M33 [kN*m]", "M22 [kN*m]", "Tu anchor [kN]", "Bearing (M33)", "Load type"]
+DEM_HEAD = ["Description", "Pu [kN]", "Mu22 [kN*m]", "Mu33 [kN*m]", "Vu2 [kN]", "Vu3 [kN]", "Load type"]
 GEO_HEAD = ["Dimensions", "Unit", "Value", "Min.", "Max.", "Sta.", "References"]
 CHK_HEAD = ["Verification", "Unit", "Capacity", "Demand", "Ctrl EQ", "Ratio", "References"]
 CASE_EN = {"axial": "Axial", "small": "Small moment", "large": "Large moment", "nosol": "No solution", "tension": "Uplift", "—": "--"}
-GRP_EN = {"Bản đế": "Base plate", "Bu lông neo": "Anchors", "Bê tông": "Concrete support", "Hàn": "Welds", "Bản chắn cắt": "Shear lug"}
+GRP_EN = {"Bản đế": "Base plate", "Bu lông neo": "Anchors", "Bê tông": "Concrete base", "Hàn": "Welds", "Bản chắn cắt": "Shear lug"}
 GEO_EN = [
     ("Phần bản nhô theo phương N", "Plate projection beyond column (N direction)"),
     ("Phần bản nhô theo phương B", "Plate projection beyond column (B direction)"),
-    ("Khoảng cách mép bản ex", "Edge distance to plate (N direction)"),
-    ("Khoảng cách mép bản ey", "Edge distance to plate (B direction)"),
+    ("Khoảng cách neo tới mép bản", "Distance from anchor to edge"),
+    ("Cỡ hàn cột", "Weld size"),
     ("Bước neo phương N", "Anchor spacing (N direction)"),
     ("Bước neo phương B", "Anchor spacing (B direction)"),
     ("Khoảng hở tâm neo", "Anchor clearance to column steel"),
@@ -34,89 +34,114 @@ GEO_EN = [
     ("Chiều dài móc", "Hook length"),
     ("Chiều sâu chôn", "Embedment depth hef"),
     ("Gối nhô ra ngoài bản đế", "Support projection beyond base plate"),
-    ("Hàn góc cánh cột", "Weld size (column flanges)"),
-    ("Hàn góc bụng cột", "Weld size (column web)"),
     ("Chiều cao chôn H", "Shear lug embedment"),
     ("Hàn bản chắn", "Weld size (shear lug)"),
 ]
 DIR_EN = {"33": "major axis", "22": "minor axis", "bi": "biaxial"}
 
 
+AXIS_TITLE = {"33": "major axis", "22": "minor axis", "bi": "biaxial"}
+DETAIL_TITLE = {"33": "Major axis", "22": "Minor axis", "bi": "Biaxial"}
+# id kiểm tra → (nhóm RAM, tên RAM, thứ tự nhóm)
+SIMPLE = {
+    "bp_ten": ("Base plate", "Flexural yielding (tension interface)", 10),
+    "anc_t": ("Anchors", "Tensile strength", 30), "anc_v": ("Anchors", "Shear strength", 30),
+    "anc_tv": ("Anchors", "Tensile strength with shear", 30),
+    "aci_sa": ("Anchors", "Steel tensile strength", 31), "aci_cb": ("Anchors", "Concrete tensile breakout strength", 31),
+    "aci_rt": ("Anchors", "Tension reinforcement required area", 31), "aci_pn": ("Anchors", "Pullout strength", 31),
+    "aci_vsa": ("Anchors", "Steel shear strength", 32), "aci_cp": ("Anchors", "Concrete pryout strength", 32),
+    "aci_int": ("Anchors", "Tension and shear interaction", 33),
+    "shear_fric": ("Base plate", "Friction between base plate and support", 12),
+    "lug_bear": ("Shear lug", "Concrete bearing", 50), "lug_flex": ("Shear lug", "Flexural yielding", 50),
+    "lug_v": ("Shear lug", "Shear yielding", 50), "lug_w": ("Shear lug", "Weld capacity", 50),
+    "w_cap": ("Column", "Weld capacity", 60), "w_v": ("Column", "Elastic method weld shear capacity", 60),
+    "w_n": ("Column", "Elastic method weld axial capacity", 60),
+}
+
+
 def check_en(cid: str, c: dict) -> tuple[str, str, int]:
     """id kiểm tra → (nhóm RAM, tên RAM, thứ tự nhóm)."""
     m = re.fullmatch(r"(conc_bear|conc_eff|bp_size|bp_comp)_(\d\d|bi)", cid)
     if m:
-        k, ax = m[1], DIR_EN[m[2]]
-        if k == "conc_bear": return "Concrete support", f"Concrete bearing ({ax})", 20
-        if k == "conc_eff": return "Concrete support", f"Concrete bearing on effective area ({ax})", 20
-        if k == "bp_size": return "Concrete support", f"Base plate size for large moment ({ax})", 20
-        return "Base plate", f"Flexural yielding - bearing interface ({ax})", 10
-    simple = {
-        "bp_ten": ("Base plate", "Flexural yielding - tension interface", 10),
-        "anc_t": ("Anchors (AISC 360)", "Tensile strength", 30), "anc_v": ("Anchors (AISC 360)", "Shear strength", 30),
-        "anc_tv": ("Anchors (AISC 360)", "Tensile strength with shear (interaction)", 30),
-        "aci_sa": ("Anchors (ACI 318)", "Steel strength in tension", 40),
-        "aci_cb": ("Anchors (ACI 318)", "Concrete breakout strength in tension", 40),
-        "aci_rt": ("Anchors (ACI 318)", "Tension reinforcement - required area", 40),
-        "aci_pn": ("Anchors (ACI 318)", "Pullout strength", 40),
-        "aci_vsa": ("Anchors (ACI 318)", "Steel strength in shear", 41),
-        "aci_cp": ("Anchors (ACI 318)", "Concrete pryout strength", 41),
-        "aci_int": ("Anchors (ACI 318)", "Tension and shear interaction", 42),
-        "shear_fric": ("Shear transfer", "Friction between base plate and support", 50),
-        "lug_bear": ("Shear lug", "Concrete bearing on shear lug", 55), "lug_flex": ("Shear lug", "Flexural yielding", 55),
-        "lug_v": ("Shear lug", "Shear yielding", 55), "lug_w": ("Shear lug", "Weld capacity", 55),
-        "w_fl": ("Column", "Weld capacity (flanges)", 60), "w_web": ("Column", "Weld capacity (web)", 60),
-    }
-    if cid in simple: return simple[cid]
+        k = m[1]
+        if k == "conc_bear": return "Concrete base", "Axial bearing", 5
+        if k == "conc_eff": return "Concrete base", "Bearing on effective area", 5
+        if k == "bp_size": return "Concrete base", "Base plate size for large moment", 5
+        return "Base plate", "Flexural yielding (bearing interface)", 10
+    if cid in SIMPLE: return SIMPLE[cid]
     m = re.fullmatch(r"aci_sb([+-][xz])", cid)
-    if m: return "Anchors (ACI 318)", f"Side-face blowout ({m[1]} edge)", 40
+    if m: return "Anchors", f"Side-face blowout ({m[1]} edge)", 31
     m = re.fullmatch(r"aci_(vcb|rv)_(\d)", cid)
     if m:
         lab = "V2" if m[2] == "0" else "V3"
-        return ("Anchors (ACI 318)", f"Concrete breakout strength in shear ({lab})" if m[1] == "vcb"
-                else f"Shear reinforcement - required area ({lab})", 41)
+        return "Anchors", (f"Concrete shear breakout strength ({lab})" if m[1] == "vcb" else f"Shear reinforcement required area ({lab})"), 32
     return c["grp"], c["name"], 99
 
 
+def _axis_of(cid):
+    m = re.search(r"_(33|22|bi)$", cid)
+    return m[1] if m else None
+
+
+def _unit(u, cap, dem):
+    """Đơn vị và giá trị như RAM: áp lực theo KN/mm2."""
+    if u == "MPa": return "KN/mm2", cap / 1e3, dem / 1e3
+    if u == "N/mm": return "KN/m", cap, dem
+    return UNIT_EN.get(u, u), cap, dem
+
+
 def build(S: dict, R: dict, file_name: str = "") -> dict:
-    G = R["G"]; c = G["col"]; an = S["anchor"]; ped = S["ped"]
-    code = (S.get("gen", {}).get("designCode", "AISC 2010 LRFD").replace("AISC 2010", "AISC 360-10").replace("AISC 2016", "AISC 360-16")
-            + " · " + S.get("gen", {}).get("concCode", "ACI 318-11"))
-    demands = [[d["name"], _num(-d["N"]), _num(d["V2"]), _num(d["V3"]), _num(d["M33"]), _num(d["M22"]), _num(d["Tmax"]),
-                CASE_EN.get(d["case33"], d["case33"]), "Design"] for d in R["demands"]]
+    G = R["G"]; c = G["col"]; an = S["anchor"]
+    gen = S.get("gen", {})
+    steel = gen.get("designCode", "AISC 2010 LRFD").replace("AISC 2010", "AISC 360-10").replace("AISC 2016", "AISC 360-16")
+    demands = [[d["name"], _num(d["N"]), _num(d["M22"]), _num(d["M33"]), _num(d["V2"]), _num(d["V3"]), "Design"] for d in R["demands"]]
     geo = {}
     for x in R["geo"]:
         name = next((e for k, e in GEO_EN if x["name"].startswith(k)), x["name"])
+        nd = 0 if x["unit"] == "1/16in" else 2
         geo.setdefault(GRP_EN.get(x["grp"], x["grp"]), []).append(
-            [name, f"[{x['unit']}]" if x["unit"] else "", _num(x["val"]), _num(x["min"]), _num(x["max"]), "OK" if x["ok"] else "N.G.", x["ref"]])
-    checks, rank = {}, {}
-    for ch in R["checks"]:
-        grp, name, rk = check_en(ch["id"], ch)
-        checks.setdefault(grp, []).append([name, f"[{UNIT_EN.get(ch['unit'], ch['unit'])}]", _num(ch["cap"]), _num(abs(ch["dem"])),
-                                           ch["combo"], "--" if ch["info"] else _num(ch["ratio"]), ch["ref"], ch["ratio"], ch["info"], ch["id"]])
-        rank[grp] = min(rank.get(grp, 999), rk)
-    order = sorted(checks, key=lambda g: (rank[g], g))
+            [name, f"[{x['unit']}]" if x["unit"] else "", _num(x["val"], nd), _num(x["min"], nd), _num(x["max"], nd), "OK" if x["ok"] else "N.G.", x["ref"]])
+    # khối "Design for … axis": kiểm tra riêng của trục + kiểm tra chung (ở khối đầu)
+    axes_used = [k for k in ("33", "22", "bi") if any(_axis_of(ch["id"]) == k for ch in R["checks"])] or ["33"]
+    blocks = []
+    for bi, ax in enumerate(axes_used):
+        checks, rank = {}, {}
+        for ch in R["checks"]:
+            a = _axis_of(ch["id"])
+            if (a is None and bi != 0) or (a is not None and a != ax): continue
+            grp, name, rk = check_en(ch["id"], ch)
+            u, cap, dem = _unit(ch["unit"], ch["cap"], abs(ch["dem"]))
+            checks.setdefault(grp, []).append([name, f"[{u}]" if u else "", _num(cap), _num(dem), ch["combo"],
+                                               "--" if ch["info"] else _num(ch["ratio"]), ch["ref"], ch["ratio"], ch["info"], ch["id"]])
+            rank[grp] = min(rank.get(grp, 999), rk)
+        order = sorted(checks, key=lambda g: (rank[g], g))
+        blocks.append(dict(title=f"Design for {AXIS_TITLE[ax]}", sub=f"Base plate ({steel})", geo=geo if bi == 0 else None,
+                           checks=[(g, checks[g]) for g in order]))
+    # chi tiết từng trục: tổ hợp có áp lực ép lớn nhất (hoặc lực neo lớn nhất)
+    details = []
+    for ax in axes_used:
+        ds = [d for d in R["demands"] if ax in d.get("axes", {})]
+        if not ds: continue
+        dm = max(ds, key=lambda d: (d["axes"][ax]["fpmax"], d["Tmax"]))
+        A = dm["axes"][ax]
+        summ = [("Maximum bearing pressure", A["fpmax"], "[N/mm2]"), ("Minimum bearing pressure", A["fpmin"], "[N/mm2]"),
+                ("Maximum anchor tension", max(dm["T"]), "[kN]"), ("Minimum anchor tension", min(dm["T"]), "[kN]"),
+                ("Neutral axis angle", A["ang"], "[deg]"), ("Neutral axis location", A["loc"], "[mm]"), ("Bearing length", A["Y"], "[mm]")]
+        rows = [[str(i + 1), _num(a["y"]), _num(a["x"]), _num(v), _num(t)] for i, (a, v, t) in enumerate(zip(G["anchors"], dm["Vs"], dm["T"]))]
+        details.append(dict(title=DETAIL_TITLE[ax], combo=dm["name"], summary=summ, anchors=rows, field=A.get("field", ("none",)),
+                            T=list(dm["T"])))
     gov = R["gov"]
-    gen = S.get("gen", {})
-    shear = ("Shear lug" if S["lug"].get("on") else "Anchors") + (" + friction" if gen.get("friction") else "")
+    geom = dict(N=G["N"], B=G["B"], d=G["d"], ox=G["ox"], oz=G["oz"], tw=c["tw"], bfE=c["bfE"], tfE=c["tfE"], bfI=c["bfI"], tfI=c["tfI"],
+                da=float(an["d"]), anchors=[(a["x"], a["y"]) for a in G["anchors"]])
     return dict(
         date=datetime.datetime.now().strftime("%m/%d/%Y %I:%M %p").lstrip("0"), file=file_name,
-        name=S.get("name", ""), family="Column base (CB)", type="Base plate", code=code,
-        demands=demands, geo=geo, checks=[(g, checks[g]) for g in order], ratio=gov["ratio"] if gov else 0.0, warnings=list(R["W"]),
-        members=[
-            ("Column", f"{c['text']}  ({S['col']['mat']})"),
-            ("Base plate", f"{G['N']:g} x {G['B']:g} x {G['tp']:g} mm  ({S['plate']['mat']})"),
-            ("Anchors", f"{len(G['anchors'])} x M{an['d']} {G['am']['name']} ({'Headed' if an.get('type') != 'hooked' else 'Hooked'}), "
-                        f"hef = {float(an['hef']):g} mm, {an.get('layout', 'longitudinal').capitalize()} position, "
-                        f"{an.get('nr', 1)} row(s) per side x {an.get('npr', 2)}, edge {float(an['ex']):g} / {float(an['ey']):g} mm"
-                        + (", cracked concrete" if an.get("cracked", True) else "")),
-            ("Support", f"{'Pedestal' if ped.get('isPed', True) else 'Footing'} {G['N2']:g} x {G['B2']:g} x {G['ha']:g} mm, {ped.get('mat', '')} "
-                        f"(f'c = {float(ped['fc']):g} MPa)" + (f", grout {G['grout']:g} mm" if G["grout"] > 0 else "")),
-            ("Analysis", {"major": "Major axis", "minor": "Minor axis", "both": "Both axes", "biaxial": "Biaxial"}.get(gen.get("axis", "both"), "")
-                         + f", {gen.get('pressure', 'uniform').capitalize()} pressure distribution"
-                         + (", strain compatibility" if gen.get("compat") else "")),
-            ("Shear transfer", shear),
-        ],
+        name=S.get("name", ""), family="Column - Base (CB)", type="Base plate", code=steel,
+        demands=demands, geo=geo, blocks=blocks, details=details, geom=geom,
+        checks=[g for b in blocks for g in b["checks"]], ratio=gov["ratio"] if gov else 0.0,
+        notes=list(R.get("notes", [])), warnings=list(R["W"]),
+        members=[("Column", f"{c['text']}  ({S['col']['mat']})"),
+                 ("Base plate", f"{G['N']:g} x {G['B']:g} x {G['tp']:g} mm  ({S['plate']['mat']})"),
+                 ("Anchors", f"{len(G['anchors'])} x M{an['d']} {G['am']['name']}, hef = {float(an['hef']):g} mm")],
     )
 
 

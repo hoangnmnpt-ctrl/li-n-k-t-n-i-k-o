@@ -125,7 +125,10 @@ def test_weld_pure_tension():
     st = st_one({"N": 300})
     R = BE.compute(st)
     G = R["G"]
-    assert near(chk(R, "w_fl")["dem"], 300e3 / G["Lt"])
+    assert near(chk(R, "w_n")["dem"], 300e3 / G["Lt"])                    # Elastic method weld axial
+    q = 0.75 * 0.6 * 482.6 * 0.707 * float(st["weld"]["fl"]["w"])
+    assert near(chk(R, "w_n")["cap"], 1.5 * q) and near(chk(R, "w_v")["cap"], q)
+    assert near(chk(R, "w_cap")["cap"], 1.5 * q)                           # θ = 90°: kds = 1.5
 
 
 def test_shear_modes():
@@ -208,7 +211,9 @@ def test_asd_offsets_and_options():
     R7 = BE.compute(st_one({"N": 100}, anchor={"layout": "transversal", "nr": 2, "npr": 3, "sr": 70}))
     assert len(R7["G"]["anchors"]) == 12
     R8 = BE.compute(st_one({"N": 100}, weld={"outerOnly": True}))
-    assert not any(c["id"] == "w_web" for c in R8["checks"])
+    assert near(R8["G"]["Lt"], R8["G"]["col"]["bfE"] + R8["G"]["col"]["bfI"])
+    R9 = BE.compute(st_one({"N": 100}, gen={"designCode": "AISC 2010 ASD"}))
+    assert not any(c["id"].startswith("aci_") for c in R9["checks"]) and "Anchors only designed for LRFD code" in R9["notes"]
 
 
 if __name__ == "__main__":
