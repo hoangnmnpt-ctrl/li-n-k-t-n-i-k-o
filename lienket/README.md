@@ -13,7 +13,7 @@ Cần Python ≥ 3.12, `customtkinter`; `comtypes` khi lấy nội lực từ SA
 | **Home · View** | Template — áp mẫu · Information log — mọi cảnh báo / N.G. của dự án · Critical load condition — hiện tổ hợp khống chế |
 | **Home · Databases** | Sections (quy cách + tiết diện đang dùng) · Materials · Connections (kiểu nút có / chưa có) · Bolts · Welds · Anchors (cấp bu lông neo, lỗ DG1) |
 | **Design** | Edit connection · Smart connection (tự chọn tp / bu lông) · Design all · Joint data · Loads |
-| **Output** | Report (.docx nút đang chọn) · All reports (cả dự án) · RAM .rcnx (mọi knee) · Results table (.csv mở bằng Excel) · Information log |
+| **Output** | Report (.docx nút đang chọn) · All reports (cả dự án) · RAM .rcnx (mọi liên kết) · Results table (.csv mở bằng Excel) · Information log |
 | Khung xem xanh đậm | Hình 3D phối cảnh kiểu RAM dựng từ khối thật (`model3d.py`): cấu kiện xám, bản đầu tím, bản gối xanh lá, sườn xanh rêu, bu lông lục giác cam, đường hàn vàng. Kéo trái xoay, kéo phải di chuyển, lăn zoom, nhấp đúp về góc mặc định. Ô xem: **3D** · **3D D/C** (tô màu theo D/C của Condition) · Elevation · End plate |
 | Bảng thông tin (phải) | JOINT, họ nút (BCF / BS), BEAM – COLUMN (hoặc LEFT / RIGHT BEAM), SHEAR AND MOMENT CONNECTION (Template, Connection, bản / bu lông, tỷ số khống chế), Design code, **Edit...**, Additional notes (lưu theo nút) |
 | Dải thẻ (dưới) | Mỗi nút một thẻ như RAM: số nút, họ, hình thu nhỏ, `tỷ số - tổ hợp khống chế` (xanh = đạt, đỏ = không đạt). Bấm để chọn, nhấp đúp để Edit, lăn chuột để cuộn |
@@ -44,11 +44,14 @@ Dự án lưu một file `*.lkt` (mặc định `lienket\du_an.lkt`).
 - **Tab Loads**: bảng như hộp thoại Loads của RAM (ID, Description, Right beam Axial/V2/M3, Left beam, Column Axial/V2/M3). Dấu giống RAM.
 - **Tab Report (RAM)**: báo cáo tiếng Anh đúng form RAM (Demands, Geometric Considerations, Plate / Column Behavior, Design Check,
   Global critical strength ratio); nút *Export report (.docx)*.
-- **Export RAM Connection (.rcnx)**: knee hiện tại (tab Report của cửa sổ Edit) hoặc mọi knee của dự án (Output → RAM .rcnx) → 1 file, mỗi knee = 1 connection `Bentley.AISC.MEPlateKneeBCF`
-  kèm bảng tải. Dựng từ khuôn `ram_proto.rcnx` (lấy từ file RAM 23 thật; tạo lại bằng `tools/make_ram_proto.py`).
-  Nút **Home → RAM Connection → Export RAM .rcnx** xuất mọi liên kết của dự án; loại chưa có khuôn RAM (Column base, Beam splice / Apex)
-  được liệt kê trong thông báo. Để bổ sung loại mới: lưu 1 file .rcnx của RAM có sẵn liên kết loại đó, chạy
-  `python tools/dump_rcnx.py "<file>.rcnx"` để in ClassName + toàn bộ thuộc tính / bảng tải (chỉ đọc file) rồi lập bảng map.
+- **Export RAM Connection (.rcnx)**: nút **Home → RAM Connection → Export RAM .rcnx** (hoặc Output → RAM .rcnx) xuất **mọi liên kết**
+  của dự án vào 1 file: knee → `Bentley.AISC.MEPlateKneeBCF`, chân cột → `Bentley.AISC.BasePlate`, nối dầm / apex →
+  `Bentley.AISC.MEPlateBeamSplice` (apex: IsApex = 1, SlopeAngle = −độ dốc), kèm bảng tải và điều kiện tải chung.
+  Dựng từ khuôn `ram_proto.rcnx` lấy từ file RAM Connection **24.0.4** thật (`tools/make_ram_proto.py`; tên bu lông kiểu RAM 24 "M24 G88").
+  Đối chứng: CB 1 "Pinned BP" và nối dầm BS #20 xuất ra trùng từng thuộc tính + bảng tải với connection gốc (chỉ khác cách ghi đơn vị,
+  in ↔ mm); knee #11 (RAM 23, `tests/data/ram23_knee11.rcnx`) trùng như trước. Tool không đặt Optimize → RAM giữ đúng kích thước tool.
+  Mã lựa chọn chưa có trong file mẫu (vd. Analysis axis khác Biaxial, Triangular, neo móc, Supplementary…) vẫn xuất nhưng có cảnh báo
+  "Mã RAM chưa đối chứng" để kiểm tra lại. Xem cấu trúc 1 file RAM bất kỳ: `python tools/dump_rcnx.py "<file>.rcnx"` (chỉ đọc).
 - **Database tiết diện**: khi xuất (tick "Tạo tiết diện…"), tiết diện `I {hw}x{bf}x{tw}x{tf}` còn thiếu được thêm vào
   `…\Sections\WS Section-Hoang\Built up.sec` (sao lưu bản cũ trong `_backup`, không thêm trùng). Đóng/mở lại RAM để nạp.
 - Đối chứng knee #11 của RAM (dữ liệu gốc từ .rcnx): nội lực quy đổi trùng 100%; bản đầu, bu lông, hàn, panel, sườn lệch ≤ 0.7%;
@@ -111,7 +114,7 @@ DG39 (2023) Table 5-2 bỏ số hạng −1/2 của 2FU, nên Y(DG39) cao hơn Y
 
 ### Giới hạn hiện tại
 - **Chưa** đối chiếu số với một file RAM Connection nào cho Beam splice (knee đã đối chiếu RAM #11). Cần anh/chị cung cấp ví dụ RAM để so.
-- **Chưa** xuất `.rcnx` cho RAM (cần khuôn `.rcnx` của Beam splice do RAM sinh ra, như `ram_proto.rcnx` của knee) và **chưa** có hình 3D, quét nội lực từ SAP2000.
+- Xuất `.rcnx` sang RAM: có (đối chứng BS #20). Hai bản đầu dày khác nhau → RAM chỉ có 1 bề dày (cảnh báo).
 - Hai dầm cùng chiều cao tại mặt nối; độ nghiêng cánh do tiết diện vát bị bỏ qua khi quy đổi nội lực (có cảnh báo khi vát > 2°).
 - Không có bản đầu có sườn kiểu 8ES / 8E, bích bằng 6 bu lông, bản đầu mỏng theo EN; cấu hình MRE chưa kèm sườn.
 - Công cụ hỗ trợ tính toán; kết quả cần được kỹ sư có chứng chỉ kiểm tra.
@@ -183,9 +186,8 @@ tương tác chỉ khi Nua > 0.2φNsa và Vua > 0.2φVsa; ASD: không thiết k�
 cốt thép neo primary / supplementary, seismic, ASD, lệch tâm, layout ngang, hàn, ma sát, tối ưu, mô hình 3D.
 
 ### Giới hạn hiện tại
-- **Chưa** đối chiếu số với file RAM Base plate — cần một ví dụ RAM (.rcnx hoặc báo cáo) để so từng dòng.
 - Chưa có: bản đế có sườn (Stiffened), hình dạng bản khác chữ nhật, cột hộp / ống, neo chôn sau; uốn neo qua vữa > 50 mm, phá vỡ bê tông do bản chắn cắt (có cảnh báo).
-- Chưa xuất `.rcnx` cho chân cột, chưa lấy nội lực chân cột trực tiếp từ SAP2000 (dán từ Excel ở bảng Loads).
+- Xuất `.rcnx` chân cột: có (đối chứng CB 1). Vật liệu bản chắn cắt và chiều dài móc neo không có ô tương ứng trong RAM — nhập lại trong RAM.
 
 ## Tệp
 `app.py` cửa sổ chính · `newjoint.py` New joint · `project.py` dự án · `knee_gui.py` / `splice_gui.py` cửa sổ thiết kế ·

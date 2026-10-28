@@ -1,7 +1,9 @@
 """
-Tạo file khuôn ram_proto.rcnx (1 knee MEPlateKneeBCF) từ một file .rcnx có sẵn của RAM Connection.
+Tạo file khuôn ram_proto.rcnx từ một file .rcnx có sẵn của RAM Connection: giữ 1 connection cho mỗi loại tool xuất được
+(Knee MEPlateKneeBCF, chân cột BasePlate, nối dầm / apex MEPlateBeamSplice), bỏ mọi connection khác.
 File nguồn chỉ được ĐỌC (mode=ro). Chạy lại khi đổi phiên bản RAM Connection:
-    python tools/make_ram_proto.py "<đường dẫn .rcnx>" [CnxID]
+    python tools/make_ram_proto.py "<đường dẫn .rcnx>" [Class=CnxID ...]
+ví dụ: python tools/make_ram_proto.py RAM.rcnx Bentley.AISC.BasePlate=1 Bentley.AISC.MEPlateBeamSplice=20
 """
 
 import os
@@ -10,46 +12,53 @@ import sys
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(HERE, "ram_proto.rcnx")
+CLASSES = ("Bentley.AISC.MEPlateKneeBCF", "Bentley.AISC.BasePlate", "Bentley.AISC.MEPlateBeamSplice")
 
 
-def main(src: str, cnx_id: int | None = None):
+def main(src: str, want: dict | None = None, out: str = OUT):
+    want = want or {}
     s = sqlite3.connect(f"file:{src}?mode=ro", uri=True)
-    if os.path.exists(OUT):
-        os.remove(OUT)
-    d = sqlite3.connect(OUT)
+    if os.path.exists(out):
+        os.remove(out)
+    d = sqlite3.connect(out)
     s.backup(d)
     s.close()
-    rows = d.execute("select CnxRef, CnxJoint, CnxID from Cnx").fetchall()
-    knee = None
+    rows = d.execute("select CnxRef, CnxJoint, CnxID from Cnx order by CnxJoint").fetchall()
+    keep = {}
     for ref, joint, cid in rows:
         cls = d.execute(f'select PropertyValue from "{ref}" where PropertyName=\'ClassName\'').fetchone()
-        if cls and cls[0] == "Bentley.AISC.MEPlateKneeBCF" and (cnx_id is None or cid == cnx_id):
-            knee = (ref, joint, cid)
-            break
-    if not knee:
-        raise SystemExit("Không tìm thấy connection MEPlateKneeBCF trong file nguồn.")
-    ref, joint, cid = knee
+        cls = cls[0] if cls else ""
+        if cls in CLASSES and cls not in keep and want.get(cls, cid) == cid:
+            keep[cls] = (ref, cid)
+    miss = [c for c in CLASSES if c not in keep]
+    if miss:
+        print("Thiếu khuôn:", ", ".join(miss))
+    refs = {r for r, _ in keep.values()}
+    ids = [c for _, c in keep.values()]
     for r, _j, _c in rows:
-        if r != ref:
+        if r not in refs:
             d.execute(f'drop table if exists "{r}"')
             d.execute(f'drop table if exists "{r}_Loads"')
-    d.execute("delete from Cnx where CnxRef != ?", (ref,))
-    # CnxJoint = số thứ tự dòng của nút trong bảng Joints; JointID của nút = CnxID
-    d.execute("delete from Joints where JointID != ?", (cid,))
-    d.execute("delete from Joints_Estados where Joints != ?", (cid,))
+    d.execute(f"delete from Cnx where CnxID not in ({','.join('?' for _ in ids)})", ids)
+    d.execute(f"delete from Joints where JointID not in ({','.join('?' for _ in ids)})", ids)
+    d.execute(f"delete from Joints_Estados where Joints not in ({','.join('?' for _ in ids)})", ids)
+    # CnxJoint = số thứ tự dòng của nút trong bảng Joints (1…); JointID = CnxID
+    for i, (cid,) in enumerate(d.execute("select CnxID from Cnx order by CnxJoint").fetchall(), 1):
+        d.execute("update Cnx set CnxJoint=? where CnxID=?", (i, cid))
     d.execute("delete from ConnectionObjects where PropertyName != 'ConnectionVersion'")
-    d.execute("insert into ConnectionObjects values ('1', 0, ?)", (ref,))
+    for i, (ref,) in enumerate(d.execute("select CnxRef from Cnx order by CnxJoint").fetchall(), 1):
+        d.execute("insert into ConnectionObjects values (?, 0, ?)", (str(i), ref))
     d.execute("drop table if exists Thumbnail")
     d.commit()
     d.execute("vacuum")
     d.commit()
-    print("OK ->", OUT.encode("ascii", "replace").decode(), "| proto:", ref, "joint", joint)
-    print("Joints_Estados cols:", [r[1] for r in d.execute("pragma table_info(Joints_Estados)")])
-    print("JE row:", d.execute("select * from Joints_Estados").fetchall())
-    print("Cnx:", d.execute("select * from Cnx").fetchall(), [r[1] for r in d.execute("pragma table_info(Cnx)")])
-    print("tables:", [r[0] for r in d.execute("select name from sqlite_master where type='table'")])
+    print("OK ->", out.encode("ascii", "replace").decode())
+    for cls, (ref, cid) in keep.items():
+        print(f"  {cls}: CnxID {cid} {ref}")
     d.close()
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else None)
+    if len(sys.argv) < 2:
+        raise SystemExit(__doc__)
+    main(sys.argv[1], {k: int(v) for k, v in (a.split("=", 1) for a in sys.argv[2:])})

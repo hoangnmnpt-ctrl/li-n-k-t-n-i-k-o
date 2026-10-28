@@ -144,17 +144,17 @@ def main() -> int:
     d._ok()
     jb = app.project.add(d.result["kind"], d.result["state"]); app.refresh(); app.select(jb["id"]); _spin(app)
     check("tạo Column base", jb["kind"] == "base" and app.result(jb)[1]["gov"] is not None)
-    # Home → RAM Connection → Export: knee xuất được, chân cột báo chưa có khuôn RAM
+    # Home → RAM Connection → Export: mọi liên kết của dự án
     import knee_gui
     import ram_export
     got = {}
     old_dlg = knee_gui.export_rcnx_dialog
-    knee_gui.export_rcnx_dialog = lambda states, ms=True, extra="": got.update(n=len(states), extra=extra) or "ok"
+    knee_gui.export_rcnx_dialog = lambda states, ms=True, extra="", kinds=None: got.update(n=len(states), kinds=kinds) or "ok"
     app.export_rcnx(); _spin(app)
     knee_gui.export_rcnx_dialog = old_dlg
-    check("Export RAM .rcnx: xuất knee, báo CB chưa hỗ trợ",
-          got.get("n") == sum(j["kind"] == "knee" for j in app.project.joints) and "Column base" in got.get("extra", "")
-          and ram_export.supported("knee") and not ram_export.supported("base"))
+    check("Export RAM .rcnx: xuất mọi liên kết (knee, splice, chân cột)",
+          got.get("n") == len(app.project.joints) and got.get("kinds") == [j["kind"] for j in app.project.joints]
+          and "base" in got["kinds"] and all(ram_export.supported(k) for k in ("knee", "base", "splice")))
     for mode in ("3D", "3D D/C", "Elevation", "End plate"):
         app.cmb_view.set(mode); app._draw(); _spin(app, 3)
     app.cmb_view.set("3D"); app._draw()

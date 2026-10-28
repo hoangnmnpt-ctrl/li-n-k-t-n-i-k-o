@@ -1126,11 +1126,11 @@ TP_ROLE_MIN = {"main": 14.0, "gable": 12.0}      # bản đế tối thiểu the
 
 def tp_candidates(o: dict, hw: float) -> list:
     """Bề dày bản đế khi optimize: danh sách bản mã (engine.TP_LIST) trong [tpMin, tpMax],
-    ≥ 12 mm (cột đầu hồi) / 14 mm (cột chính) và > hw/50 (hw = chiều cao bụng cột)."""
+    ≥ 12 mm (cột đầu hồi) / 14 mm (cột chính) và ≥ hw/50 (hw = chiều cao bụng cột)."""
     from engine import TP_LIST
     lo = max(float(o.get("tpMin", 0) or 0), TP_ROLE_MIN.get(o.get("colRole", "main"), 14.0))
     hi = float(o.get("tpMax", 1e9) or 1e9)
-    return [float(t) for t in TP_LIST if lo - 1e-9 <= t <= hi + 1e-9 and t > hw / 50.0 + 1e-9]
+    return [float(t) for t in TP_LIST if lo - 1e-9 <= t <= hi + 1e-9 and t >= hw / 50.0 - 1e-9]
 
 
 def auto_design(inp: dict, dias=tuple(ANCHOR_DIAS), tps=None, progress: Optional[Callable] = None):

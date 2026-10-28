@@ -1154,18 +1154,20 @@ class KneePanel(ctk.CTkFrame):
 
 
 
-def export_rcnx_dialog(states: list[dict], make_sections: bool = True, extra: str = "") -> str:
-    """Hỏi đường dẫn và xuất các knee sang RAM Connection (.rcnx). Trả về dòng thông báo ('' nếu huỷ / lỗi)."""
+def export_rcnx_dialog(states: list[dict], make_sections: bool = True, extra: str = "", kinds: list[str] | None = None) -> str:
+    """Hỏi đường dẫn và xuất các liên kết sang RAM Connection (.rcnx). Trả về dòng thông báo ('' nếu huỷ / lỗi)."""
     if not states:
-        messagebox.showinfo("Export RAM", "Không có knee nào để xuất."); return ""
+        messagebox.showinfo("Export RAM", "Không có liên kết nào để xuất."); return ""
     path = filedialog.asksaveasfilename(title="Export RAM Connection", defaultextension=".rcnx", filetypes=[("RAM Connection", "*.rcnx")],
-                                        initialfile="KNEE_export.rcnx")
+                                        initialfile="RAM_export.rcnx" if kinds else "KNEE_export.rcnx")
     if not path: return ""
     try:
-        res = ram_export.export_rcnx(states, path, make_sections=make_sections)
+        res = ram_export.export_rcnx(states, path, make_sections=make_sections, kinds=kinds)
     except Exception as e:  # noqa: BLE001
         messagebox.showerror("Export RAM", f"Không xuất được: {e}"); return ""
-    msg = [f"Đã xuất {res['n']} connection (MEPlateKneeBCF) → {path}"]
+    kinds = kinds or ["knee"] * len(states)
+    cnt = ", ".join(f"{kinds.count(k)} {ram_export.KIND_LABEL[k]}" for k in ram_export.RAM_CLASS if kinds.count(k))
+    msg = [f"Đã xuất {res['n']} connection ({cnt}) → {path}"]
     sec = res.get("sections")
     if sec:
         msg.append(f"\nDatabase tiết diện: {sec['path']}")

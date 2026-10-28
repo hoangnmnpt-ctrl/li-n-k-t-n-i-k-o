@@ -882,7 +882,7 @@ class App(ctk.CTk):
             messagebox.showinfo("Export RAM", ram_export.unsupported_note(skip)); return
         states = [PJ.full_state(j) for j in ok]
         msg = knee_gui.export_rcnx_dialog(states, messagebox.askyesno("Export RAM", "Tạo tiết diện còn thiếu trong database RAM (WS Section-Hoang)?"),
-                                          extra=ram_export.unsupported_note(skip) if skip else "")
+                                          extra=ram_export.unsupported_note(skip) if skip else "", kinds=[j["kind"] for j in ok])
         if msg: self.set_status(msg)
 
     def export_csv(self):

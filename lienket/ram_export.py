@@ -1,8 +1,9 @@
 """
-ram_export.py — Xuất knee sang RAM Connection (.rcnx) và tạo tiết diện trong database .sec
-=========================================================================================
-• .rcnx là SQLite. File xuất được dựng từ khuôn `ram_proto.rcnx` (1 connection Bentley.AISC.MEPlateKneeBCF
-  lấy từ file thật của RAM Connection 23) → mỗi knee/nhóm = 1 Joint + 1 Cnx + bảng thuộc tính + bảng _Loads.
+ram_export.py — Xuất liên kết sang RAM Connection (.rcnx) và tạo tiết diện trong database .sec
+=============================================================================================
+• .rcnx là SQLite. File xuất được dựng từ khuôn `ram_proto.rcnx` (lấy từ file thật của RAM Connection 24, xem
+  tools/make_ram_proto.py): 1 connection mỗi loại — Bentley.AISC.MEPlateKneeBCF (knee), Bentley.AISC.BasePlate (chân cột),
+  Bentley.AISC.MEPlateBeamSplice (nối dầm / apex) → mỗi liên kết = 1 Joint + 1 Cnx + bảng thuộc tính + bảng _Loads.
 • Mã hoá đã đối chiếu với file RAM:
     DesignCode      2 = AISC-10 ASD, 3 = AISC-10 LRFD, 5 = AISC-16 LRFD
     BEPlateType     0 = Flush, 1 = Extended external edge, 2 = Extended internal edge, 3 = Extended both edges
@@ -14,6 +15,7 @@ ram_export.py — Xuất knee sang RAM Connection (.rcnx) và tạo tiết diệ
 
 from __future__ import annotations
 
+import copy
 import datetime
 import os
 import shutil
@@ -25,7 +27,19 @@ from knee_section import SectionError, parse_section
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROTO = os.path.join(HERE, "ram_proto.rcnx")
-SEC_DIR = r"C:\ProgramData\Bentley\Engineering\RAM Connection\23.0.0\Database\Sections\WS Section-Hoang"
+_RAM_ROOT = r"C:\ProgramData\Bentley\Engineering\RAM Connection"
+_SEC_SUB = r"Database\Sections\WS Section-Hoang"
+
+
+def _sec_dir() -> str:
+    """Thư mục database tiết diện của phiên bản RAM Connection mới nhất có trên máy (mặc định 24.0.0)."""
+    import glob
+    found = sorted(glob.glob(os.path.join(_RAM_ROOT, "*", _SEC_SUB)),
+                   key=lambda p: [int(x) if x.isdigit() else 0 for x in os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(p)))).split(".")])
+    return found[-1] if found else os.path.join(_RAM_ROOT, "24.0.0", _SEC_SUB)
+
+
+SEC_DIR = _sec_dir()
 SEC_FILE = "Built up.sec"
 
 DESIGN_CODE = {"AISC 2010 LRFD": ("3", "AISC-10 LRFD"), "AISC 2016 LRFD": ("5", "AISC-16 LRFD"), "AISC 2010 ASD": ("2", "AISC-10 ASD")}
@@ -44,7 +58,15 @@ def mm(x):
 
 # ─────────────────────────── tiết diện ───────────────────────────
 def member_ram(m: dict) -> dict:
-    """Thông số RAM của 1 cấu kiện: tên tiết diện, kích thước DB, chiều cao đầu nút (initial) / đầu xa (final)."""
+    """Thông số RAM của 1 cấu kiện: tên tiết diện, kích thước DB, chiều cao đầu nút (initial) / đầu xa (final).
+    Tên đã theo kiểu RAM ("I 300x215x5x10", "I 650-5/150-8", W…) được giữ nguyên; tên kiểu tool (500.8-200.12) → "I hw x bf x tw x tf"."""
+    import base_engine as BE
+    raw = str(m.get("sec", "")).strip()
+    keep = None
+    if not m.get("dims") and BE.w_dims(raw):
+        m = dict(m, dims=BE.w_dims(raw)); keep = raw
+    elif raw[:2].upper() == "I " and "(" not in raw:
+        keep = raw
     mj = K.member_at_joint(m, "")
     L = max(float(m.get("L") or 0), 0.01)
     top_out = m.get("topIsOuter", True)
@@ -61,8 +83,9 @@ def member_ram(m: dict) -> dict:
         name = f"I {g(hw)}x{g(bf1)}x{g(mj['tw'])}x{g(tf1)}"
     else:
         name = f"I {g(hw)}x{g(bf1)}x{g(mj['tw'])}x{g(tf1)}-{g(bf2)}x{g(tf2)}"
-    return dict(name=name, bf1=bf1, bf2=bf2, d=mj["d"], tf1=tf1, tf2=tf2, tw=mj["tw"], d0=mj["d"], d1=d_far, L=L,
-                mat=mj["mat"]["name"], unequal=(bf1, tf1) != (bf2, tf2))
+    return dict(name=keep or name, bf1=bf1, bf2=bf2, d=mj["d"], tf1=tf1, tf2=tf2, tw=mj["tw"], d0=mj["d"], d1=d_far, L=L,
+                mat=mj["mat"]["name"], unequal=(bf1, tf1) != (bf2, tf2), catalog=bool(keep and not raw.upper().startswith("I")),
+                tapered=abs(d_far - mj["d"]) > 0.5)
 
 
 def ensure_sections(members: list[dict], sec_dir: str = SEC_DIR, sec_file: str = SEC_FILE) -> dict:
@@ -134,10 +157,12 @@ def ensure_sections(members: list[dict], sec_dir: str = SEC_DIR, sec_file: str =
 
 # ─────────────────────────── thuộc tính connection ───────────────────────────
 def bolt_name(b: dict) -> tuple[str, str]:
-    gmap = {"8.8": "G_8_8", "10.9": "G_10_9"}
-    if b["grade"] in gmap:
-        return f"M{b['d']} {gmap[b['grade']]}", ""
-    return f"M{b['d']} G_8_8", f"Cấp bu lông {b['grade']} chưa map sang tên RAM — tạm ghi M{b['d']} G_8_8, cần chọn lại trong RAM."
+    """Tên bu lông trong RAM Connection 24: "M24 G88" (đối chứng file RAM 24.0.4)."""
+    gr = str(b["grade"])
+    if gr in ("8.8", "10.9"):
+        w = "" if gr == "8.8" else f"Tên bu lông 'M{b['d']} G109' (10.9) chưa đối chứng với RAM — kiểm tra lại trong RAM."
+        return f"M{b['d']} G{gr.replace('.', '')}", w
+    return f"M{b['d']} G88", f"Cấp bu lông {gr} chưa map sang tên RAM — tạm ghi M{b['d']} G88, cần chọn lại trong RAM."
 
 
 def knee_props(st: dict) -> tuple[dict, dict, dict, list]:
@@ -184,6 +209,7 @@ def knee_props(st: dict) -> tuple[dict, dict, dict, list]:
         "Bolt": bname, "SpaH": mm(pl["g"]), "Lev": mm(pl["Lev"]), "Leh": mm(pl["Leh"]),
         "OuterTopBoltBeamFlangeDistance": mm(pl["pfoE"]),
         "InnerTopBoltRow": str(int(pl["nE"])), "InnerTopBoltBeamFlangeDistance": mm(pl["pfiE"]), "InnerTopBoltSpaV": mm(pl["pbE"]),
+        "InnerTopBoltRowFlushed": "1", "InnerBottomBoltRowFlushed": "1",
         "InnerBottomBoltRow": str(int(pl["nI"])), "InnerBottomBoltBeamFlangeDistance": mm(pl["pfiI"]), "InnerBottomBoltSpaV": mm(pl["pbI"]),
         "OuterBottomBeamFlangeDistance": mm(pl["pfoI"]),
         "TransverseStiffenerFullDepth": b01(sf.get("fullDepth", True)),
@@ -196,9 +222,11 @@ def knee_props(st: dict) -> tuple[dict, dict, dict, list]:
     return P, beam, col, warn
 
 
-# Loại liên kết của tool → ClassName trong RAM Connection. Chỉ loại có khuôn (lấy từ file .rcnx thật) mới xuất được.
-RAM_CLASS = {"knee": "Bentley.AISC.MEPlateKneeBCF"}
+# Loại liên kết của tool → ClassName trong RAM Connection (khuôn trong ram_proto.rcnx).
+RAM_CLASS = {"knee": "Bentley.AISC.MEPlateKneeBCF", "base": "Bentley.AISC.BasePlate", "splice": "Bentley.AISC.MEPlateBeamSplice"}
 KIND_LABEL = {"knee": "Knee (BCF)", "base": "Column base (CB)", "splice": "Beam splice / Apex (BS)"}
+JOINT_FAMILY = {"knee": 1, "base": 10, "splice": 4}
+KSI = 6.894757                                         # MPa / ksi
 
 
 def supported(kind: str) -> bool:
@@ -217,27 +245,239 @@ def unsupported_note(joints: list[dict]) -> str:
             "chạy tools/make_ram_proto.py để lấy khuôn):\n" + "\n".join(lines))
 
 
+class _Codes:
+    """Mã lựa chọn của RAM: (giá trị, đã đối chứng với file RAM thật?). Mã chưa đối chứng → cảnh báo."""
+
+    def __init__(self):
+        self.unverified = []
+
+    def __call__(self, label, table, key, default=None):
+        val, ok = table.get(key, (default, False)) if default is not None else table[key]
+        if not ok:
+            self.unverified.append(f"{label} = {key}")
+        return val
+
+
+b01 = lambda x: "1" if x else "0"
+
+
+def base_props(st: dict) -> tuple[dict, dict, list, dict]:
+    """Chân cột → thuộc tính Bentley.AISC.BasePlate. Trả về (thuộc tính, cột ram, cảnh báo, tải)."""
+    import base_engine as BE
+    st = BE.normalize(copy.deepcopy(st))
+    C = _Codes()
+    gen, colS, pl, ped, an, rf, w, lug, o = (st[k] for k in ("gen", "col", "plate", "ped", "anchor", "reinf", "weld", "lug", "opt"))
+    warn = []
+    col = member_ram(dict(colS, topIsOuter=True))
+    code = gen.get("designCode", "AISC 2010 LRFD")
+    rebar = list(BE.REBAR_US)
+    P = {
+        "DesignCode": C("Steel design code", {"AISC 2010 LRFD": ("3", True), "AISC 2016 LRFD": ("5", True), "AISC 2010 ASD": ("2", True),
+                                              "AISC 2016 ASD": ("4", False)}, code, "3"),
+        "ConcreteDesignCode": C("Concrete design code", {c: (str(i), i == 0) for i, c in enumerate(BE.CONC_CODES)}, gen.get("concCode", "ACI 318-08"), "0"),
+        "BasePlateDesignAxis": C("Analysis axis", {"major": ("0", False), "minor": ("1", False), "both": ("2", False), "biaxial": ("3", True)},
+                                 gen.get("axis", "both"), "2"),
+        "PressureDistribution": C("Pressure distribution", {"uniform": ("0", True), "triangular": ("1", False)}, gen.get("pressure", "uniform"), "0"),
+        "ConsiderStrainCompatibility": b01(gen.get("compat")),
+        "SeismicProvisions": b01(gen.get("seismic")),
+        "BearingStressCalculationMethod": C("Bearing stress calculation", {"complete": ("1", True), "effective": ("0", False)},
+                                            gen.get("bearCalc", "complete"), "1"),
+        "IncludeFrictionBetweenBasePlateAndConcrete": b01(gen.get("friction")),
+        "OptimizePlateThickness": b01(o.get("optTp")),
+        "OptimizationPlateMaxThickness": mm(o.get("tpMax", 45)), "OptimizationPlateMinThickness": mm(o.get("tpMin", 6)),
+        "OptimizeLongDim": b01(o.get("optN")),
+        "OptimizationPlateMaxLongDim": mm(o.get("pMaxN", 381)), "OptimizationPlateMinLongDim": mm(o.get("pMinN", 38.1)),
+        "OptimizeTransvDim": b01(o.get("optB")),
+        "OptimizationPlateMaxTransvDim": mm(o.get("pMaxB", 381)), "OptimizationPlateMinTransvDim": mm(o.get("pMinB", 38.1)),
+        "OptimizationPlateDimStep": mm(o.get("dimInc", 25.4)),
+        "OptimizeAnchorsDiameter": b01(o.get("optD")),
+        "OptimizationMinAnchorEffectiveLength": mm(o.get("hefMin", 304.8)),
+        "ConserveDuringOptimization": C("Keep anchor position", {"initial": ("1", True), "edge": ("0", False)}, o.get("keepPos", "initial"), "1"),
+        "ColumnType": "1" if col["tapered"] else "0",
+        "ColumnSection": "" if col["tapered"] else col["name"], "ColumnTaperedSection": col["name"] if col["tapered"] else "",
+        "ColumnInitialDepth": mm(col["d0"] if col["tapered"] else 0), "ColumnFinalDepth": mm(col["d1"] if col["tapered"] else 0),
+        "ColumnLength": mm(col["L"] * 1000 if col["tapered"] else 0),
+        "ColumnMaterial": col["mat"],
+        "ColumnLongitudinalOffset": mm(colS.get("ox") or 0), "ColumnTransversalOffset": mm(colS.get("oz") or 0),
+        "BasePlateShape": "0", "BasePlateConnectionType": "0",
+        "BasePlateLocation": C("Position on the support", {"center": ("4", True), "custom": ("0", False)}, pl.get("pos", "center"), "4"),
+        "BasePlateLongitudinalDim": mm(pl["N"]), "BasePlateTransversalDim": mm(pl["B"]), "BasePlateThickness": mm(pl["tp"]),
+        "BasePlateMaterial": pl["mat"],
+        "BasePlateWeldType": "0", "BasePlateWeld": w.get("electrode", "E70XX"),
+        "ConsiderExternalFlangeFaceWeldOnly": b01(w.get("outerOnly")), "BasePlateWeldD": str(int(round(float(w.get("D", 5))))),
+        "OverrideConcreteAreaPlateAreaRatio": b01(pl.get("overA2")),
+        "ConsiderShearLug": b01(lug.get("on")),
+        "SupportWithPedestal": b01(ped.get("isPed")),
+        "SupportLongitudinalDim": mm(ped["N2"]), "SupportTransversalDim": mm(ped["B2"]), "SupportThickness": mm(ped["h"]),
+        "SupportMaterial": ped["mat"],
+        "SupportConsiderGrout": b01(ped.get("groutOn")), "SupportGroutThickness": mm(ped.get("grout") or 0),
+        "AnchorGeometry": C("Anchor position", {"longitudinal": ("1", True), "transversal": ("2", False)}, an.get("layout", "longitudinal"), "1"),
+        "AnchorsNrRows": str(int(an["nr"])), "AnchorsNrPerRow": str(int(an["npr"])),
+        "AnchorsLeV": mm(an["ex"]), "AnchorsLeH": mm(an["ey"]),
+        "AnchorType": C("Anchor type", {"headed": ("0", True), "hooked": ("1", False)}, an.get("type", "headed"), "0"),
+        "AnchorHeadType": C("Head type", {"hex": ("2", True), "square": ("0", False)}, an.get("head", "hex"), "2"),
+        "AnchorLockNutProvided": b01(an.get("lockNut")),
+        "Anchor": BE.anchor_label(an["d"]), "AnchorsLength": mm(an["hef"]), "AnchorMaterial": an["grade"],
+        "CrackedConcrete": b01(an.get("cracked")), "AnchorBrittleSteel": b01(an.get("brittle")), "AnchorsWelded": b01(an.get("welded")),
+        "AnchorReinforcementType": C("Type of reinforcement", {"primary": ("0", True), "supplementary": ("1", False)}, rf.get("type", "primary"), "0"),
+        "AnchorTensionReinforcement": b01(rf.get("T")),
+        "AnchorTensionReinforcementDiameter": str(rebar.index(rf.get("barT", "no. 10")) if rf.get("barT") in rebar else 7),
+        "AnchorTensionReinforcementGrade": f"{g(float(rf.get('fyT', 275.79)) / KSI)} kip/in2",
+        "AnchorTensionReinforcementBarsNumber": str(int(rf.get("nT", 0) or 0)),
+        "AnchorShearReinforcement": b01(rf.get("V")),
+        "AnchorShearReinforcementDiameter": str(rebar.index(rf.get("barV", "no. 10")) if rf.get("barV") in rebar else 7),
+        "AnchorShearReinforcementGrade": f"{g(float(rf.get('fyV', 275.79)) / KSI)} kip/in2",
+        "AnchorShearReinforcementBarsNumberMajorAxis": str(int(rf.get("nVx", 0) or 0)),
+        "AnchorShearReinforcementBarsNumberMinorAxis": str(int(rf.get("nVy", 0) or 0)),
+        "Optimize": "0",
+    }
+    if pl.get("pos") == "custom":
+        P["BasePlateLongitudinalOffset"], P["BasePlateTransversalOffset"] = mm(pl.get("px") or 0), mm(pl.get("pz") or 0)
+    if int(an["nr"]) > 1:
+        P["AnchorsSpa"] = mm(an.get("sr") or 0)
+    if pl.get("overA2"):
+        P["ConcreteAreaPlateAreaRatio"] = g(pl.get("A2A1", 1))
+    if ped.get("isPed"):
+        P["SupportPedestalLongitudinalDim"], P["SupportPedestalTransversalDim"] = mm(ped["N2"]), mm(ped["B2"])
+    if lug.get("on"):
+        P.update(ConsiderShearLugWidthAsBasePlate="0", ShearLugWidth=mm(lug["bl"]), ShearLugDepth=mm(lug["H"]),
+                 ShearLugThickness=mm(lug["tl"]), ShearLugWeldD=str(int(round(float(lug.get("D", 6))))))
+        warn.append("Bản chắn cắt: vật liệu bản chắn cắt không có trong RAM (dùng mặc định của RAM).")
+    if C.unverified:
+        warn.append("Mã RAM chưa đối chứng (kiểm tra lại trong RAM): " + ", ".join(C.unverified))
+    if an.get("type") == "hooked":
+        warn.append(f"Neo móc: chiều dài móc eh = {g(an.get('eh', 0))} mm cần nhập lại trong RAM.")
+    loads = st.get("loads", [])
+    LD = dict(cols={"ColAxial": ("N", "kN"), "ColV2": ("V2", "kN"), "ColV3": ("V3", "kN"), "ColM22": ("M22", "kN*m"), "ColM33": ("M33", "kN*m")},
+              est={"JointColAxial": "N", "JointColV2": "V2", "JointColV3": "V3"}, loads=loads)
+    J = dict(JointDescription=st.get("desc") or st.get("name"), JointSection1=None, JointMaterial1=None,
+             JointSection2=col["name"], JointMaterial2=col["mat"])
+    return P, J, warn, LD | dict(members=[col], template=st.get("name") or "Pinned BP", button=None)
+
+
+EXT_SPLICE = {"flush": ("0", True, "Flush"), "top": ("1", False, "Extended upwards"), "bottom": ("2", False, "Extended downwards"),
+              "both": ("3", True, "Extended both ways")}
+
+
+def splice_props(st: dict) -> tuple[dict, dict, list, dict]:
+    """Nối dầm / apex → thuộc tính Bentley.AISC.MEPlateBeamSplice."""
+    import splice_engine as SE
+    st = SE.normalize(copy.deepcopy(st))
+    warn = []
+    pl, w, bolt, op = st["plate"], st["weld"], st["bolt"], st.get("opt", {})
+    b1 = st["beam1"]
+    b2 = dict(b1, jointEnd=st["beam2"].get("jointEnd", "I")) if st["beam2"].get("same", True) else st["beam2"]
+    left, right = member_ram(dict(b1, topIsOuter=True)), member_ram(dict(b2, topIsOuter=True))
+    apex = st.get("type") == "apex"
+    slope = -abs(float(st.get("slope") or 0)) if apex else 0.0
+    ext = pl.get("extension", "both")
+    ev, ok, elabel = EXT_SPLICE.get(ext, EXT_SPLICE["both"])
+    if not ok:
+        warn.append(f"Mã RAM BEPlateType cho '{elabel}' chưa đối chứng — kiểm tra lại trong RAM.")
+    tp = max(float(pl["tp1"]), float(pl.get("tp2") or pl["tp1"]))
+    if abs(float(pl["tp1"]) - float(pl.get("tp2") or pl["tp1"])) > 1e-6:
+        warn.append(f"Hai bản đầu dày khác nhau ({g(pl['tp1'])} / {g(pl['tp2'])} mm) — RAM chỉ có 1 bề dày, ghi {g(tp)} mm.")
+    code = st.get("gen", {}).get("designCode", "AISC 2010 LRFD")
+    bname, bw = bolt_name(bolt)
+    if bw: warn.append(bw)
+    D = lambda x: str(int(round(float(x))))
+    el = lambda k: w[k].get("electrode", w.get("electrode", "E70XX"))
+    stiff = [pl.get("stiffT", {}), pl.get("stiffB", {})]
+    stiff_on = any(s.get("on") for s in stiff)
+
+    def beam(prefix, m):
+        return {f"{prefix}Type": "1" if m["tapered"] else "0",
+                f"{prefix}Section": "" if m["tapered"] else m["name"], f"{prefix}SectionTapered": m["name"] if m["tapered"] else "",
+                f"{prefix}InitialDepth": mm(m["d0"] if m["tapered"] else 0), f"{prefix}FinalDepth": mm(m["d1"] if m["tapered"] else 0),
+                f"{prefix}Length": mm(m["L"] * 1000)}
+    P = {
+        "DesignCode": DESIGN_CODE.get(code, DESIGN_CODE["AISC 2010 LRFD"])[0],
+        "HoleDef": b01(op.get("holeDef", True)), "SnugTightBolts": b01(bolt.get("snug")), "ShearedEdges": b01(op.get("sheared", True)),
+        "IsApex": b01(apex), "SlopeAngle": g(slope),
+        "IncludeStiffener": b01(stiff_on), "StiffenerThickness": mm(max([float(s.get("ts", 10)) for s in stiff if s.get("on")] or [10])),
+        **beam("Beam", right), "BeamPlateMaterial": right["mat"],
+        **beam("LeftBeam", left), "LeftBeamMaterial": left["mat"],
+        "BEPlateType": ev, "Tp": mm(tp), "EndplateMaterial": pl.get("mat1", "Q345"),
+        "FlushExtensionDistance": mm(pl.get("flushExt", 25.4)),
+        "BeamTopFlangeWeldType": "1" if w["flT"].get("type") == "cjp" else "0", "BeamTopFlangeWeld": el("flT"), "BeamTopFlangeWeldD": D(w["flT"].get("D", 5)),
+        "BeamBottomFlangeWeldType": "1" if w["flB"].get("type") == "cjp" else "0", "BeamBottomFlangeWeld": el("flB"),
+        "BeamBottomFlangeWeldD": D(w["flB"].get("D", 5)),
+        "BeamWebWeldType": "0", "WebShearWeld": el("web"), "WebShearWeldD": D(w["web"].get("D", 4)),
+        "Bolt": bname, "BoltColumns": "2", "SpaH": mm(pl["g"]), "Lev": mm(pl["Lev"]), "Leh": mm(pl["Leh"]),
+        "OuterTopBoltRow": "1", "OuterTopBoltBeamFlangeDistance": mm(pl["pfoT"]),
+        "InnerTopBoltRowFlushed": "1", "InnerBottomBoltRowFlushed": "1",
+        "InnerTopBoltRow": str(int(pl["nT"])), "InnerTopBoltBeamFlangeDistance": mm(pl["pfiT"]), "InnerTopBoltSpaV": mm(pl["pbT"]),
+        "InnerBottomBoltRow": str(int(pl["nB"])), "InnerBottomBoltBeamFlangeDistance": mm(pl["pfiB"]), "InnerBottomBoltSpaV": mm(pl["pbB"]),
+        "OuterBottomBoltRow": "1", "OuterBottomBeamFlangeDistance": mm(pl["pfoB"]),
+        "Optimize": "0",
+    }
+    if (left["name"], left["d0"]) != (right["name"], right["d0"]):
+        warn.append("Hai dầm khác tiết diện — kiểm tra lại bên trái / phải trong RAM.")
+    if stiff_on and len({float(s.get("ts", 10)) for s in stiff if s.get("on")}) > 1:
+        warn.append("Sườn cánh trên / dưới dày khác nhau — RAM chỉ có 1 bề dày sườn.")
+    LD = dict(cols={"Axial": ("N", "kN"), "V2": ("V", "kN"), "M33": ("M", "kN*m")},
+              est={"JointAxial": "N", "JointV2": "V", "JointM33": "M"}, loads=st.get("loads", []))
+    J = dict(JointDescription=st.get("desc") or st.get("name"), JointSection1=left["name"], JointMaterial1=left["mat"],
+             JointSection2=right["name"], JointMaterial2=right["mat"], JointSlopeAngle1=slope if apex else None,
+             JointSetBack1=0.01, JointMemberLength1=left["L"], JointMemberLength2=right["L"])
+    btn = f"Basic MEP {elabel} Beam Splice" + (" Apex" if apex else "")
+    return P, J, warn, LD | dict(members=[left, right], template=st.get("name") or ("APEX" if apex else "BS"), button=btn)
+
+
+def knee_rows(st: dict, i: int):
+    P, beam, col, warn = knee_props(st)
+    al = ALIGN.get(st["plate"].get("alignment", "vertical"), ALIGN["vertical"])[1]
+    J = dict(JointDispIndexInGroup=i, JointSection1=beam["name"], JointMaterial1=beam["mat"], JointSection2=col["name"], JointMaterial2=col["mat"],
+             JointSlopeAngle1=float(st["beam"].get("slope", 0)), JointSetBack1=0.01,
+             JointMemberLength1=beam["L"], JointMemberLength2=col["L"], JointHasCLTRestraint=1,
+             JointMember1DepthInitial=beam["d0"] / 1000, JointMember1DepthFinal=beam["d1"] / 1000, JointMember1SectionType=1,
+             JointMember2DepthInitial=col["d0"] / 1000, JointMember2DepthFinal=col["d1"] / 1000, JointMember2SectionType=1,
+             JointDescription=st.get("name"),
+             JointNotes=f"{st.get('name', '')}\r\n{st['plate'].get('nE', 1)}+{st['plate'].get('nI', 1)} rows {P['Bolt']}_PL{g(st['plate']['tp'])}")
+    LD = dict(cols={"Axial": ("Nb", "kN"), "V2": ("Vb", "kN"), "M33": ("Mb", "kN*m"),
+                    "ColAxial": ("Nc", "kN"), "ColV2": ("Vc", "kN"), "ColM33": ("Mc", "kN*m")},
+              est={"JointV2": "Vb", "JointM33": "Mb", "JointAxial": "Nb"}, loads=st["loads"], members=[beam, col],
+              template=st.get("name") or f"KNEE {i}",
+              button=f"Basic MEP Knee {al} {EXT_LABEL.get(st['plate'].get('extension', 'external'), 'Extended upwards')}")
+    return P, J, warn, LD
+
+
 def _clean(name: str) -> str:
     return str(name).replace(",", ";").replace("[", "(").replace("]", ")").strip() or "LC"
 
 
-def export_rcnx(states: list[dict], out_path: str, make_sections: bool = True, sec_dir: str = SEC_DIR) -> dict:
-    """Ghi file .rcnx gồm các knee trong `states`. Trả về {path, n, warnings, sections}."""
+def _unit_of(val: str, default: str) -> str:
+    import re
+    m = re.match(r"\[\s*-?[\d.eE+-]+\s+([^,\]]+)", val or "")
+    return m.group(1).strip() if m else default
+
+
+def export_rcnx(states: list[dict], out_path: str, make_sections: bool = True, sec_dir: str = SEC_DIR,
+                kinds: list[str] | None = None) -> dict:
+    """Ghi file .rcnx gồm các liên kết trong `states` (kinds[i] = knee / base / splice; mặc định knee).
+    Trả về {path, n, warnings, sections}."""
     if not os.path.exists(PROTO):
         raise FileNotFoundError("Thiếu file khuôn ram_proto.rcnx (chạy tools/make_ram_proto.py).")
     if not states:
-        raise ValueError("Chưa có knee nào để xuất.")
+        raise ValueError("Chưa có liên kết nào để xuất.")
+    kinds = list(kinds or ["knee"] * len(states))
     warnings, members = [], []
     if os.path.exists(out_path):
         os.remove(out_path)
     shutil.copy2(PROTO, out_path)
     db = sqlite3.connect(out_path)
     try:
-        ref0, btn0 = db.execute("select CnxRef, CnxAssignmentButton from Cnx").fetchone()
-        proto_props = db.execute(f'select PropertyName, PropertyType, PropertyValue from "{ref0}"').fetchall()
         jcols = [r[1] for r in db.execute("pragma table_info(Joints)")]
-        jrow0 = dict(zip(jcols, db.execute("select * from Joints").fetchone()))
-        db.execute(f'drop table "{ref0}"'); db.execute(f'drop table "{ref0}_Loads"')
+        ecols = [r[1] for r in db.execute("pragma table_info(Joints_Estados)")]
+        proto = {}
+        for ref0, btn0, jid in db.execute("select CnxRef, CnxAssignmentButton, CnxID from Cnx").fetchall():
+            cls = db.execute(f'select PropertyValue from "{ref0}" where PropertyName=\'ClassName\'').fetchone()[0]
+            jr = db.execute("select * from Joints where JointID=?", (jid,)).fetchone()
+            proto[cls] = dict(props=db.execute(f'select PropertyName, PropertyType, PropertyValue from "{ref0}"').fetchall(),
+                              loads=db.execute(f'select PropertyName, PropertyType, PropertyValue from "{ref0}_Loads"').fetchall(),
+                              joint=dict(zip(jcols, jr)) if jr else {}, button=btn0)
+        for ref0, in db.execute("select CnxRef from Cnx").fetchall():
+            db.execute(f'drop table "{ref0}"'); db.execute(f'drop table "{ref0}_Loads"')
         for t in ("Cnx", "Joints", "Joints_Estados", "Estados"):
             db.execute(f"delete from {t}")
         db.execute("delete from ConnectionObjects where PropertyName != 'ConnectionVersion'")
@@ -245,53 +485,67 @@ def export_rcnx(states: list[dict], out_path: str, make_sections: bool = True, s
         # điều kiện tải toàn mô hình = hợp các mô tả (giữ thứ tự)
         all_desc = []
         for st in states:
-            for l in st["loads"]:
+            for l in st.get("loads", []):
                 d = _clean(l.get("name"))
                 if d not in all_desc:
                     all_desc.append(d)
         n_lc = max(len(all_desc), 1)
         codes = []
-        for i, st in enumerate(states, 1):
-            P, beam, col, warn = knee_props(st)
+        for i, (st, kind) in enumerate(zip(states, kinds), 1):
+            cls = RAM_CLASS.get(kind)
+            if cls not in proto:
+                raise ValueError(f"Khuôn RAM thiếu loại {cls or kind}.")
+            pr = proto[cls]
+            if kind == "knee":
+                P, J, warn, LD = knee_rows(st, i)
+            elif kind == "base":
+                P, J, warn, LD = base_props(st)
+            else:
+                P, J, warn, LD = splice_props(st)
             warnings += [f"{st.get('name', i)}: {w}" for w in warn]
-            members += [beam, col]
-            code_val, code_txt = DESIGN_CODE.get(st.get("gen", {}).get("designCode", "AISC 2010 LRFD"), DESIGN_CODE["AISC 2010 LRFD"])
+            members += LD["members"]
+            code_txt = DESIGN_CODE.get(st.get("gen", {}).get("designCode", "AISC 2010 LRFD"), (None, None))[1] or \
+                {"4": "AISC-16 ASD"}.get(P.get("DesignCode"), "AISC-10 LRFD")
             if code_txt not in codes: codes.append(code_txt)
             ref = "{" + str(uuid.uuid4()).upper() + "}"
             db.execute(f'create table "{ref}" (PropertyName TEXT, PropertyType INTEGER, PropertyValue TEXT)')
             db.execute(f'create table "{ref}_Loads" (PropertyName TEXT, PropertyType INTEGER, PropertyValue TEXT)')
-            for name, typ, val in proto_props:
+            for name, typ, val in pr["props"]:
                 db.execute(f'insert into "{ref}" values (?,?,?)', (name, typ, P.get(name, val)))
-            loads = st["loads"]
-            fmt = lambda key, unit: "[" + ",".join(f"{g(l.get(key) or 0)} {unit}" for l in loads) + "]"
-            zeros = lambda unit: "[" + ",".join(f"0 {unit}" for _ in loads) + "]"
-            rows = [("Count", 1, str(len(loads))),
-                    ("Description", 4, "[" + ",".join(_clean(l.get("name")) for l in loads) + "]"),
-                    ("Axial", 4, fmt("Nb", "kN")), ("V2", 4, fmt("Vb", "kN")), ("M33", 4, fmt("Mb", "kN*m")),
-                    ("LeftBeamAxial", 4, zeros("kN")), ("LeftBeamM3", 4, zeros("kN*m")),
-                    ("ColAxial", 4, fmt("Nc", "kN")), ("ColV2", 4, fmt("Vc", "kN")), ("ColM33", 4, fmt("Mc", "kN*m")),
-                    ("LoadType", 5, "[" + ",".join("0" for _ in loads) + "]")]
+            loads = LD["loads"]
+            rows = []
+            for name, typ, val in pr["loads"]:
+                if name == "Count":
+                    v = str(len(loads))
+                elif name == "Description":
+                    v = "[" + ",".join(_clean(l.get("name")) for l in loads) + "]"
+                elif name == "LoadType":
+                    v = "[" + ",".join("0" for _ in loads) + "]"
+                elif name in LD["cols"]:
+                    key, unit = LD["cols"][name]
+                    v = "[" + ",".join(f"{g(l.get(key) or 0)} {unit}" for l in loads) + "]"
+                else:
+                    unit = _unit_of(val, "kN")
+                    v = "[" + ",".join(f"0 {unit}" for _ in loads) + "]"
+                rows.append((name, typ, v))
             db.executemany(f'insert into "{ref}_Loads" values (?,?,?)', rows)
 
-            al = ALIGN.get(st["plate"].get("alignment", "vertical"), ALIGN["vertical"])[1]
-            tmpl = _clean(st.get("name") or f"KNEE {i}")
-            btn = f"Basic MEP Knee {al} {EXT_LABEL.get(st['plate'].get('extension', 'external'), 'Extended upwards')}"
             db.execute("insert into Cnx (CnxTemplate, CnxRef, CnxAssignmentButton, CnxJoint, CnxDesignCode, CnxID) values (?,?,?,?,?,?)",
-                       (tmpl, ref, btn, i, code_txt, i))
+                       (_clean(LD["template"]), ref, LD.get("button") or pr["button"], i, code_txt, i))
             jr = {k: None for k in jcols}
-            jr.update(JointFamily=jrow0.get("JointFamily", 1), JointDispIndexInGroup=i,
-                      JointSection1=beam["name"], JointMaterial1=beam["mat"], JointSection2=col["name"], JointMaterial2=col["mat"],
-                      JointSlopeAngle1=float(st["beam"].get("slope", 0)), JointSetBack1=jrow0.get("JointSetBack1", 0.01),
-                      JointMemberLength1=beam["L"], JointMemberLength2=col["L"], JointHasCLTRestraint=1,
-                      JointMember1DepthInitial=beam["d0"] / 1000, JointMember1DepthFinal=beam["d1"] / 1000, JointMember1SectionType=1,
-                      JointMember2DepthInitial=col["d0"] / 1000, JointMember2DepthFinal=col["d1"] / 1000, JointMember2SectionType=1,
-                      JointNotes=f"{st.get('name', '')}\r\n{st['plate'].get('nE', 1)}+{st['plate'].get('nI', 1)} rows {P['Bolt']}_PL{g(st['plate']['tp'])}",
-                      JointID=i)
+            jr.update(JointFamily=pr["joint"].get("JointFamily", JOINT_FAMILY[kind]))
+            jr.update({k: v for k, v in J.items() if k in jr})
+            if not jr.get("JointNotes"):
+                jr["JointNotes"] = str(st.get("name", ""))
+            jr["JointID"] = i
             db.execute(f"insert into Joints ({','.join(jcols)}) values ({','.join('?' for _ in jcols)})", [jr[c] for c in jcols])
             for l in loads:
+                vals = {c: (float(l.get(k) or 0) or None) for c, k in LD["est"].items() if c in ecols}
+                if not any(vals.values()):
+                    continue                                   # như RAM: bỏ tổ hợp toàn 0
                 k = all_desc.index(_clean(l.get("name")))
-                db.execute("insert into Joints_Estados (Joints, Estados, JointV2, JointM33, JointAxial) values (?,?,?,?,?)",
-                           (i, k, float(l.get("Vb") or 0), float(l.get("Mb") or 0), float(l.get("Nb") or 0)))
+                cols = ["Joints", "Estados"] + list(vals)
+                db.execute(f"insert into Joints_Estados ({','.join(cols)}) values ({','.join('?' for _ in cols)})", [i, k] + list(vals.values()))
             db.execute("insert into ConnectionObjects values (?, 0, ?)", (str(i), ref))
 
         for _ in range(n_lc):
@@ -314,7 +568,7 @@ def export_rcnx(states: list[dict], out_path: str, make_sections: bool = True, s
     sec = None
     if make_sections:
         try:
-            uniq = {m["name"]: m for m in members}
+            uniq = {m["name"]: m for m in members if not m.get("catalog")}
             sec = ensure_sections(list(uniq.values()), sec_dir)
             if sec["conflict"]:
                 warnings.append("Tên tiết diện đã có trong database nhưng kích thước khác: " + ", ".join(sec["conflict"]))

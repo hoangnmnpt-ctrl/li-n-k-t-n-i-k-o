@@ -64,7 +64,7 @@ def build_sections(app):
             chk("opt.optTp", "Optimize base plate thickness"),
             num("opt.tpMax", "Maximum thickness", show=lambda: o("optTp")), num("opt.tpMin", "Minimum thickness", show=lambda: o("optTp")),
             tip(sel("opt.colRole", "Column type", list(BE.COL_ROLES.items()), show=lambda: o("optTp")),
-                "Bề dày bản đế chọn trong 6 8 10 12 14 16 18 20 22 25 30 35 40 45 mm: ≥ 14 mm cột chính, ≥ 12 mm cột đầu hồi, và > hw/50"),
+                "Bề dày bản đế chọn trong 6 8 10 12 14 16 18 20 22 25 30 35 40 45 mm: ≥ 14 mm cột chính, ≥ 12 mm cột đầu hồi, và ≥ hw/50"),
             tip(chk("opt.optN", "Optimize longitudinal base plate dimension"), "Khoảng cách từ mặt cột tới mép bản theo phương N"),
             num("opt.pMaxN", "Maximum distance to plate edge", show=lambda: o("optN")),
             num("opt.pMinN", "Minimum distance to plate edge", show=lambda: o("optN")),

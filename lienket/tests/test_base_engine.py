@@ -262,7 +262,7 @@ def test_asd_offsets_and_options():
 
 
 def test_optimize_plate_list():
-    """Bản đế optimize: chỉ 6 8 10 12 14 16 18 20 22 25 30 35 40 45; ≥ 14 cột chính, ≥ 12 đầu hồi, > hw/50."""
+    """Bản đế optimize: chỉ 6 8 10 12 14 16 18 20 22 25 30 35 40 45; ≥ 14 cột chính, ≥ 12 đầu hồi, ≥ hw/50."""
     import engine as K
     assert K.TP_LIST == [6, 8, 10, 12, 14, 16, 18, 20, 22, 25, 30, 35, 40, 45]
     st = merge(BASE, PRESETS["RAM CB 1 — Pinned BP (I 300x215x5x10)"])
@@ -270,7 +270,7 @@ def test_optimize_plate_list():
     assert res["tp"] in K.TP_LIST and res["tp"] >= 14, res
     st["opt"]["colRole"] = "gable"
     assert BE.auto_design(st)["tp"] >= 12
-    assert BE.tp_candidates({"colRole": "main", "tpMin": 6, "tpMax": 45}, 900)[0] == 20       # 900/50 = 18 → > 18
+    assert BE.tp_candidates({"colRole": "main", "tpMin": 6, "tpMax": 45}, 900)[0] == 18       # 900/50 = 18 → ≥ 18
     assert BE.tp_candidates({"colRole": "gable", "tpMin": 6, "tpMax": 45}, 300)[0] == 12
 
 
