@@ -1122,7 +1122,7 @@ def _frange(a, b, s):
 
 def auto_design(inp: dict, dias=tuple(ANCHOR_DIAS), tps=None, progress: Optional[Callable] = None):
     """Theo Optimization criteria của RAM: tìm (N, B, tp) nhẹ nhất đạt các kiểm tra bê tông / bản đế, rồi đường kính neo nhỏ nhất
-    (hef tăng dần từ hef,min nếu cần) đạt các kiểm tra neo. Trả về dict(tp, d, N, B, ex, ey, hef, ratio[, fail]) hoặc None."""
+    (hef tăng dần từ hef,min nếu cần) đạt các kiểm tra neo — riêng Anchor shear phải ≤ opt.vsaMax (mặc định 0.4). Trả về dict(tp, d, N, B, ex, ey, hef, ratio[, fail]) hoặc None."""
     base = copy.deepcopy(inp)
     normalize(base)
     o = base["opt"]
@@ -1191,21 +1191,27 @@ def auto_design(inp: dict, dias=tuple(ANCHOR_DIAS), tps=None, progress: Optional
     hef0 = float(base["anchor"]["hef"])
     hmax = float(base["ped"]["h"]) - 50
     hefs = ([h for h in _frange(max(float(o.get("hefMin", 304.8)), 50), hmax, 25.4)] or [hef0]) if o.get("optD", True) else [hef0]
-    dlist = list(dias) if o.get("optD", True) else [int(base["anchor"]["d"])]
-    pick = lambda R: max((c["ratio"] for c in R["checks"] if c["id"].startswith(("anc_", "aci_", "bp_ten"))), default=0.0)
+    d0 = base["anchor"]["d"]
+    same = (lambda v: _inch(v) is not None) if _inch(d0) else (lambda v: _inch(v) is None)   # cùng hệ (mét / inch) với neo đang dùng
+    dlist = [v for v in dias if same(v)] if o.get("optD", True) else [d0]
+    vlim = float(o.get("vsaMax", 0.4) or 1.0)                 # giới hạn tỷ số Anchor shear khi tối ưu (mặc định 0.4)
+    lim = lambda cid: vlim if cid == "aci_vsa" else 1.0
+    anc = lambda R: [c for c in R["checks"] if c["id"].startswith(("anc_", "aci_", "bp_ten")) and not c["info"]]
+    score = lambda R: max((c["ratio"] / lim(c["id"]) for c in anc(R)), default=0.0)     # ≤ 1: đạt mọi giới hạn
+    pick = lambda R: max((c["ratio"] for c in anc(R)), default=0.0)
     bestA, done = None, False
     for dd in dlist:
         for hef in hefs:
             _t, R = trial(N, B, tp, dd, hef, fast=False)
             if R is None: continue
-            mx = pick(R)
+            sc, mx = score(R), pick(R)
             gfail = [g for g in R["geo"] if not g["ok"] and g["grp"] in ("Bu lông neo", "Bê tông") and "long đen" not in g["name"]]
-            if bestA is None or mx < bestA[2]: bestA = (dd, hef, mx)
-            if mx <= 1.0 and not gfail:
-                bestA, done = (dd, hef, mx), True
+            if bestA is None or sc < bestA[3]: bestA = (dd, hef, mx, sc)
+            if sc <= 1.0 and not gfail:
+                bestA, done = (dd, hef, mx, sc), True
                 break
         if done: break
     if bestA is None: return None
     res = dict(tp=tp, d=bestA[0], hef=bestA[1], N=N, B=B, ex=ex, ey=ey, ratio=max(rp, bestA[2]))
-    if res["ratio"] > 1.0: res["fail"] = True
+    if res["ratio"] > 1.0 or bestA[3] > 1.0: res["fail"] = True
     return res

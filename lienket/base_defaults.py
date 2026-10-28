@@ -30,7 +30,7 @@ BASE = {
     # Optimization criteria (như RAM)
     "opt": {"optTp": True, "tpMax": 76.2, "tpMin": 6.35, "tpInc": 3.175,
             "optN": True, "pMaxN": 381, "pMinN": 38.1, "optB": True, "pMaxB": 381, "pMinB": 38.1, "dimInc": 25.4,
-            "optD": True, "hefMin": 304.8, "keepPos": "initial"},
+            "optD": True, "hefMin": 304.8, "keepPos": "initial", "vsaMax": 0.4},
     # N > 0 kéo (nhổ) · V2 dọc phương N · V3 dọc phương B · M33 > 0: mép +x chịu nén · M22 > 0: mép +z chịu nén
     "loads": [
         {"name": "N_max (nén)", "N": -650, "V2": 40, "V3": 0, "M33": 30, "M22": 0},
