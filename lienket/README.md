@@ -46,6 +46,9 @@ Dự án lưu một file `*.lkt` (mặc định `lienket\du_an.lkt`).
   Global critical strength ratio); nút *Export report (.docx)*.
 - **Export RAM Connection (.rcnx)**: knee hiện tại (tab Report của cửa sổ Edit) hoặc mọi knee của dự án (Output → RAM .rcnx) → 1 file, mỗi knee = 1 connection `Bentley.AISC.MEPlateKneeBCF`
   kèm bảng tải. Dựng từ khuôn `ram_proto.rcnx` (lấy từ file RAM 23 thật; tạo lại bằng `tools/make_ram_proto.py`).
+  Nút **Home → RAM Connection → Export RAM .rcnx** xuất mọi liên kết của dự án; loại chưa có khuôn RAM (Column base, Beam splice / Apex)
+  được liệt kê trong thông báo. Để bổ sung loại mới: lưu 1 file .rcnx của RAM có sẵn liên kết loại đó, chạy
+  `python tools/dump_rcnx.py "<file>.rcnx"` để in ClassName + toàn bộ thuộc tính / bảng tải (chỉ đọc file) rồi lập bảng map.
 - **Database tiết diện**: khi xuất (tick "Tạo tiết diện…"), tiết diện `I {hw}x{bf}x{tw}x{tf}` còn thiếu được thêm vào
   `…\Sections\WS Section-Hoang\Built up.sec` (sao lưu bản cũ trong `_backup`, không thêm trùng). Đóng/mở lại RAM để nạp.
 - Đối chứng knee #11 của RAM (dữ liệu gốc từ .rcnx): nội lực quy đổi trùng 100%; bản đầu, bu lông, hàn, panel, sườn lệch ≤ 0.7%;
@@ -158,13 +161,12 @@ M22 > 0 → mép +z chịu nén. Nội lực tại tâm cột (lệch tâm cột
 Bước **Loads** của Column base có khung *Lấy phản lực chân cột từ SAP2000*: Kết nối SAP2000 → chọn nguồn tải
 (Design Combos / Load Cases / …, nút *nguồn ▾* để tick từng combo) → chọn **nút gối chân cột** (hoặc chọn cột, lấy đầu dưới)
 trong SAP → **Lấy phản lực**. Tool đọc `Results.JointReact` và lấy cực trị theo bảng tải RAM:
-**Mmax, Pmax (nén lớn nhất), Vmax (√(V2²+V3²) lớn nhất), Mmin, Pmin (kéo lớn nhất)**, thêm M2max / M2min khi có M2.
-Description ghi tên combo (và nút nếu chọn nhiều chân cột — lấy bao).
+**Mmax, Pmax (nén lớn nhất), Vmax (√(V2²+V3²) lớn nhất), Mmin, Pmin (kéo lớn nhất)**. Chân cột không lấy trường hợp mô men:
+dòng Mmax / Mmin giữ lại với giá trị 0. Description chỉ là tên dòng (không kèm tên combo SAP); chọn nhiều chân cột → lấy bao.
 
-Quy đổi dấu: phản lực là lực gối tác dụng lên kết cấu → **đổi dấu** thành lực cột tác dụng lên bản đế rồi chiếu lên hệ trục cột
-(trục dọc hướng lên từ chân, trục 2 = trục 2 của thanh trong SAP, trục 3 = dọc × 2):
-Axial = −R·u (âm là nén, như RAM), V2 = −R·e2, V3 = −R·e3, M2 = −M·e2, M3 = −M·e3.
-Ví dụ cột cao h, lực ngang H theo +2 ở đỉnh → V2 = +H, M3 = +H·h (mép +2 chịu nén). Nếu quy ước chiều dương bên RAM khác,
+Quy đổi dấu, chiếu lên hệ trục cột (trục dọc hướng lên từ chân, trục 2 = trục 2 của thanh trong SAP, trục 3 = dọc × 2):
+Axial = −R·u (lực cột lên bản đế, âm là nén, như RAM); V2 = R·e2, V3 = R·e3 — giữ đúng dấu phản lực SAP
+(cột đứng, trục mặc định: V2 = F1, V3 = F2). Nếu quy ước chiều dương bên RAM khác,
 tick **Đổi dấu** cho thành phần tương ứng (lưu theo từng nút). *Thay bảng tải* bỏ chọn → nối thêm vào bảng.
 
 ### Đối chiếu RAM Connection — CB 1 "Pinned BP"

@@ -116,13 +116,15 @@ def test_base_reactions():
     assert u == (0.0, 0.0, 1.0) and e2 == (1.0, 0.0, 0.0) and e3 == (0.0, 1.0, 0.0)
     # Lực ngang H = 10 kN theo +X tại đỉnh cột cao 5 m, nén 214 kN → gối: F1 = −10, F3 = +214, M2 = −50
     v = scanner.reaction_to_base(JointReactRow("1", "U", F1=-10, F3=214, M2=-50), axes)
-    assert v == dict(N=-214.0, V2=10.0, V3=0.0, M22=0.0, M33=50.0), v
+    assert v == dict(N=-214.0, V2=-10.0, V3=0.0, M22=0.0, M33=50.0), v
     v = scanner.reaction_to_base(JointReactRow("1", "U", F1=-10, F3=214, M2=-50), axes, {"M33": -1, "N": -1})
     assert v["M33"] == -50.0 and v["N"] == 214.0
     recs = [dict(joint="1", frame="C1", case=f"U{i}", step="", N=-200.0 + 60 * i, V2=5.0 * i, V3=0.0, M22=0.0, M33=10.0 - 7 * i)
             for i in range(5)]
     ex = scanner.base_extremes(recs)
-    assert [r["name"] for r in ex] == ["Mmax (U0)", "Pmax (U0)", "Vmax (U4)", "Mmin (U4)", "Pmin (U4)"], ex
+    assert [r["name"] for r in ex] == ["Mmax", "Pmax", "Vmax", "Mmin", "Pmin"], ex
+    assert [r["case"] for r in ex] == ["", "U0", "U4", "", "U4"]
+    assert all(ex[i][k] == 0 for i in (0, 3) for k in scanner.BASE_KEYS) and ex[1]["N"] == -200 and ex[4]["N"] == 40
 
 
 if __name__ == "__main__":

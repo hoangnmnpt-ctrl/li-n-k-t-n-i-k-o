@@ -1154,7 +1154,7 @@ class KneePanel(ctk.CTkFrame):
 
 
 
-def export_rcnx_dialog(states: list[dict], make_sections: bool = True) -> str:
+def export_rcnx_dialog(states: list[dict], make_sections: bool = True, extra: str = "") -> str:
     """Hỏi đường dẫn và xuất các knee sang RAM Connection (.rcnx). Trả về dòng thông báo ('' nếu huỷ / lỗi)."""
     if not states:
         messagebox.showinfo("Export RAM", "Không có knee nào để xuất."); return ""
@@ -1174,5 +1174,7 @@ def export_rcnx_dialog(states: list[dict], make_sections: bool = True) -> str:
         if sec["added"]: msg.append("  → ĐÓNG và mở lại RAM Connection để nạp tiết diện mới (bản gốc đã sao lưu trong _backup).")
     if res["warnings"]:
         msg.append("\nLưu ý:\n  • " + "\n  • ".join(res["warnings"]))
+    if extra:
+        msg.append("\n" + extra)
     messagebox.showinfo("Export RAM Connection", "\n".join(msg))
     return msg[0]

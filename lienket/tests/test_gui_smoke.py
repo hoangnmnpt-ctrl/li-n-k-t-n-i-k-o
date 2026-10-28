@@ -137,13 +137,24 @@ def main() -> int:
     pan = [w for w in d.body.winfo_children() for w in [w] + list(w.winfo_children()) if isinstance(w, NJ.BaseSapPanel)]
     if pan: pan[0]._get(); _spin(app)
     scanner.base_reactions = old_br; NJ._SAP.clear()
-    names = [r["name"].split()[0] for r in d.S["loads"]]
+    names = [r["name"] for r in d.S["loads"]]
     check("Loads chân cột: lấy phản lực SAP → Mmax, Pmax, Vmax, Mmin, Pmin",
           bool(pan) and names == ["Mmax", "Pmax", "Vmax", "Mmin", "Pmin"] and d.S["loads"][1]["N"] == -214.0
-          and d.S["loads"][4]["N"] == 110.0 and len(pan[0].grid_.tv.get_children()) == 5)
+          and d.S["loads"][4]["N"] == 110.0 and d.S["loads"][0]["M33"] == 0 and len(pan[0].grid_.tv.get_children()) == 5)
     d._ok()
     jb = app.project.add(d.result["kind"], d.result["state"]); app.refresh(); app.select(jb["id"]); _spin(app)
     check("tạo Column base", jb["kind"] == "base" and app.result(jb)[1]["gov"] is not None)
+    # Home → RAM Connection → Export: knee xuất được, chân cột báo chưa có khuôn RAM
+    import knee_gui
+    import ram_export
+    got = {}
+    old_dlg = knee_gui.export_rcnx_dialog
+    knee_gui.export_rcnx_dialog = lambda states, ms=True, extra="": got.update(n=len(states), extra=extra) or "ok"
+    app.export_rcnx(); _spin(app)
+    knee_gui.export_rcnx_dialog = old_dlg
+    check("Export RAM .rcnx: xuất knee, báo CB chưa hỗ trợ",
+          got.get("n") == sum(j["kind"] == "knee" for j in app.project.joints) and "Column base" in got.get("extra", "")
+          and ram_export.supported("knee") and not ram_export.supported("base"))
     for mode in ("3D", "3D D/C", "Elevation", "End plate"):
         app.cmb_view.set(mode); app._draw(); _spin(app, 3)
     app.cmb_view.set("3D"); app._draw()

@@ -359,6 +359,8 @@ class App(ctk.CTk):
         Ribbon.big(g, "Sections", "sections", self.db_sections); Ribbon.big(g, "Materials", "materials", self.db_materials)
         Ribbon.big(g, "Connections", "connections", self.db_connections); Ribbon.big(g, "Bolts", "bolts", self.db_bolts)
         Ribbon.big(g, "Welds", "welds", self.db_welds); Ribbon.big(g, "Anchors", "anchors", self.db_anchors)
+        g = Ribbon.group(home, "RAM Connection")
+        Ribbon.big(g, "Export\nRAM .rcnx", "rcnx", self.export_rcnx, "Tạo file RAM Connection (.rcnx) từ các liên kết trong dự án")
 
         des = rb.add_tab("Design")
         g = Ribbon.group(des, "Connection")
@@ -868,11 +870,19 @@ class App(ctk.CTk):
         self.set_status(f"Đã xuất {n} báo cáo vào {d}")
 
     def export_rcnx(self):
+        """File RAM Connection (.rcnx) với các liên kết của dự án, đúng thông số đầu vào trong tool."""
         import knee_gui
-        states = [PJ.full_state(j) for j in self.project.joints if j["kind"] == "knee"]
-        if not states:
-            messagebox.showinfo("Export RAM", "Dự án chưa có knee. Xuất RAM .rcnx hiện chỉ hỗ trợ knee (BCF)."); return
-        msg = knee_gui.export_rcnx_dialog(states, messagebox.askyesno("Export RAM", "Tạo tiết diện còn thiếu trong database RAM (WS Section-Hoang)?"))
+        import ram_export
+        joints = self.project.joints
+        if not joints:
+            messagebox.showinfo("Export RAM", "Dự án chưa có liên kết."); return
+        ok = [j for j in joints if ram_export.supported(j["kind"])]
+        skip = [j for j in joints if not ram_export.supported(j["kind"])]
+        if not ok:
+            messagebox.showinfo("Export RAM", ram_export.unsupported_note(skip)); return
+        states = [PJ.full_state(j) for j in ok]
+        msg = knee_gui.export_rcnx_dialog(states, messagebox.askyesno("Export RAM", "Tạo tiết diện còn thiếu trong database RAM (WS Section-Hoang)?"),
+                                          extra=ram_export.unsupported_note(skip) if skip else "")
         if msg: self.set_status(msg)
 
     def export_csv(self):

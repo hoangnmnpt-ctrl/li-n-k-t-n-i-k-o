@@ -360,7 +360,6 @@ def knee_to_state(base: dict, knees: list[KneeFound], gid: str) -> dict:
 
 BASE_KEYS = ("N", "V2", "V3", "M22", "M33")
 BASE_EXTREMES = ("Mmax", "Pmax", "Vmax", "Mmin", "Pmin")      # thứ tự bảng tải RAM
-BASE_EXTREMES_M2 = ("M2max", "M2min")
 
 
 def _cross(a, b): return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
@@ -397,13 +396,15 @@ def base_axes(conn: SAP2000Connector, g: FrameGeo) -> tuple:
 
 def reaction_to_base(r, axes, signs: Optional[dict] = None) -> dict:
     """
-    Phản lực gối SAP (F1..M3, hệ tổng thể, lực gối tác dụng lên kết cấu) → lực cột tác dụng lên bản đế
-    trong hệ địa phương cột (= −phản lực): N < 0 nén (như RAM), V2/M33 phương chính, V3/M22 phương phụ.
+    Phản lực gối SAP (F1..M3, hệ tổng thể) → tải chân cột trong hệ địa phương cột:
+      Axial = −R·u (lực cột tác dụng lên bản đế: N < 0 nén, như RAM);
+      V2 = R·e2, V3 = R·e3 — giữ đúng dấu phản lực SAP (cột đứng, trục mặc định: V2 = F1, V3 = F2);
+      M22 = −M·e2, M33 = −M·e3.
     signs: hệ số ±1 cho từng thành phần (khi quy ước chiều dương của RAM khác).
     """
     u, e2, e3 = axes
     F, M = (r.F1, r.F2, r.F3), (r.M1, r.M2, r.M3)
-    v = dict(N=-_dot(F, u), V2=-_dot(F, e2), V3=-_dot(F, e3), M22=-_dot(M, e2), M33=-_dot(M, e3))
+    v = dict(N=-_dot(F, u), V2=_dot(F, e2), V3=_dot(F, e3), M22=-_dot(M, e2), M33=-_dot(M, e3))
     s = signs or {}
     return {k: v[k] * (-1.0 if float(s.get(k, 1)) < 0 else 1.0) + 0.0 for k in BASE_KEYS}
 
@@ -429,27 +430,22 @@ def base_reactions(conn: SAP2000Connector, allowed_for: Callable[[str], Optional
     return recs, warn
 
 
-def base_extremes(recs: list[dict], with_m2: Optional[bool] = None) -> list[dict]:
-    """Cực trị theo bảng tải RAM: Mmax, Pmax (nén lớn nhất), Vmax, Mmin, Pmin (kéo lớn nhất) [+ M2max, M2min]."""
+def base_extremes(recs: list[dict]) -> list[dict]:
+    """
+    Bảng tải chân cột như RAM: Mmax, Pmax (nén lớn nhất), Vmax (√(V2²+V3²) lớn nhất), Mmin, Pmin (kéo lớn nhất).
+    Chân cột không lấy trường hợp mô men: dòng Mmax / Mmin giữ lại với giá trị 0. Description = tên dòng (không kèm combo).
+    """
     if not recs:
         return []
     pick = {
-        "Mmax": max(recs, key=lambda r: r["M33"]),
         "Pmax": min(recs, key=lambda r: r["N"]),
         "Vmax": max(recs, key=lambda r: math.hypot(r["V2"], r["V3"])),
-        "Mmin": min(recs, key=lambda r: r["M33"]),
         "Pmin": max(recs, key=lambda r: r["N"]),
-        "M2max": max(recs, key=lambda r: r["M22"]),
-        "M2min": min(recs, key=lambda r: r["M22"]),
     }
-    if with_m2 is None:
-        with_m2 = max(abs(r["M22"]) for r in recs) > 0.5
-    names = BASE_EXTREMES + (BASE_EXTREMES_M2 if with_m2 else ())
-    many = len({r["joint"] for r in recs}) > 1
     out = []
-    for n in names:
-        r = pick[n]
-        tag = r["case"] + (f" {r['step']}" if r["step"] in ("Max", "Min") else "") + (f" @{r['joint']}" if many else "")
-        out.append(dict(name=f"{n} ({tag})", case=r["case"], joint=r["joint"],
-                        **{k: round(r[k], 3) for k in BASE_KEYS}))
+    for n in BASE_EXTREMES:
+        r = pick.get(n)
+        row = dict(name=n, case=r["case"] if r else "", joint=r["joint"] if r else "")
+        row.update({k: (round(r[k], 3) + 0.0 if r else 0.0) for k in BASE_KEYS})
+        out.append(row)
     return out

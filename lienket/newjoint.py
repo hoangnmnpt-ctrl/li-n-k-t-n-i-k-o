@@ -392,7 +392,8 @@ _SAP = {}          # kết nối SAP2000 dùng chung giữa các lần mở hộ
 
 class BaseSapPanel(tk.LabelFrame):
     """
-    Lấy PHẢN LỰC gối chân cột từ SAP2000 → cực trị (Mmax, Pmax, Vmax, Mmin, Pmin [, M2max, M2min]) → bảng tải.
+    Lấy PHẢN LỰC gối chân cột từ SAP2000 → bảng tải như RAM (Mmax, Pmax, Vmax, Mmin, Pmin;
+    chân cột không lấy mô men: Mmax / Mmin = 0).
     Phản lực đổi sang lực cột tác dụng lên bản đế trong hệ trục cột (quy ước RAM: N < 0 nén, V2/M33 phương chính);
     ô "Đổi dấu" để lật từng thành phần nếu quy ước chiều dương khác.
     """
@@ -424,8 +425,8 @@ class BaseSapPanel(tk.LabelFrame):
         self.replace = tk.BooleanVar(value=cfg.get("replace", True))
         tk.Checkbutton(r4, text="Thay bảng tải", variable=self.replace, bg="#FFFFFF", font=("Segoe UI", 9)).pack(side="left")
         ttk.Button(r4, text="Lấy phản lực (nút / cột đang chọn)", command=self._get).pack(side="right", padx=3)
-        tk.Label(self, text="Chọn nút chân cột (hoặc cột) trong SAP rồi bấm Lấy phản lực. Phản lực đổi dấu thành lực cột lên bản đế, "
-                            "chiếu lên trục cột: Axial < 0 nén, V2/M3 phương chính (trục 2 SAP), V3/M2 phương phụ.",
+        tk.Label(self, text="Chọn nút chân cột (hoặc cột) trong SAP rồi bấm Lấy phản lực. Axial: lực cột lên bản đế (< 0 nén); "
+                            "V2, V3 giữ dấu phản lực SAP (trục 2, 3 của cột); Mmax / Mmin = 0 (chân cột không lấy mô men).",
                  bg="#FFFFFF", fg="#5B6777", font=("Segoe UI", 8), wraplength=400, justify="left").pack(fill="x", padx=3, pady=(0, 3))
         self._all, self._modal, self._chosen = [], set(), None
         if self._conn() and self._conn().is_connected:
