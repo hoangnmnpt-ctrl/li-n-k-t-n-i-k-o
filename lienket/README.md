@@ -153,6 +153,20 @@ M22 > 0 → mép +z chịu nén. Nội lực tại tâm cột (lệch tâm cột
 - Cắt: neo (hàn vào bản đế: mọi neo; không hàn: một nửa) hoặc bản chắn cắt; Include friction giảm lực cắt 0.75·0.55·Pu. ASD: φRn/1.5.
 - Hàn cột – bản đế: đàn hồi trên chu vi hàn (Outer welds flanges only: chỉ mặt ngoài cánh), lực nén truyền bằng tì ép.
 
+### Lấy tải chân cột từ SAP2000 (phản lực gối)
+
+Bước **Loads** của Column base có khung *Lấy phản lực chân cột từ SAP2000*: Kết nối SAP2000 → chọn nguồn tải
+(Design Combos / Load Cases / …, nút *nguồn ▾* để tick từng combo) → chọn **nút gối chân cột** (hoặc chọn cột, lấy đầu dưới)
+trong SAP → **Lấy phản lực**. Tool đọc `Results.JointReact` và lấy cực trị theo bảng tải RAM:
+**Mmax, Pmax (nén lớn nhất), Vmax (√(V2²+V3²) lớn nhất), Mmin, Pmin (kéo lớn nhất)**, thêm M2max / M2min khi có M2.
+Description ghi tên combo (và nút nếu chọn nhiều chân cột — lấy bao).
+
+Quy đổi dấu: phản lực là lực gối tác dụng lên kết cấu → **đổi dấu** thành lực cột tác dụng lên bản đế rồi chiếu lên hệ trục cột
+(trục dọc hướng lên từ chân, trục 2 = trục 2 của thanh trong SAP, trục 3 = dọc × 2):
+Axial = −R·u (âm là nén, như RAM), V2 = −R·e2, V3 = −R·e3, M2 = −M·e2, M3 = −M·e3.
+Ví dụ cột cao h, lực ngang H theo +2 ở đỉnh → V2 = +H, M3 = +H·h (mép +2 chịu nén). Nếu quy ước chiều dương bên RAM khác,
+tick **Đổi dấu** cho thành phần tương ứng (lưu theo từng nút). *Thay bảng tải* bỏ chọn → nối thêm vào bảng.
+
 ### Đối chiếu RAM Connection — CB 1 "Pinned BP"
 Ví dụ RAM thật (mẫu *RAM CB 1 — Pinned BP*, nút 2 trong `du_an.lkt`): I 300x215x5x10 Q345, bản 350×220×16, gối C30 1000×1000×2000 + vữa 50,
 4 neo M27 Class 4.6 hef 800, cốt thép neo primary (50 no.10 / 10 no.18, fy 40 ksi), AISC 360-10 LRFD + ACI 318-08, Biaxial.

@@ -100,6 +100,32 @@ def test_api_dims_and_pick():
     assert r["G"]["col"]["d"] == 602 and st["sap_lock"]
 
 
+def test_base_reactions():
+    """Phản lực gối → lực cột lên bản đế (quy ước RAM) và cực trị Mmax, Pmax, Vmax, Mmin, Pmin."""
+    from sap2000_connector import JointReactRow
+
+    class G:
+        name, p1, p2, x1, x2 = "C1", "1", "2", (0.0, 0.0, 5.0), (0.0, 0.0, 0.0)     # cột vẽ từ trên xuống
+
+    class Conn:
+        class _sap_model:
+            class FrameObj:
+                @staticmethod
+                def GetTransformationMatrix(*a): raise RuntimeError
+    u, e2, e3 = axes = scanner.base_axes(Conn, G)
+    assert u == (0.0, 0.0, 1.0) and e2 == (1.0, 0.0, 0.0) and e3 == (0.0, 1.0, 0.0)
+    # Lực ngang H = 10 kN theo +X tại đỉnh cột cao 5 m, nén 214 kN → gối: F1 = −10, F3 = +214, M2 = −50
+    v = scanner.reaction_to_base(JointReactRow("1", "U", F1=-10, F3=214, M2=-50), axes)
+    assert v == dict(N=-214.0, V2=10.0, V3=0.0, M22=0.0, M33=50.0), v
+    v = scanner.reaction_to_base(JointReactRow("1", "U", F1=-10, F3=214, M2=-50), axes, {"M33": -1, "N": -1})
+    assert v["M33"] == -50.0 and v["N"] == 214.0
+    recs = [dict(joint="1", frame="C1", case=f"U{i}", step="", N=-200.0 + 60 * i, V2=5.0 * i, V3=0.0, M22=0.0, M33=10.0 - 7 * i)
+            for i in range(5)]
+    ex = scanner.base_extremes(recs)
+    assert [r["name"] for r in ex] == ["Mmax (U0)", "Pmax (U0)", "Vmax (U4)", "Mmin (U4)", "Pmin (U4)"], ex
+
+
 if __name__ == "__main__":
     test_scan_portal(); print("PASS test_scan_portal")
     test_api_dims_and_pick(); print("PASS test_api_dims_and_pick")
+    test_base_reactions(); print("PASS test_base_reactions")
