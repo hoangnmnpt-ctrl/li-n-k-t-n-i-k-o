@@ -46,6 +46,9 @@ Dự án lưu một file `*.lkt` (mặc định `lienket\du_an.lkt`).
   Global critical strength ratio); nút *Export report (.docx)*.
 - **Export RAM Connection (.rcnx)**: knee hiện tại (tab Report của cửa sổ Edit) hoặc mọi knee của dự án (Output → RAM .rcnx) → 1 file, mỗi knee = 1 connection `Bentley.AISC.MEPlateKneeBCF`
   kèm bảng tải. Dựng từ khuôn `ram_proto.rcnx` (lấy từ file RAM 23 thật; tạo lại bằng `tools/make_ram_proto.py`).
+  Nút **Home → RAM Connection → Export RAM .rcnx** xuất mọi liên kết của dự án; loại chưa có khuôn RAM (Column base, Beam splice / Apex)
+  được liệt kê trong thông báo. Để bổ sung loại mới: lưu 1 file .rcnx của RAM có sẵn liên kết loại đó, chạy
+  `python tools/dump_rcnx.py "<file>.rcnx"` để in ClassName + toàn bộ thuộc tính / bảng tải (chỉ đọc file) rồi lập bảng map.
 - **Database tiết diện**: khi xuất (tick "Tạo tiết diện…"), tiết diện `I {hw}x{bf}x{tw}x{tf}` còn thiếu được thêm vào
   `…\Sections\WS Section-Hoang\Built up.sec` (sao lưu bản cũ trong `_backup`, không thêm trùng). Đóng/mở lại RAM để nạp.
 - Đối chứng knee #11 của RAM (dữ liệu gốc từ .rcnx): nội lực quy đổi trùng 100%; bản đầu, bu lông, hàn, panel, sườn lệch ≤ 0.7%;
@@ -152,6 +155,19 @@ M22 > 0 → mép +z chịu nén. Nội lực tại tâm cột (lệch tâm cột
   Primary reinforcement: thay phá vỡ bê tông, báo As yêu cầu (fy = 420 MPa); Supplementary: Condition A φ = 0.75.
 - Cắt: neo (hàn vào bản đế: mọi neo; không hàn: một nửa) hoặc bản chắn cắt; Include friction giảm lực cắt 0.75·0.55·Pu. ASD: φRn/1.5.
 - Hàn cột – bản đế: đàn hồi trên chu vi hàn (Outer welds flanges only: chỉ mặt ngoài cánh), lực nén truyền bằng tì ép.
+
+### Lấy tải chân cột từ SAP2000 (phản lực gối)
+
+Bước **Loads** của Column base có khung *Lấy phản lực chân cột từ SAP2000*: Kết nối SAP2000 → chọn nguồn tải
+(Design Combos / Load Cases / …, nút *nguồn ▾* để tick từng combo) → chọn **nút gối chân cột** (hoặc chọn cột, lấy đầu dưới)
+trong SAP → **Lấy phản lực**. Tool đọc `Results.JointReact` và lấy cực trị theo bảng tải RAM:
+**Mmax, Pmax (nén lớn nhất), Vmax (√(V2²+V3²) lớn nhất), Mmin, Pmin (kéo lớn nhất)**. Chân cột không lấy trường hợp mô men:
+dòng Mmax / Mmin giữ lại với giá trị 0. Description chỉ là tên dòng (không kèm tên combo SAP); chọn nhiều chân cột → lấy bao.
+
+Quy đổi dấu, chiếu lên hệ trục cột (trục dọc hướng lên từ chân, trục 2 = trục 2 của thanh trong SAP, trục 3 = dọc × 2):
+Axial = −R·u (lực cột lên bản đế, âm là nén, như RAM); V2 = R·e2, V3 = R·e3 — giữ đúng dấu phản lực SAP
+(cột đứng, trục mặc định: V2 = F1, V3 = F2). Nếu quy ước chiều dương bên RAM khác,
+tick **Đổi dấu** cho thành phần tương ứng (lưu theo từng nút). *Thay bảng tải* bỏ chọn → nối thêm vào bảng.
 
 ### Đối chiếu RAM Connection — CB 1 "Pinned BP"
 Ví dụ RAM thật (mẫu *RAM CB 1 — Pinned BP*, nút 2 trong `du_an.lkt`): I 300x215x5x10 Q345, bản 350×220×16, gối C30 1000×1000×2000 + vữa 50,

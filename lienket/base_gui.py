@@ -73,6 +73,8 @@ def build_sections(app):
             num("opt.dimInc", "Plate dimensions increment", show=lambda: o("optN") or o("optB")),
             chk("opt.optD", "Optimize anchor diameter"),
             num("opt.hefMin", "Minimum effective embedment depth", show=lambda: o("optD")),
+            tip(num("opt.vsaMax", "Maximum anchor shear ratio", "", show=lambda: o("optD")),
+                "Khi tối ưu đường kính neo: tỷ số Anchor shear (ACI D.6.1) phải ≤ giá trị này (mặc định 0.4); các kiểm tra khác ≤ 1"),
             tip(sel("opt.keepPos", "Keep anchor position during optimization", [("initial", "Initial positions"), ("edge", "Edge distances")]),
                 "Initial positions: giữ toạ độ neo khi đổi kích thước bản · Edge distances: giữ khoảng cách mép ex, ey"),
         ]),

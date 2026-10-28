@@ -387,6 +387,146 @@ class PropertyGrid(ttk.Frame):
         self.fill()
 
 
+_SAP = {}          # kết nối SAP2000 dùng chung giữa các lần mở hộp thoại
+
+
+class BaseSapPanel(tk.LabelFrame):
+    """
+    Lấy PHẢN LỰC gối chân cột từ SAP2000 → bảng tải như RAM (Mmax, Pmax, Vmax, Mmin, Pmin;
+    chân cột không lấy mô men: Mmax / Mmin = 0).
+    Phản lực đổi sang lực cột tác dụng lên bản đế trong hệ trục cột (quy ước RAM: N < 0 nén, V2/M33 phương chính);
+    ô "Đổi dấu" để lật từng thành phần nếu quy ước chiều dương khác.
+    """
+
+    SIGN_KEYS = (("N", "Axial"), ("V2", "V2"), ("V3", "V3"), ("M22", "M2"), ("M33", "M3"))
+
+    def __init__(self, master, S, grid):
+        super().__init__(master, text=" Lấy phản lực chân cột từ SAP2000 ", bg="#FFFFFF", fg="#1B2430", font=("Segoe UI", 9, "bold"))
+        self.S, self.grid_ = S, grid
+        cfg = S.setdefault("sap", {})
+        cfg.setdefault("signs", {k: 1 for k, _ in self.SIGN_KEYS})
+        self.cfg = cfg
+        r1 = tk.Frame(self, bg="#FFFFFF"); r1.pack(fill="x", pady=2)
+        ttk.Button(r1, text="Kết nối SAP2000", command=self._connect).pack(side="left", padx=3)
+        self.lbl = tk.Label(r1, text="Chưa kết nối", bg="#FFFFFF", fg="#B42318", font=("Segoe UI", 9)); self.lbl.pack(side="left", padx=6)
+        r2 = tk.Frame(self, bg="#FFFFFF"); r2.pack(fill="x", pady=2)
+        tk.Label(r2, text="Nguồn tải", bg="#FFFFFF", font=("Segoe UI", 9)).pack(side="left", padx=3)
+        self.src = tk.StringVar(value=cfg.get("source", "Design Combos"))
+        cb = ttk.Combobox(r2, textvariable=self.src, values=list(self._menu()), state="readonly", width=16); cb.pack(side="left", padx=3)
+        cb.bind("<<ComboboxSelected>>", lambda _e: self._source_changed())
+        self.btn_pick = ttk.Button(r2, text="nguồn ▾", command=self._pick); self.btn_pick.pack(side="left", padx=3)
+        r3 = tk.Frame(self, bg="#FFFFFF"); r3.pack(fill="x", pady=2)
+        tk.Label(r3, text="Đổi dấu", bg="#FFFFFF", font=("Segoe UI", 9)).pack(side="left", padx=3)
+        self.flip = {}
+        for k, t in self.SIGN_KEYS:
+            v = self.flip[k] = tk.BooleanVar(value=float(cfg["signs"].get(k, 1)) < 0)
+            tk.Checkbutton(r3, text=t, variable=v, bg="#FFFFFF", font=("Segoe UI", 9), command=self._save_signs).pack(side="left")
+        r4 = tk.Frame(self, bg="#FFFFFF"); r4.pack(fill="x", pady=2)
+        self.replace = tk.BooleanVar(value=cfg.get("replace", True))
+        tk.Checkbutton(r4, text="Thay bảng tải", variable=self.replace, bg="#FFFFFF", font=("Segoe UI", 9)).pack(side="left")
+        ttk.Button(r4, text="Lấy phản lực (nút / cột đang chọn)", command=self._get).pack(side="right", padx=3)
+        tk.Label(self, text="Chọn nút chân cột (hoặc cột) trong SAP rồi bấm Lấy phản lực. Axial: lực cột lên bản đế (< 0 nén); "
+                            "V2, V3 giữ dấu phản lực SAP (trục 2, 3 của cột); Mmax / Mmin = 0 (chân cột không lấy mô men).",
+                 bg="#FFFFFF", fg="#5B6777", font=("Segoe UI", 8), wraplength=400, justify="left").pack(fill="x", padx=3, pady=(0, 3))
+        self._all, self._modal, self._chosen = [], set(), None
+        if self._conn() and self._conn().is_connected:
+            self._on_connected()
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _menu():
+        import scanner  # noqa: F401  (thêm đường dẫn "Lấy nội lực")
+        from sap2000_connector import LOAD_CASES, LOAD_CASES_AND_DESIGN, LOAD_COMBOS, LOAD_DESIGN_COMBOS
+        return {"Design Combos": LOAD_DESIGN_COMBOS, "Load Cases": LOAD_CASES,
+                "Cases + Design": LOAD_CASES_AND_DESIGN, "Combos (tất cả)": LOAD_COMBOS}
+
+    def _conn(self, create=False):
+        if "conn" not in _SAP and create:
+            import scanner  # noqa: F401  (thêm đường dẫn "Lấy nội lực")
+            from sap2000_connector import SAP2000Connector
+            _SAP["conn"] = SAP2000Connector()
+        return _SAP.get("conn")
+
+    def _src(self):
+        return self._menu().get(self.src.get(), "4")
+
+    def _save_signs(self):
+        self.cfg["signs"] = {k: (-1 if v.get() else 1) for k, v in self.flip.items()}
+
+    def _connect(self):
+        from tkinter import messagebox
+        try:
+            conn = self._conn(create=True)
+            msg = conn.connect()
+        except Exception as e:  # noqa: BLE001
+            msg = str(e)
+        if msg != "OK":
+            self.lbl.configure(text="Lỗi kết nối", fg="#B42318"); messagebox.showerror("SAP2000", msg, parent=self); return False
+        self._on_connected(); return True
+
+    def _on_connected(self):
+        conn = self._conn()
+        conn.set_units_kn_m()
+        self.lbl.configure(text="Đã kết nối (kN-m)", fg="#1F7A1F")
+        self._source_changed()
+
+    def _source_changed(self):
+        self.cfg["source"] = self.src.get()
+        conn = self._conn()
+        if not conn or not conn.is_connected: return
+        from sap2000_connector import default_selected_loads
+        self._all, modal = conn.list_load_names(self._src())
+        self._modal = set(modal)
+        self._chosen = default_selected_loads(self._all, self._modal, self._src())
+        self.btn_pick.configure(text=f"{len(self._chosen)} nguồn ▾")
+
+    def _pick(self):
+        from tkinter import messagebox
+        conn = self._conn()
+        if not conn or not conn.is_connected:
+            messagebox.showinfo("Chưa kết nối", "Kết nối SAP2000 trước.", parent=self); return
+        if not self._all: self._source_changed()
+        from gui_widgets import LoadSourcePicker
+
+        def apply(ch):
+            self._chosen = list(ch); self.btn_pick.configure(text=f"{len(ch)} nguồn ▾")
+        p = LoadSourcePicker(self, names=self._all, selected=self._chosen or [], modal_names=self._modal,
+                             on_apply=apply, title=f"Chọn nguồn tải — {self.src.get()}")
+        p.place_near(self.btn_pick); self._picker = p
+
+    def _get(self):
+        from tkinter import messagebox
+        import scanner
+        conn = self._conn()
+        if not conn or not conn.is_connected:
+            if not self._connect(): return
+            conn = self._conn()
+        src = self._src()
+        if self._chosen is None: self._source_changed()
+        try:
+            chosen = set(conn.setup_output_source(src, self._chosen))
+            cache = {}
+
+            def allowed_for(frame):
+                if frame not in cache: cache[frame] = conn.allowed_loads_for_frame(frame, src, chosen)
+                return cache[frame]
+            self._save_signs()
+            recs, warn = scanner.base_reactions(conn, allowed_for, self.cfg["signs"])
+        except Exception as e:  # noqa: BLE001
+            messagebox.showerror("SAP2000", f"Lỗi khi đọc SAP: {e}\n{conn.last_error}", parent=self); return
+        if not recs:
+            messagebox.showinfo("SAP2000", "Không lấy được phản lực.\nChọn nút gối chân cột (hoặc cột) trong SAP, "
+                                "kiểm tra đã chạy phân tích và nguồn tải.\n" + "\n".join(warn), parent=self); return
+        rows = [{k: r[k] for k in ("name", "N", "V2", "V3", "M22", "M33")} for r in scanner.base_extremes(recs)]
+        self.cfg["replace"] = bool(self.replace.get())
+        if self.replace.get(): self.S["loads"][:] = rows
+        else: self.S["loads"].extend(rows)
+        self.grid_.fill()
+        joints = sorted({r["joint"] for r in recs})
+        self.lbl.configure(text=f"{len(rows)} tải từ {len(recs)} kết quả · nút {', '.join(joints)}", fg="#1F7A1F")
+        if warn: messagebox.showwarning("SAP2000", "\n".join(warn), parent=self)
+
+
 class LoadGrid(ttk.Frame):
     """Bảng tải như bước Loads của RAM: Num · Condition · từng cấu kiện (V2, Axial, M33). Nhấp đúp để sửa."""
 
@@ -684,9 +824,12 @@ class NewJointDialog(tk.Toplevel):
         self.lbl_title.configure(text=f"{code} - {FAMILY[code]}")
         self.lbl_sel.configure(text="Loads")
         self.lbl_note.configure(text="")
-        LoadGrid(self.body, LOAD_SPEC[kind], self.S, LOAD_TITLE[kind]).pack(side="left", fill="both", expand=True, padx=(4, 8), pady=4)
+        grid = LoadGrid(self.body, LOAD_SPEC[kind], self.S, LOAD_TITLE[kind])
+        grid.pack(side="left", fill="both", expand=True, padx=(4, 8), pady=4)
         fr = tk.Frame(self.body, bg="#FFFFFF", width=430); fr.pack(side="left", fill="both"); fr.pack_propagate(False)
         tk.Label(fr, text="Help", bg="#D9DCE1", fg="#1B2430", font=("Segoe UI", 9, "bold"), anchor="w").pack(fill="x")
+        if kind == "base":
+            BaseSapPanel(fr, self.S, grid).pack(side="bottom", fill="x", padx=6, pady=6)
         t = tk.Text(fr, wrap="word", relief="flat", padx=10, pady=8, font=("Segoe UI", 10), background="#FFFFFF"); t.pack(fill="both", expand=True)
         t.tag_configure("h", font=("Segoe UI", 18)); t.tag_configure("h2", font=("Segoe UI", 13), spacing1=8)
         t.tag_configure("d", foreground="#5B6777", spacing3=6)

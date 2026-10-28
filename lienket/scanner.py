@@ -27,7 +27,7 @@ if _LAY not in sys.path:
 from core_engine import (  # noqa: E402
     EXTREME_NAMES, NODE_KEY_END, NODE_KEY_START, filter_design_forces, find_extremes, station_indices,
 )
-from sap2000_connector import SAP2000Connector, _as_list, _safe_str  # noqa: E402
+from sap2000_connector import SAP2000Connector, _as_list, _safe_str, is_modal_load  # noqa: E402
 
 COL_MAX_TILT = 15.0      # frame lệch phương đứng ≤ 15° → cột
 RAF_MAX_SLOPE = 45.0     # frame nghiêng ≤ 45° so với phương ngang → kèo
@@ -354,3 +354,98 @@ def knee_to_state(base: dict, knees: list[KneeFound], gid: str) -> dict:
     st["_source"] = dict(group=gid, knees=[dict(kid=k.kid, joint=k.joint, col=k.col, col_end=k.col_end, raf=k.raf,
                                                   raf_end=k.raf_end, slope=round(k.slope, 3)) for k in knees])
     return st
+
+
+# ── Chân cột: phản lực gối SAP → tải Column base (quy ước RAM) ──────────────
+
+BASE_KEYS = ("N", "V2", "V3", "M22", "M33")
+BASE_EXTREMES = ("Mmax", "Pmax", "Vmax", "Mmin", "Pmin")      # thứ tự bảng tải RAM
+
+
+def _cross(a, b): return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+
+def base_supports(conn: SAP2000Connector) -> list[tuple[str, FrameGeo]]:
+    """(nút gối, cột) từ lựa chọn trong SAP: chọn nút chân cột và/hoặc chọn cột (lấy đầu dưới)."""
+    sel = list(conn.get_selected_frames())
+    frames = list(sel)
+    pts = list(conn.get_selected_points())
+    for f in frames_at_points(conn, pts):
+        if f not in frames:
+            frames.append(f)
+    out, seen = [], set()
+    for g in classify(conn, frames).values():
+        if g.kind != "col":
+            continue
+        bot = g.p1 if g.x1[2] <= g.x2[2] else g.p2
+        if g.name not in sel and bot not in pts:
+            continue                         # cột chỉ nối vào nút chọn ở đầu trên
+        if bot not in seen:
+            seen.add(bot); out.append((bot, g))
+    return out
+
+
+def base_axes(conn: SAP2000Connector, g: FrameGeo) -> tuple:
+    """(u, e2, e3): u dọc cột hướng lên từ chân, e2 = trục 2 SAP (phương cao tiết diện), e3 = u × e2."""
+    bot, top = (g.x1, g.x2) if g.x1[2] <= g.x2[2] else (g.x2, g.x1)
+    u = _norm(_sub(top, bot))
+    e2 = _local2(conn, g.name, _norm(_sub(g.x2, g.x1))) or (1.0, 0.0, 0.0)
+    e2 = _norm(_sub(e2, tuple(u[i] * _dot(e2, u) for i in range(3))))
+    return u, e2, _norm(_cross(u, e2))
+
+
+def reaction_to_base(r, axes, signs: Optional[dict] = None) -> dict:
+    """
+    Phản lực gối SAP (F1..M3, hệ tổng thể) → tải chân cột trong hệ địa phương cột:
+      Axial = −R·u (lực cột tác dụng lên bản đế: N < 0 nén, như RAM);
+      V2 = R·e2, V3 = R·e3 — giữ đúng dấu phản lực SAP (cột đứng, trục mặc định: V2 = F1, V3 = F2);
+      M22 = −M·e2, M33 = −M·e3.
+    signs: hệ số ±1 cho từng thành phần (khi quy ước chiều dương của RAM khác).
+    """
+    u, e2, e3 = axes
+    F, M = (r.F1, r.F2, r.F3), (r.M1, r.M2, r.M3)
+    v = dict(N=-_dot(F, u), V2=_dot(F, e2), V3=_dot(F, e3), M22=-_dot(M, e2), M33=-_dot(M, e3))
+    s = signs or {}
+    return {k: v[k] * (-1.0 if float(s.get(k, 1)) < 0 else 1.0) + 0.0 for k in BASE_KEYS}
+
+
+def base_reactions(conn: SAP2000Connector, allowed_for: Callable[[str], Optional[set]],
+                   signs: Optional[dict] = None, progress=None) -> tuple[list[dict], list[str]]:
+    """Phản lực tại các chân cột đang chọn → [dict(joint, frame, case, step, N, V2, V3, M22, M33)], cảnh báo."""
+    sup = base_supports(conn)
+    recs, warn = [], []
+    for i, (pt, g) in enumerate(sup, 1):
+        if progress: progress(f"Phản lực chân cột {i}/{len(sup)} (nút {pt}, cột {g.name})…")
+        axes = base_axes(conn, g)
+        allowed = allowed_for(g.name)
+        rows = conn.get_joint_reactions([pt])
+        if not rows:
+            warn.append(f"Nút {pt}: không có phản lực (không phải gối hoặc chưa chạy phân tích)."); continue
+        for r in rows:
+            if allowed is not None and r.load_case not in allowed:
+                continue
+            if is_modal_load(r.load_case):
+                continue
+            recs.append(dict(joint=pt, frame=g.name, case=r.load_case, step=r.step_type, **reaction_to_base(r, axes, signs)))
+    return recs, warn
+
+
+def base_extremes(recs: list[dict]) -> list[dict]:
+    """
+    Bảng tải chân cột như RAM: Mmax, Pmax (nén lớn nhất), Vmax (√(V2²+V3²) lớn nhất), Mmin, Pmin (kéo lớn nhất).
+    Chân cột không lấy trường hợp mô men: dòng Mmax / Mmin giữ lại với giá trị 0. Description = tên dòng (không kèm combo).
+    """
+    if not recs:
+        return []
+    pick = {
+        "Pmax": min(recs, key=lambda r: r["N"]),
+        "Vmax": max(recs, key=lambda r: math.hypot(r["V2"], r["V3"])),
+        "Pmin": max(recs, key=lambda r: r["N"]),
+    }
+    out = []
+    for n in BASE_EXTREMES:
+        r = pick.get(n)
+        row = dict(name=n, case=r["case"] if r else "", joint=r["joint"] if r else "")
+        row.update({k: (round(r[k], 3) + 0.0 if r else 0.0) for k in BASE_KEYS})
+        out.append(row)
+    return out

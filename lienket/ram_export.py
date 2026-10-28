@@ -196,6 +196,27 @@ def knee_props(st: dict) -> tuple[dict, dict, dict, list]:
     return P, beam, col, warn
 
 
+# Loại liên kết của tool → ClassName trong RAM Connection. Chỉ loại có khuôn (lấy từ file .rcnx thật) mới xuất được.
+RAM_CLASS = {"knee": "Bentley.AISC.MEPlateKneeBCF"}
+KIND_LABEL = {"knee": "Knee (BCF)", "base": "Column base (CB)", "splice": "Beam splice / Apex (BS)"}
+
+
+def supported(kind: str) -> bool:
+    return kind in RAM_CLASS
+
+
+def unsupported_note(joints: list[dict]) -> str:
+    """Thông báo các liên kết chưa xuất được (chưa có khuôn RAM cho loại đó)."""
+    if not joints:
+        return ""
+    by = {}
+    for j in joints:
+        by.setdefault(KIND_LABEL.get(j["kind"], j["kind"]), []).append(str(j.get("state", {}).get("name") or j.get("id")))
+    lines = [f"  • {k}: {', '.join(v)}" for k, v in by.items()]
+    return ("Chưa xuất (chưa có khuôn RAM cho loại này — cần 1 file .rcnx của RAM có sẵn liên kết loại đó,\n"
+            "chạy tools/make_ram_proto.py để lấy khuôn):\n" + "\n".join(lines))
+
+
 def _clean(name: str) -> str:
     return str(name).replace(",", ";").replace("[", "(").replace("]", ")").strip() or "LC"
 

@@ -200,6 +200,18 @@ def test_ram_cb1_pinned_bp():
     assert [r[3] for r in pm[1]["anchors"]] == ["5.75"] * 4 and [r[4] for r in pm[1]["anchors"]] == ["27.50"] * 4
 
 
+def test_optimize_anchor_shear_limit():
+    """Optimize: tỷ số Anchor shear ≤ 0.4 (mặc định), giữ hệ đường kính neo (M… → M…)."""
+    st = merge(BASE, PRESETS["RAM CB 1 — Pinned BP (I 300x215x5x10)"])
+    res = BE.auto_design(st)
+    assert res and not res.get("fail") and res["d"] == 27                   # M24 cho 0.401 > 0.4
+    import project as PJ
+    PJ.apply_auto("base", st, res)
+    assert chk(BE.compute(st), "aci_vsa")["ratio"] <= 0.4
+    st2 = merge(BASE, PRESETS["RAM CB 1 — Pinned BP (I 300x215x5x10)"]); st2["opt"]["vsaMax"] = 1.0
+    assert BE.auto_design(st2)["d"] < 27
+
+
 def test_model3d_anchor_count():
     import model3d as M
     for p in PRESETS.values():
