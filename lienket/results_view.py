@@ -29,8 +29,8 @@ SCALE = ["#8B0000", "#C00000", "#FF0000", "#FF4500", "#FF8C00", "#FFB300", "#FFD
 
 
 def scale_color(v, vmin, vmax):
-    if vmax - vmin < 1e-12:
-        return SCALE[-1]
+    if vmax - vmin < 1e-12:                                    # giá trị không đổi: màu giữa thang (như RAM)
+        return "#33FF33"
     t = (v - vmin) / (vmax - vmin)
     return SCALE[min(max(int(round((1 - t) * (len(SCALE) - 1))), 0), len(SCALE) - 1)]
 
@@ -137,14 +137,19 @@ class ResultsWindow(tk.Toplevel):
         self.row_boxes = {}
         mid = PW / 2
         y = 6
+        for k, v in (("Current Date:", rep.get("date", "")), ("Units system:", "SI"), ("File name:", rep.get("file", ""))):
+            if not v: continue
+            self._t(X0, y, k, self.fb); self._t(X0 + 88, y, v); y += 15
+        y += 12
         self._t(mid, y, "Steel Connections", self.ftitle, anchor="n"); y += 32
         self._t(mid, y, "Results", self.ftitle, anchor="n"); y += 52
         self._t(X0, y, f"Connection:  {rep['name']}", self.fconn); y += 32
-        self._dash(X0, X0 + 450, y); y += 8
-        for k, v in (("Family:", rep["family"]), ("Type:", rep["type"])):
-            self._t(X0, y, k, self.fs); self._t(X0 + 86, y, v, self.fs); y += 17
-        self._dash(X0, X0 + 450, y + 2); y += 24
-        self._t(X0, y, f"Design code: {rep['code']}", self.fs); y += 30
+        self._dash(X0 + 16, X0 + 500, y); y += 8
+        for k, v in (("Family:", rep["family"]), ("Type:", rep["type"]), ("Description:", rep.get("desc", ""))):
+            if not v: continue
+            self._t(X0 + 16, y, k, self.fs); self._t(X0 + 108, y, v, self.fs); y += 17
+        self._dash(X0 + 16, X0 + 500, y + 2); y += 24
+        self._t(X0 + 16, y, f"Design code: {rep['code']}", self.fs); y += 30
 
         # Demands
         y = self._heading(y, "Demands")
@@ -165,6 +170,8 @@ class ResultsWindow(tk.Toplevel):
                 y += 8
                 self._t(mid, y, b["title"], self.fsub, anchor="n"); y += 24
                 self._t(mid, y, b["sub"], tkfont.Font(family="Arial", size=11, weight="bold", slant="italic"), anchor="n"); y += 24
+            gcols = [("Dimensions", X0, "w"), ("Unit", 336, "w"), ("Value", 450, "e"), ("Min.", 537, "e"),
+                     ("Max.", 622, "e"), ("Sta.", 652, "c"), ("References", 680, "w")]
             if b.get("geo"):
                 y = self._heading(y, "Geometric Considerations")
                 grows = []
@@ -187,10 +194,24 @@ class ResultsWindow(tk.Toplevel):
             ccols = [("Verification", X0, "w"), ("Unit", 345, "w"), ("Capacity", 470, "e"), ("Demand", 560, "e"),
                      ("Ctrl EQ", 573, "w"), ("Ratio", 700, "e"), ("References", 718, "w")]
             y = self._table(y, ccols, crows, unit_row=False, ids=ids, ratio_col=5, unit_col=1) + 16
+            if "ratio" in b:
+                y = self._ratio(y, "Ratio", b["ratio"])
+            A = b.get("anchors")
+            if A:
+                y += 10
+                self._t(mid, y, "Anchors", tkfont.Font(family="Arial", size=12, weight="bold", slant="italic"), anchor="n"); y += 24
+                if A.get("geo"):
+                    y = self._heading(y, "Geometric Considerations")
+                    grows = []
+                    for grp, rr in A["geo"].items():
+                        grows.append(grp); grows += rr
+                    y = self._table(y, gcols, grows, unit_row=False, sta_col=5, unit_col=1) + 10
+                y = self._heading(y, "Design Check")
+                y = self._table(y, ccols, A["rows"], unit_row=False, ids=[r[9] for r in A["rows"]], ratio_col=5, unit_col=1,
+                                group_indent=0) + 16
+                y = self._ratio(y, "Ratio", A["ratio"])
         r = rep["ratio"]
-        self._t(X0 + 4, y, "Ratio", self.fratio)
-        self._t(345, y, "INF" if math.isinf(r) else f"{r:.2f}", self.fratio, TXT)
-        y += 46
+        y = self._ratio(y, "Global critical strength ratio" if rep.get("global_ratio") else "Ratio", r) + 10
 
         # chi tiết từng trục
         for dt in rep.get("details") or []:
@@ -204,31 +225,39 @@ class ResultsWindow(tk.Toplevel):
         bb = cv.bbox("all") or (0, 0, PW, y)
         cv.configure(scrollregion=(0, 0, max(bb[2], PW) + 10, y + 30))
 
+    def _ratio(self, y, lab, r):
+        self._t(X0 + 4, y, lab, self.fratio)
+        self._t(345, y, "INF" if math.isinf(r) else f"{r:.2f}", self.fratio, TXT)
+        return y + 46
+
     # ───────────────────────── chi tiết trục: hình + tóm tắt + lực neo ─────────────────────────
     def _detail(self, y, dt):
         cv = self.cv
-        cv.create_rectangle(X0, y, PW - 10, y + 26, fill=BAND, outline="")
-        self._t(X0 + 6, y + 13, dt["title"], self.fh, anchor="w"); y += 38
-        self._t(X0 + 10, y, f"Maximum compression and tension ({dt['combo']})", self.fbi); y += 22
+        cv.create_line(X0, y - 6, PW - 10, y - 6, fill="#BFBFBF", dash=(3, 3))
+        self._t(X0 + 6, y + 13, dt["title"], self.fh, anchor="w"); y += 40
+        cv.create_line(X0, y - 4, PW - 10, y - 4, fill="#BFBFBF", dash=(3, 3))
         g = self.rep["geom"]
-        fv = self._field_values(dt["field"], g)
-        vmax_p = max([v for v in fv.values()] + [0.0])
-        T = dt["T"]
-        self._figure(X0 + 10, y, g, "pressure", fv, 0.0, vmax_p, "Base plate\nConcrete stress\n[N/mm2]")
-        self._figure(X0 + 410, y, g, "tension", T, 0.0, max(T + [0.0]), "Base plate\nAnchors tension\n[kN]")
-        y += 330
-        self._dash(X0 + 10, X0 + 320, y); y += 8
-        for lab, v, u in dt["summary"]:
-            self._t(X0 + 10, y, lab, self.fs)
-            self._t(X0 + 232, y, f"{v:.2f}", self.fs, anchor="ne")
-            self._t(X0 + 242, y + 1, u, self.fxs)
-            y += 17
-        self._dash(X0 + 10, X0 + 320, y + 2); y += 26
-        self._t(X0 + 10, y, "Anchors tensions", self.fbi); y += 24
-        acols = [("Anchor", X0 + 54, "e"), ("Transverse [mm]", X0 + 150, "e"), ("Longitudinal [mm]", X0 + 250, "e"),
-                 ("Shear [kN]", X0 + 300, "e"), ("Tension [kN]", X0 + 365, "e")]
-        y = self._table(y, acols, dt["anchors"], dashed=True, group_indent=0)
-        return y + 20
+        for sb in dt["subs"]:
+            self._t(X0 + 6, y, sb["title"], self.fbi); y += 20
+            fv = self._field_values(sb["field"], g)
+            vals_p = [v for v in fv.values() if v > 1e-9]
+            pmax, pmin = (max(vals_p), min(vals_p)) if vals_p else (0.0, 0.0)
+            T = [-t for t in sb["T"]]                              # như RAM: lực kéo neo âm
+            self._figure(X0 + 10, y, g, "pressure", fv, pmin, pmax, "Base plate\nConcrete stress\n[N/mm2]")
+            self._figure(X0 + 470, y, g, "tension", T, min(T + [0.0]), max(T) if T else 0.0, "Base plate\nAnchors tension\n[kN]")
+            y += 340
+            self._dash(X0 + 10, X0 + 370, y); y += 8
+            for lab, v, u in sb["summary"]:
+                self._t(X0 + 10, y, lab, self.fs if "Neutral" not in lab else self.f)
+                self._t(X0 + 270, y, "1E33" if v is None else f"{v:.2f}", self.fs, anchor="ne")
+                self._t(X0 + 280, y + 1, u, self.fxs)
+                y += 17
+            self._dash(X0 + 10, X0 + 370, y + 2); y += 26
+            self._t(X0 + 6, y, "Anchors tensions", self.fbi); y += 26
+            acols = [("Anchor", X0 + 58, "e"), ("Transverse [mm]", X0 + 155, "e"), ("Longitudinal [mm]", X0 + 262, "e"),
+                     ("Shear [kN]", X0 + 312, "e"), ("Tension [kN]", X0 + 392, "e")]
+            y = self._table(y, acols, sb["anchors"], dashed=True, group_indent=0) + 16
+        return y + 10
 
     def _field_values(self, field, g, nc=36):
         """Áp lực ép (N/mm2) tại tâm các ô lưới bản đế."""
@@ -273,16 +302,16 @@ class ResultsWindow(tk.Toplevel):
             p0, p1 = P(x_b, oz - bf / 2), P(x_a, oz + bf / 2)
             cv.create_rectangle(p0[0], p0[1], p1[0], p1[1], fill=fill, outline="#3F3F3F" if not fill else fill)
         p0, p1 = P(ox + d / 2 - g["tfE"], oz - tw / 2), P(ox - d / 2 + g["tfI"], oz + tw / 2)
-        cv.create_rectangle(p0[0], p0[1], p1[0], p1[1], fill=fill if fill else PLATE_G, outline="#3F3F3F" if not fill else fill)
+        cv.create_rectangle(p0[0], p0[1], p1[0], p1[1], fill=fill, outline="#3F3F3F" if not fill else fill)
         # neo
-        r = max(2.5, g["da"] / 2 * k * 0.6)
+        r = max(3.0, g.get("hole", g["da"] * 1.5) / 2 * k)
         for idx, (xa, za) in enumerate(g["anchors"]):
             q = P(xa, za)
             if kind == "tension":
-                c = scale_color(vals[idx], vmin, vmax) if vmax > 1e-9 else "#00C800"
-                cv.create_oval(q[0] - r, q[1] - r, q[0] + r, q[1] + r, fill=c, outline="#3F3F3F")
+                c = scale_color(vals[idx], vmin, vmax)
+                cv.create_oval(q[0] - r, q[1] - r, q[0] + r, q[1] + r, fill=c, outline="#202020")
             else:
-                cv.create_oval(q[0] - r, q[1] - r, q[0] + r, q[1] + r, fill="#808080", outline="#3F3F3F")
+                cv.create_oval(q[0] - r, q[1] - r, q[0] + r, q[1] + r, fill="", outline="#202020")
         # dải màu
         lx, ly = x0 + Wf + 14, y0 + 10
         self._t(lx, ly, legend, self.fxs); ly += 40
@@ -290,7 +319,7 @@ class ResultsWindow(tk.Toplevel):
         for i, c in enumerate(SCALE):
             v = vmax - (vmax - vmin) * i / (n - 1)
             cv.create_rectangle(lx, ly + i * 14, lx + 14, ly + (i + 1) * 14, fill=c, outline=c)
-            self._t(lx + 20, ly + i * 14 + 7, f"{v:.3g}" if abs(v) >= 1e-9 else "0", self.fxs, anchor="w")
+            self._t(lx + 20, ly + i * 14 + 7, f"{v:.3g}" if abs(v) >= 1e-9 else "0", self.fs, anchor="w")
 
     # ───────────────────────── chọn dòng ─────────────────────────
     def select(self, rid):

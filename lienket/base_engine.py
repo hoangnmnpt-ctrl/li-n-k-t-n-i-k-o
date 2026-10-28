@@ -35,27 +35,52 @@ member_at_joint = K.member_at_joint
 ELECTRODES = K.ELECTRODES
 kN, kNm, f1, f2 = K.kN, K.kNm, K.f1, K.f2
 ES = 200000.0
+# hệ số ACI dạng inch – psi – lb quy đổi sang mm – MPa – N (như RAM): k·√(psi/MPa)·(lb/N) / (in/mm)^p
+_PSI, _LB, _IN = 145.0377, 4.448222, 25.4
+KC_N = 24 * math.sqrt(_PSI) * _LB / _IN ** 1.5             # kc = 24 (D-6)            ≈ 10.04
+KC_N2 = 16 * math.sqrt(_PSI) * _LB / _IN ** (5 / 3)        # 16·λ√f'c·hef^(5/3) (D-8)  ≈ 3.90
+KV_B = 7 * math.sqrt(_PSI) * _LB / _IN ** 2                # 7(le/da)^0.2·√da (D-24)   ≈ 0.58
+KV_B2 = 9 * math.sqrt(_PSI) * _LB / _IN ** 1.5             # 9·λ√f'c·ca1^1.5            ≈ 3.77
+K_SB = 160 * math.sqrt(_PSI) * _LB / _IN ** 2              # 160·ca1·√Abrg (D-17)       ≈ 13.29
+SQ2 = math.sqrt(2) / 2                                         # họng hàn góc (như RAM)
 
 # bu lông neo: Fy, Fu (MPa)
 ANCHOR_GRADES = {
-    "4.6": (240, 400), "5.6": (300, 500), "6.6": (360, 600), "8.8": (640, 800),
+    "Class 4.6": (240, 400), "Class 5.6": (300, 500), "Class 6.6": (360, 600), "Class 8.8": (640, 800),
     "F1554 Gr36": (248, 400), "F1554 Gr55": (380, 517), "F1554 Gr105": (724, 862), "A307": (248, 414),
 }
-ANCHOR_DIAS = [16, 20, 22, 24, 27, 30, 33, 36, 42, 48]
+ANCHOR_METRIC = [16, 20, 22, 24, 27, 30, 33, 36, 42, 48]
+# neo inch như RAM: nhãn → (đường kính mm, bước ren UNC mm, lỗ DG1 mm, long đen DG1 (cạnh, dày) mm)
+ANCHOR_INCH = {
+    '1/4"': (6.35, 1.270, 14.3, (38.1, 6.35)), '3/8"': (9.525, 1.588, 17.5, (38.1, 6.35)), '1/2"': (12.7, 1.954, 20.6, (38.1, 6.35)),
+    '5/8"': (15.875, 2.309, 27.0, (44.5, 6.35)), '3/4"': (19.05, 2.540, 33.3, (50.8, 6.35)), '7/8"': (22.225, 2.822, 39.7, (63.5, 7.94)),
+    '1"': (25.4, 3.175, 46.0, (76.2, 9.53)), '1-1/4"': (31.75, 3.629, 52.4, (76.2, 12.7)), '1-1/2"': (38.1, 4.233, 58.7, (88.9, 12.7)),
+    '1-3/4"': (44.45, 5.080, 69.9, (101.6, 15.9)), '2"': (50.8, 5.644, 82.6, (127.0, 19.05)),
+}
+_INCH = {round(v[0], 2): (k, v) for k, v in ANCHOR_INCH.items()}
+ANCHOR_DIAS = sorted(ANCHOR_METRIC + [v[0] for v in ANCHOR_INCH.values()])
+
+
+def anchor_label(d):
+    """Nhãn đường kính neo: M24 hoặc 3/4" (như RAM)."""
+    d = float(d)
+    return _INCH[round(d, 2)][0] if round(d, 2) in _INCH else f"M{d:g}"
 PITCH = {16: 2.0, 20: 2.5, 22: 2.5, 24: 3.0, 27: 3.0, 30: 3.5, 33: 3.5, 36: 4.0, 42: 4.5, 48: 5.0}
 # DG1 Table 2.3 (quy đổi mm): lỗ bản đế, long đen tấm (cạnh × dày) tối thiểu
 HOLE_DG1 = {16: 30, 20: 33, 22: 40, 24: 46, 27: 48, 30: 52, 33: 56, 36: 59, 42: 70, 48: 83}
 WASHER_DG1 = {16: (50, 6), 20: (51, 6), 22: (64, 8), 24: (76, 10), 27: (76, 10), 30: (76, 13), 33: (89, 13),
               36: (89, 13), 42: (102, 16), 48: (127, 19)}
 # bê tông: f'c (MPa) — C x-60 theo RAM (f'c x ksi, thép 60 ksi), B (TCVN, f'c ≈ 0.8·B), EN; Custom: nhập f'c
-CONC_MATS = {"C 3-60": 20.7, "C 4-60": 27.6, "C 5-60": 34.5, "B20": 16.0, "B25": 20.0, "B30": 24.0, "B35": 28.0,
+CONC_MATS = {"C25": 25.0, "C30": 30.0, "C35": 35.0, "C40": 40.0, "C 3-60": 20.7, "C 4-60": 27.6, "C 5-60": 34.5, "B20": 16.0, "B25": 20.0, "B30": 24.0, "B35": 28.0,
              "C25/30": 25.0, "C30/37": 30.0, "C35/45": 35.0}
 STEEL_CODES = ["AISC 2010 LRFD", "AISC 2010 ASD", "AISC 2016 LRFD", "AISC 2016 ASD"]
 CONC_CODES = ["ACI 318-08", "ACI 318-11", "ACI 318-14"]
 HEADS = {"hex": "Hexagonal", "square": "Square"}
 LAYOUTS = {"longitudinal": "Longitudinal position", "transversal": "Transversal position"}
 MU = 0.55                                                     # ma sát thép – vữa (DG1 §3.5.1)
-FY_REINF = 420.0                                              # cốt thép neo Grade 60
+# cốt thép (US, như RAM): diện tích thanh mm²
+REBAR_US = {k: v * 645.16 for k, v in {"no. 3": 0.11, "no. 4": 0.20, "no. 5": 0.31, "no. 6": 0.44, "no. 7": 0.60, "no. 8": 0.79,
+                                         "no. 9": 1.00, "no. 10": 1.27, "no. 11": 1.56, "no. 14": 2.25, "no. 18": 4.00}.items()}
 AXES = {"major": "Major axis", "minor": "Minor axis", "both": "Both axes", "biaxial": "Biaxial"}
 BP_TP = [12, 14, 16, 18, 20, 22, 25, 28, 30, 32, 35, 36, 40, 45, 50, 55, 60]
 SHEAR_MODE = {"anchors": "Bu lông neo", "lug": "Bản chắn cắt"}
@@ -66,14 +91,29 @@ D2_17 = {"D.3.3": "17.2.3", "D.5.1": "17.4.1", "D.5.2": "17.4.2", "D.5.2.3": "17
          "D.6.3": "17.5.3", "D.7": "17.6", "D.8.1": "17.7.1", "D.8.2": "17.7.2", "D.8.5": "17.7.5"}
 
 
-def anchor_hole(d): return HOLE_DG1.get(int(d), d + 20)
-def washer_min(d): return WASHER_DG1.get(int(d), (2.5 * d, d / 3))
-def anchor_ase(d): return math.pi / 4 * (d - 0.9382 * PITCH.get(int(d), 0.125 * d)) ** 2
+def _inch(d): return _INCH.get(round(float(d), 2), (None, None))[1]
+def anchor_hole(d): return _inch(d)[2] if _inch(d) else HOLE_DG1.get(int(d), d + 20)
+def washer_min(d): return _inch(d)[3] if _inch(d) else WASHER_DG1.get(int(d), (2.5 * d, d / 3))
+ASE_ISO = {16: 157.0, 20: 245.0, 22: 303.0, 24: 353.0, 27: 459.0, 30: 561.0, 33: 694.0, 36: 817.0, 42: 1121.0, 48: 1473.0}
+
+
+def anchor_ase(d):
+    """Diện tích chịu ứng suất Ase: ren hệ mét theo bảng ISO 898 (như RAM), ren inch theo công thức UNC."""
+    if not _inch(d) and float(d).is_integer() and int(d) in ASE_ISO:
+        return ASE_ISO[int(d)]
+    p = _inch(d)[1] if _inch(d) else PITCH.get(int(d), 0.125 * d)
+    return math.pi / 4 * (d - 0.9382 * p) ** 2
+
+
+def weld_min16(t):
+    """Cỡ hàn góc tối thiểu (1/16 in) theo Table J2.4: t ≤ 1/4" → 1/8", ≤ 1/2" → 3/16", ≤ 3/4" → 1/4", > 3/4" → 5/16"."""
+    return 2 if t <= 6.35 + 1e-6 else 3 if t <= 12.7 + 1e-6 else 4 if t <= 19.05 + 1e-6 else 5
 
 
 def anchor_mat(grade):
-    fy, fu = ANCHOR_GRADES.get(grade, ANCHOR_GRADES["5.6"])
-    return dict(name=grade if grade in ANCHOR_GRADES else "5.6", Fy=float(fy), Fu=float(fu))
+    grade = grade if grade in ANCHOR_GRADES else f"Class {grade}"
+    fy, fu = ANCHOR_GRADES.get(grade, ANCHOR_GRADES["Class 5.6"])
+    return dict(name=grade if grade in ANCHOR_GRADES else "Class 5.6", Fy=float(fy), Fu=float(fu))
 
 
 def shear_mode(inp: dict) -> str:
@@ -112,12 +152,19 @@ def normalize(inp: dict) -> dict:
         ped["mat"] = min(CONC_MATS, key=lambda k: abs(CONC_MATS[k] - float(ped.get("fc") or 25)))
     ped["fc"] = CONC_MATS[ped["mat"]]
     an = inp["anchor"]
+    if an.get("grade") not in ANCHOR_GRADES and f"Class {an.get('grade')}" in ANCHOR_GRADES:
+        an["grade"] = f"Class {an['grade']}"
+    o = inp.get("opt", {})
+    for k in ("pMin", "pMax"):                                # dữ liệu cũ: một cặp min / max cho cả hai phương
+        if k in o:
+            v = o.pop(k); o.setdefault(k + "N", v); o.setdefault(k + "B", v)
     if "shearAll" in an:
         an["welded"] = an.pop("shearAll") or an.get("welded", False)
     if an.get("head") not in HEADS: an["head"] = "hex"
     if an.get("layout") not in LAYOUTS: an["layout"] = "longitudinal"
     for k in ("d", "nr", "npr"):
-        if k in an: an[k] = int(float(an[k]))
+        if k in an:
+            v = float(an[k]); an[k] = int(v) if v.is_integer() else v
     return inp
 
 
@@ -145,9 +192,29 @@ def anchor_layout(an: dict, N: float, B: float) -> list[tuple[float, float]]:
     return pts
 
 
+# tiết diện W (AISC, in): d, bf, tw, tf — dùng khi tên tiết diện không theo quy cách I tổ hợp của tool
+W_SHAPES = {"W14X90": (14.0, 14.5, 0.440, 0.710), "W14X120": (14.5, 14.7, 0.590, 0.940), "W12X65": (12.1, 12.0, 0.390, 0.605),
+            "W12X40": (11.9, 8.01, 0.295, 0.515), "W10X49": (10.0, 10.0, 0.340, 0.560), "W8X31": (8.00, 8.00, 0.285, 0.435)}
+
+
+def w_dims(name):
+    import re
+    m = re.fullmatch(r"\s*I\s*([\d.]+)\s*[xX×]\s*([\d.]+)\s*[xX×]\s*([\d.]+)\s*[xX×]\s*([\d.]+)\s*", name or "")
+    if m:                                                    # RAM: I hw x bf x tw x tf (mm), d = hw + 2tf
+        hw, bf, tw, tf = (float(v) for v in m.groups())
+        return dict(d=hw + 2 * tf, bf_top=bf, bf_bot=bf, tw=tw, tf_top=tf, tf_bot=tf)
+    k = (name or "").upper().replace(" ", "")
+    if k not in W_SHAPES: return None
+    d, bf, tw, tf = (v * 25.4 for v in W_SHAPES[k])
+    return dict(d=d, bf_top=bf, bf_bot=bf, tw=tw, tf_top=tf, tf_bot=tf)
+
+
 def build_geometry(inp: dict) -> dict:
     W: list[str] = []
-    c = member_at_joint(dict(inp["col"], topIsOuter=True), "cột")
+    cm = dict(inp["col"], topIsOuter=True)
+    if not cm.get("dims") and w_dims(cm["sec"]):
+        cm["dims"] = w_dims(cm["sec"])
+    c = member_at_joint(cm, "cột")
     pl, ped, an = inp["plate"], inp["ped"], inp["anchor"]
     N, B, tp = float(pl["N"]), float(pl["B"]), float(pl["tp"])
     N2, B2 = float(ped["N2"]), float(ped["B2"])
@@ -379,12 +446,12 @@ def aci_breakout_tension(G, pts, forces, hef, fc, lam, cracked, headed=True):
     camin = min(edges)
     psi_ed = 1.0 if camin >= 1.5 * h else 0.7 + 0.3 * camin / (1.5 * h)
     psi_c = 1.0 if cracked else 1.25
-    Nb = 10 * lam * math.sqrt(fc) * h ** 1.5
-    nb_txt = f"Nb = kc·λ·√f'c·hef^1.5 = 10·{lam:g}·√{fc:g}·{f1(h)}^1.5 = {f1(kN(Nb))} kN (D-6)"
-    if headed and 280 <= h <= 635:
-        Nb2 = 3.9 * lam * math.sqrt(fc) * h ** (5 / 3)
-        if Nb2 > Nb:
-            Nb, nb_txt = Nb2, f"Nb = 3.9·λ·√f'c·hef^(5/3) = 3.9·{lam:g}·√{fc:g}·{f1(h)}^(5/3) = {f1(kN(Nb))} kN (D-7, 280 ≤ hef ≤ 635)"
+    if headed and 11 * 25.4 <= h <= 25 * 25.4:               # như RAM: neo đổ sẵn có đầu, 11" ≤ hef ≤ 25" → Eq. D-8
+        Nb = KC_N2 * lam * math.sqrt(fc) * h ** (5 / 3)
+        nb_txt = f"Nb = 16·λ·√f'c·hef^(5/3) [lb, psi, in] = {f1(kN(Nb))} kN (Eq. D-8, 11\" ≤ hef = {f1(h)} mm ≤ 25\")"
+    else:
+        Nb = KC_N * lam * math.sqrt(fc) * h ** 1.5
+        nb_txt = f"Nb = kc·λ·√f'c·hef^1.5, kc = 24 [lb, psi, in] = {f1(kN(Nb))} kN (Eq. D-7)"
     T = sum(forces)
     if T > 0:
         ex = abs(sum(f * p[0] for f, p in zip(forces, pts)) / T - sum(p[0] for p in pts) / len(pts))
@@ -420,7 +487,7 @@ def aci_breakout_shear(G, an_pts, axis, sign, hef, da, fc, lam, cracked):
     psi_c = 1.0 if cracked else 1.4
     psi_h = max(1.0, math.sqrt(1.5 * ca1e / ha))
     le = min(hef, 8 * da)
-    Vb = min(0.6 * (le / da) ** 0.2 * math.sqrt(da) * lam * math.sqrt(fc) * ca1e ** 1.5, 3.7 * lam * math.sqrt(fc) * ca1e ** 1.5)
+    Vb = min(KV_B * (le / da) ** 0.2 * math.sqrt(da) * lam * math.sqrt(fc) * ca1e ** 1.5, KV_B2 * lam * math.sqrt(fc) * ca1e ** 1.5)
     Vcbg = AVc / AVco * psi_ed * psi_c * psi_h * Vb
     return dict(ca1=ca1, ca1e=ca1e, c2a=c2a, c2b=c2b, AVc=AVc, AVco=AVco, psi_ed=psi_ed, psi_c=psi_c, psi_h=psi_h, le=le, Vb=Vb,
                 Vcbg=Vcbg, n=len(front))
@@ -460,6 +527,7 @@ def compute(inp: dict) -> dict:
     am = anchor_mat(an["grade"])
     da = float(an["d"])
     Ab = math.pi * da * da / 4
+    Ag = Ab if _inch(da) else float(round(Ab))               # RAM: Ag hệ mét làm tròn mm²
     Ase = anchor_ase(da)
     v16 = "2016" in code
     Fnt = 0.75 * am["Fu"]
@@ -469,13 +537,13 @@ def compute(inp: dict) -> dict:
     headed = an.get("type", "headed") != "hooked"
     head = an.get("head", "heavy")
     if head == "square":
-        F = 1.5 * da; Abrg = F * F - Ab; head_sz = 1.414 * F
+        F = 1.5 * da if _inch(da) else math.floor(1.5 * da); Abrg = F * F - Ag; head_sz = 1.414 * F
     else:
-        F = 1.5 * da                                         # cạnh – cạnh đầu lục giác
-        Abrg = 0.866 * F * F - Ab; head_sz = 1.155 * F
+        F = 1.5 * da if _inch(da) else math.floor(1.5 * da)   # cạnh – cạnh đầu lục giác (hệ mét: làm tròn xuống mm, như RAM)
+        Abrg = 0.866025 * F * F - Ag; head_sz = 1.155 * F
     if not headed:
         head_sz = da
-    weldF = ELECTRODES.get(inp["weld"]["electrode"], 482.6)
+    weldF = ELECTRODES.get(inp["weld"]["electrode"], 482.63)
     fpmax = kA * 0.65 * 0.85 * fc * G["sqA"]
     Ec = 4700 * math.sqrt(fc)
     pts = [(a["x"], a["y"]) for a in G["anchors"]]
@@ -493,7 +561,6 @@ def compute(inp: dict) -> dict:
     primT, primV = rtype == "primary" and bool(rf.get("T")), rtype == "primary" and bool(rf.get("V"))
     phi_cbT = 0.75 if rtype == "supplementary" and rf.get("T") else 0.70
     phi_cbV = 0.75 if rtype == "supplementary" and rf.get("V") else 0.70
-    fyr = FY_REINF
     asd_txt = ["ASD: khả năng cho phép = φRn/1.5 (= Rn/Ω)"] if asd else []
 
     checks: dict[str, dict] = {}
@@ -510,7 +577,7 @@ def compute(inp: dict) -> dict:
             order.append(cid)
         if ratio > c["ratio"]:
             dl = detail() if callable(detail) else list(detail or [])
-            c.update(cap=cap, dem=dem, ratio=ratio, combo=combo, detail=dl + (asd_txt if scale and asd else []))
+            c.update(cap=cap, dem=dem, ratio=ratio, combo=combo, ref=ref, detail=dl + (asd_txt if scale and asd else []))
         return ratio
 
     m_, n_ = G["m"], G["n"]
@@ -536,9 +603,11 @@ def compute(inp: dict) -> dict:
         I22 = sum((b ** 3 - (tw ** 3 if inner else 0)) / 12 for b, inner in ((col["bfE"], False), (col["bfE"], True),
                                                                                (col["bfI"], False), (col["bfI"], True))) + 2 * hw * (tw / 2) ** 2
     Lt = Lf + Lw
-    G.update(Lf=Lf, Lw=Lw, Lt=Lt, I33=I33, I22=I22)
+    I22f = ((col["bfE"] ** 3 + col["bfI"] ** 3) / 12 if outer else
+            sum((b ** 3 - (tw ** 3 if inner else 0)) / 12 for b, inner in ((col["bfE"], False), (col["bfE"], True), (col["bfI"], False), (col["bfI"], True))))
+    G.update(Lf=Lf, Lw=Lw, Lt=Lt, I33=I33, I22=I22, I22f=I22f)
     wfl, wweb = float(inp["weld"]["fl"]["w"]), float(inp["weld"]["web"]["w"])
-    qfl, qweb = 0.75 * 0.6 * weldF * 0.707 * wfl, 0.75 * 0.6 * weldF * 0.707 * wweb
+    qfl, qweb = 0.75 * 0.6 * weldF * SQ2 * wfl, 0.75 * 0.6 * weldF * SQ2 * wweb
     # Bearing stress calculation = Effective area: vùng cách mặt thép cột ≤ c
     eff = gen.get("bearCalc", "complete") == "effective"
     c_eff = tp * math.sqrt(0.9 * kA * Fy / (2 * fpmax)) if eff else 0.0
@@ -547,6 +616,7 @@ def compute(inp: dict) -> dict:
         G["Aeff"] = eff_area(G, c_eff)
 
     demands = []
+    int_best = [-1.0, ""]                                     # tổ hợp hiển thị cho tương tác khi bằng 0 (như RAM)
     for ci, cb in enumerate(inp.get("loads", [])):
         g = lambda key: float(cb.get(key) or 0.0)
         Nt, V2, V3, M33, M22 = g("N") * 1e3, g("V2") * 1e3, g("V3") * 1e3, g("M33") * 1e6, g("M22") * 1e6
@@ -609,7 +679,7 @@ def compute(inp: dict) -> dict:
             dn = DIR_NAME[key]
             if key == "bi":
                 sol = r["sol"]
-                add("conc_bear_bi", "Bê tông (ép mặt)", "Ép mặt bê tông — hai phương (biaxial)", "MPa", "DG1 3.4",
+                add("conc_bear_bi", "Bê tông (ép mặt)", "Ép mặt bê tông — hai phương (biaxial)", "MPa", "DG1 3.1.1",
                     fpmax, sol["fp"], nm, lambda sol=sol: [
                         f"Bản cứng, mặt phẳng biến dạng ε = e0 + kx·x + kz·z; bê tông Ec = 4700√f'c = {f1(Ec)} MPa (chỉ nén), neo Es = {ES:g} MPa (chỉ kéo)",
                         f"Pu = {f1(kN(Pc))} kN;  Mu,x = {f2(kNm(Mx))} kN·m;  Mu,z = {f2(kNm(My))} kN·m (quanh tâm bản)",
@@ -617,14 +687,19 @@ def compute(inp: dict) -> dict:
                         f"Áp lực lớn nhất tại góc bản fp = {f2(sol['fp'])} MPa;  tổng lực kéo neo = {f2(kN(sum(sol['T'])))} kN",
                         "Analysis axis = Biaxial: phân bố tuyến tính (tương thích biến dạng)"], ("conc", "bp"), scale=False)
                 Mb, best = 0.0, ""
-                l = max(m_, n_)
+                full = sol["fp"] > 0 and abs(sol["kx"]) * G["N"] + abs(sol["ky"]) * G["B"] < 1e-9 * max(abs(sol["e0"]), 1e-30)
+                lam_n = 0.0
+                if full and Pc > 0:                            # bản ép toàn bộ, áp lực đều: DG1 §3.1.2 có λn'
+                    X = min(4 * d * bf / (d + bf) ** 2 * Pc / (min(0.85 * fc * G["sqA"], 1.7 * fc) * 0.65 * kA * G["A1"]), 1.0)
+                    lam_n = min(2 * math.sqrt(X) / (1 + math.sqrt(max(1 - X, 0.0))), 1.0) * math.sqrt(d * bf) / 4
+                l = max(m_, n_, lam_n)
                 for k_, lab in ((sol["kx"], "phương N"), (sol["ky"], "phương B")):
                     Y = sol["fp"] / (Ec * abs(k_)) if abs(k_) > 1e-15 else math.inf
                     Mpl = strip_moment(sol["fp"], Y, l, "linear")
                     if Mpl >= Mb:
                         Mb, best = Mpl, f"Dải {lab}: fp = {f2(sol['fp'])} MPa giảm tuyến tính, Y = {'∞' if math.isinf(Y) else f1(Y)} mm, l = max(m; n) = {f1(l)} mm"
-                add("bp_comp_bi", "Bản đế", "Uốn bản đế phía ép — hai phương", "kN·m/m", "DG1 Eq. 3.3.14", Mcap / 1e3, Mb / 1e3, nm,
-                    lambda Mb=Mb, best=best: [f"m = {f1(m_)} mm;  n = {f1(n_)} mm", best,
+                add("bp_comp_bi", "Bản đế", "Uốn bản đế phía ép — hai phương", "kN·m/m", "DG1 Sec 3.1.2" if full else "DG1 Eq. 3.3.13", Mcap / 1e3, Mb / 1e3, nm,
+                    lambda Mb=Mb, best=best, lam_n=lam_n: [f"m = {f1(m_)} mm;  n = {f1(n_)} mm" + (f";  λn' = {f1(lam_n)} mm" if lam_n else ""), best,
                                               f"Mpl = {f2(Mb / 1e3)} kN·m/m;  φMn = 0.9·Fy·tp²/4 = {f2(Mcap / 1e3)} kN·m/m",
                                               f"tp,req = √(4Mpl/(0.9Fy)) = {f1(math.sqrt(4 * Mb / (0.9 * Fy)))} mm"], ("bp",))
                 continue
@@ -668,7 +743,7 @@ def compute(inp: dict) -> dict:
                 Mpl = strip_moment(fp, Y, l, prof)
                 tpreq = math.sqrt(4 * Mpl / (0.9 * Fy)) if Mpl > 0 else 0.0
                 lin = prof == "linear"
-                add(f"bp_comp_{key}", "Bản đế", f"Uốn bản đế phía ép — {dn}", "kN·m/m", "DG1 Eq. 3.3.14",
+                add(f"bp_comp_{key}", "Bản đế", f"Uốn bản đế phía ép — {dn}", "kN·m/m", "DG1 Eq. 3.3.13",
                     Mcap / 1e3, Mpl / 1e3, nm, lambda l=l, fp=fp, Y=Y, Mpl=Mpl, tpreq=tpreq, X=X, lamb=lamb, lam_n=lam_n, lin=lin: [
                         f"m = (N/2 + |ox|) − 0.95d/2 = {f1(m_)} mm;  n = (B/2 + |oz|) − 0.8bf/2 = {f1(n_)} mm",
                     ] + ([f"X = 4·d·bf/(d + bf)²·Pu/(φc·Pp) = {f2(X)};  λ = 2√X/(1 + √(1 − X)) = {f2(lamb)};  λn' = λ·√(d·bf)/4 = {f1(lam_n)} mm"]
@@ -733,7 +808,7 @@ def compute(inp: dict) -> dict:
             add("shear_fric", "Truyền lực cắt", "Ma sát bản đế – vữa (giảm lực cắt)", "kN", "DG1 3.5.1", kN(Vf), kN(min(Vr, Vf)), nm,
                 lambda: fric_txt, ("bp", "conc"), info=True, scale=False)
         Va = 0.0
-        nv = nA if welded else max(nA // 2, 1)
+        nv = nA                                              # RAM: lực cắt chia đều cho mọi neo
         if mode == "anchors":
             Va = Vd / nv
             if G["grout"] > 50 and Vd > 0:
@@ -763,32 +838,12 @@ def compute(inp: dict) -> dict:
             armw = tl + 2 * wl / 3
             fv, fn = Vd / (2 * bl), Mu / (armw * bl)
             fr = math.hypot(fv, fn)
-            capw = 0.75 * 0.6 * weldF * 0.707 * wl
+            capw = 0.75 * 0.6 * weldF * SQ2 * wl
             add("lug_w", "Bản chắn cắt", "Hàn bản chắn cắt vào bản đế", "kN/m", "Eq. J2-4", capw, fr, nm,
                 lambda fv=fv, fn=fn, fr=fr, capw=capw, wl=wl, armw=armw: [
                     f"Hai đường hàn góc w = {wl:g} mm dài bl = {bl:g} mm;  cánh tay đòn cặp lực = tl + 2w/3 = {f1(armw)} mm",
                     f"fv = Vu/(2bl) = {f1(fv)} N/mm;  fn = Mu/(arm·bl) = {f1(fn)} N/mm;  fr = √(fv² + fn²) = {f1(fr)} N/mm",
                     f"φRn = 0.75·0.6·FEXX·0.707·w = {f1(capw)} N/mm"], ("lug",))
-
-        # ---------- neo: AISC J3 ----------
-        rT = 0.75 * Fnt * Ab
-        add("anc_t", "Bu lông neo (AISC)", "Neo chịu kéo", "kN", "Table J3.2", kN(rT), kN(Tmax), nm,
-            lambda rT=rT: [f"Lực kéo neo lớn nhất Tu = {f2(kN(Tmax))} kN (tổng nhóm {f2(kN(Tsum))} kN)",
-                           f"Neo M{da:g} cấp {am['name']}: Fu = {am['Fu']:g} MPa;  Fnt = 0.75Fu = {f1(Fnt)} MPa;  Ab = {f1(Ab)} mm²",
-                           f"φRn = 0.75·Fnt·Ab = {f2(kN(rT))} kN"], ("anchors",))
-        if mode == "anchors":
-            rV = 0.75 * Fnv * Ab
-            add("anc_v", "Bu lông neo (AISC)", "Neo chịu cắt", "kN", "Table J3.2", kN(rV), kN(Va), nm,
-                lambda rV=rV, nv=nv: fric_txt + [
-                    f"Vu = {f2(kN(Vd))} kN chia cho {nv} neo ({'neo hàn vào bản đế: mọi neo' if welded else 'lỗ quá cỡ: một nửa số neo, DG1 §3.5.2'}) → Vu,neo = {f2(kN(Va))} kN",
-                    f"Fnv = {Fnv / am['Fu']:.3f}Fu = {f1(Fnv)} MPa;  φRn = 0.75·Fnv·Ab = {f2(kN(rV))} kN"], ("anchors",))
-            frv = Va / Ab
-            Fp = min(1.3 * Fnt - Fnt / (0.75 * Fnv * kA) * frv, Fnt)
-            capTV = 0.75 * max(Fp, 0.0) * Ab
-            add("anc_tv", "Bu lông neo (AISC)", "Neo chịu kéo + cắt đồng thời", "kN", "Eq. J3-3" + ("b" if asd else "a"), kN(capTV), kN(Tmax), nm,
-                lambda Fp=Fp, frv=frv, capTV=capTV: [
-                    f"frv = Vu,neo/Ab = {f1(frv)} MPa;  F'nt = 1.3Fnt − Fnt/({'Fnv/Ω' if asd else 'φFnv'})·frv = {f1(Fp)} ≤ Fnt = {f1(Fnt)} MPa",
-                    f"φRn = 0.75·F'nt·Ab = {f2(kN(capTV))} kN"], ("anchors",))
 
         # ---------- neo: ACI 318 ----------
         if not fast and not asd:
@@ -802,12 +857,15 @@ def compute(inp: dict) -> dict:
                 tp_ = [p for p, t in zip(spts, T) if t > 0]
                 tf_ = [t for t in T if t > 0]
                 if primT:
-                    AsReq = Tsum / (0.75 * fyr * kA)
-                    add("aci_rt", "Neo – bê tông (ACI 318)", "Cốt thép neo chịu kéo — As yêu cầu (thay phá vỡ bê tông)", "mm²", aref("D.5.2.9"),
-                        AsReq, AsReq, nm, lambda AsReq=AsReq: [
-                            "Tension reinforcement (primary): cốt thép neo ôm nhóm neo kéo, không xét phá vỡ hình nón bê tông",
-                            f"As,req = Nua/(0.75·fy) = {f2(kN(Tsum))}·10³/(0.75·{fyr:g}{'/1.5' if asd else ''}) = {f1(AsReq)} mm²  (fy = {fyr:g} MPa, Grade 60)",
-                            "Bố trí cốt thép ≥ As,req, neo đủ chiều dài phát triển về hai phía mặt phá hoại giả định."], ("conc", "anchors"), info=True, scale=False)
+                    AsT = REBAR_US.get(rf.get("barT", "no. 5"), 200.0) * int(rf.get("nT", 0) or 0)
+                    fyT = float(rf.get("fyT") or 413.7)
+                    capR = 0.75 * AsT * fyT
+                    tN.append(add("aci_rt", "Neo – bê tông (ACI 318)", "Cốt thép neo chịu kéo (thay phá vỡ bê tông)", "kN", aref("D.5.2.9"),
+                                  kN(capR), kN(Tsum), nm, lambda capR=capR, AsT=AsT, fyT=fyT: [
+                                      "Tension reinforcement (primary): cốt thép neo ôm nhóm neo kéo, không xét phá vỡ hình nón bê tông",
+                                      f"As = {rf.get('nT')} × {rf.get('barT')} = {f1(AsT)} mm²;  fy = {fyT:g} MPa",
+                                      f"φNn = 0.75·As·fy = {f2(kN(capR))} kN;  Nua = {f2(kN(Tsum))} kN",
+                                      "Cốt thép phải được neo đủ chiều dài phát triển về hai phía mặt phá hoại giả định (kiểm tra riêng)."], ("conc", "anchors")))
                 else:
                     br = aci_breakout_tension(G, tp_, tf_, hef, fc, lam, cracked, headed)
                     phiN = phi_cbT * br["Ncbg"] * sC
@@ -843,7 +901,7 @@ def compute(inp: dict) -> dict:
                     o = 1 - ax_i
                     E2 = G["B2"] / 2 if ax_i == 0 else G["N2"] / 2
                     ca2 = min(E2 - abs(p[o]) for p, _t in grp)
-                    Nsb = 13 * ca1 * math.sqrt(Abrg) * lam * math.sqrt(fc)
+                    Nsb = K_SB * ca1 * math.sqrt(Abrg) * lam * math.sqrt(fc)
                     if ca2 < 3 * ca1:
                         Nsb *= (1 + min(max(ca2 / ca1, 1.0), 3.0)) / 4
                     s = max(p[o] for p, _t in grp) - min(p[o] for p, _t in grp)
@@ -853,7 +911,7 @@ def compute(inp: dict) -> dict:
                     tN.append(add(f"aci_sb{edge}", "Neo – bê tông (ACI 318)", f"Nổ mặt bên bê tông (mép {edge})", "kN", aref("D.5.4"),
                                   kN(capSb), kN(dem), nm, lambda ca1=ca1, ca2=ca2, Nsb=Nsb, Nsbg=Nsbg, s=s, grp=grp, capSb=capSb: [
                                       f"hef = {hef:g} > 2.5·ca1 = {f1(2.5 * ca1)} mm → xét nổ mặt bên;  ca1 = {f1(ca1)} mm, ca2 = {f1(ca2)} mm",
-                                      "Nsb = 13·ca1·√Abrg·λ·√f'c" + (" ·(1 + ca2/ca1)/4" if ca2 < 3 * ca1 else "") + f" = {f2(kN(Nsb))} kN",
+                                      "Nsb = 160·ca1·√Abrg·λ·√f'c [lb, psi, in]" + (" ·(1 + ca2/ca1)/4" if ca2 < 3 * ca1 else "") + f" = {f2(kN(Nsb))} kN",
                                       (f"Nhóm {len(grp)} neo, s = {f1(s)} mm < 6ca1: Nsbg = (1 + s/(6ca1))·Nsb = {f2(kN(Nsbg))} kN" if len(grp) > 1 and s < 6 * ca1
                                        else f"Nsbg = {len(grp)}·Nsb = {f2(kN(Nsbg))} kN"),
                                       f"φNsbg = {phi_cbT}·Nsbg{stxt(sC)} = {f2(kN(capSb))} kN"], ("conc", "anchors")))
@@ -864,70 +922,82 @@ def compute(inp: dict) -> dict:
                               lambda Vsa=Vsa, capVs=capVs: [
                                   "Vsa = 0.6·Ase,V·futa" + (f" ·0.8 (có lớp vữa, {aref('D.6.1.3')})" if G["grout"] > 0 else "") + f" = {f2(kN(Vsa))} kN",
                                   f"φVsa = {phi_sv}·Vsa{stxt(sS)} = {f2(kN(capVs))} kN;  Vu,neo = {f2(kN(Va))} kN"], ("anchors",)))
-                for ax_i, Vc, lab in ((0, V2d, "V2 — phương N"), (1, V3d, "V3 — phương B")):
+                kcp = 1.0 if hef < 65 else 2.0
+                ball = aci_breakout_tension(G, spts, [1.0] * nA, hef, fc, lam, cracked, headed)
+                one = min((aci_breakout_tension(G, [p], [1.0], hef, fc, lam, cracked, headed) for p in spts), key=lambda b: b["Ncbg"])
+                for ax_i, Vc, lab, sfx in ((0, V2d, "V2 — phương N", "33"), (1, V3d, "V3 — phương B", "22")):
                     if abs(Vc) < 1e-6: continue
+                    cap1 = 0.70 * kcp * one["Ncbg"] * sC
+                    tV.append(add(f"aci_cp1_{sfx}", "Neo – bê tông (ACI 318)", f"Cạy bê tông một neo ({lab})", "kN", aref("D.6.3"), kN(cap1), kN(abs(Vc) / nA), nm,
+                                  lambda cap1=cap1, Vc=Vc: [f"Ncp = Ncb của một neo (vị trí bất lợi) = {f2(kN(one['Ncbg']))} kN;  kcp = {kcp:g}",
+                                                            f"φVcp = 0.70·kcp·Ncp{stxt(sC)} = {f2(kN(cap1))} kN;  Vu,neo = |V|/{nA} = {f2(kN(abs(Vc) / nA))} kN"],
+                                  ("conc", "anchors")))
+                    capCP = 0.70 * kcp * ball["Ncbg"] * sC
+                    tV.append(add(f"aci_cp_{sfx}", "Neo – bê tông (ACI 318)", f"Cạy bê tông nhóm neo ({lab})", "kN", aref("D.6.3"), kN(capCP), kN(abs(Vc)), nm,
+                                  lambda capCP=capCP, Vc=Vc: [f"Ncpg = Ncbg của toàn nhóm {nA} neo = {f2(kN(ball['Ncbg']))} kN;  kcp = {kcp:g}",
+                                                              f"φVcpg = 0.70·kcp·Ncpg{stxt(sC)} = {f2(kN(capCP))} kN;  |V| = {f2(kN(abs(Vc)))} kN"],
+                                  ("conc", "anchors")))
                     if primV:
-                        AsReqV = abs(Vc) / (0.75 * fyr * kA)
-                        add(f"aci_rv_{ax_i}", "Neo – bê tông (ACI 318)", f"Cốt thép neo chịu cắt — As yêu cầu ({lab})", "mm²", aref("D.6.2.9"),
-                            AsReqV, AsReqV, nm, lambda AsReqV=AsReqV, Vc=Vc: [
-                                "Shear reinforcement (primary): đai / thép chữ U ôm neo, không xét phá vỡ bê tông khi cắt",
-                                f"As,req = |V|/(0.75·fy) = {f2(kN(abs(Vc)))}·10³/(0.75·{fyr:g}{'/1.5' if asd else ''}) = {f1(AsReqV)} mm²"], ("conc", "anchors"), info=True, scale=False)
+                        nb = int(rf.get("nVx" if ax_i == 0 else "nVy", 0) or 0)
+                        AsV = REBAR_US.get(rf.get("barV", "no. 5"), 200.0) * nb
+                        fyV = float(rf.get("fyV") or 275.79)
+                        capR = 0.75 * AsV * fyV
+                        tV.append(add(f"aci_rv_{sfx}", "Neo – bê tông (ACI 318)", f"Cốt thép neo chịu cắt ({lab})", "kN", aref("D.6.2.9"),
+                                      kN(capR), kN(abs(Vc)), nm, lambda capR=capR, AsV=AsV, fyV=fyV, nb=nb, Vc=Vc: [
+                                          "Shear reinforcement (primary): đai / thép chữ U ôm neo, không xét phá vỡ bê tông khi cắt",
+                                          f"As = {nb} × {rf.get('barV')} = {f1(AsV)} mm²;  fy = {fyV:g} MPa",
+                                          f"φVn = 0.75·As·fy = {f2(kN(capR))} kN;  |V| = {f2(kN(abs(Vc)))} kN"], ("conc", "anchors")))
                         continue
                     sb = aci_breakout_shear(G, spts, ax_i, 1 if Vc > 0 else -1, hef, da, fc, lam, cracked)
                     phiV = phi_cbV * sb["Vcbg"] * sC
-                    tV.append(add(f"aci_vcb_{ax_i}", "Neo – bê tông (ACI 318)", f"Phá vỡ bê tông khi cắt ({lab})", "kN", aref("D.6.2"),
+                    tV.append(add(f"aci_vcb_{sfx}", "Neo – bê tông (ACI 318)", f"Phá vỡ bê tông khi cắt ({lab})", "kN", aref("D.6.2"),
                                   kN(phiV), kN(abs(Vc)), nm, lambda sb=sb, Vc=Vc, phiV=phiV: [
                                       f"Hàng neo trước ({sb['n']} neo) chịu toàn bộ |V| = {f2(kN(abs(Vc)))} kN;  ca1 = {f1(sb['ca1'])} mm"
                                       + (f" → c'a1 = {f1(sb['ca1e'])} mm ({aref('D.6.2.4')})" if sb["ca1e"] < sb["ca1"] else ""),
-                                      f"Vb = min[0.6(le/da)^0.2·√da·λ·√f'c·ca1^1.5; 3.7·λ·√f'c·ca1^1.5] = {f2(kN(sb['Vb']))} kN  (le = {f1(sb['le'])} mm)",
+                                      f"Vb = min[7(le/da)^0.2·√da·λ·√f'c·ca1^1.5; 9·λ·√f'c·ca1^1.5] [lb, psi, in] = {f2(kN(sb['Vb']))} kN  (le = {f1(sb['le'])} mm)",
                                       f"AVc = {f1(sb['AVc'])} mm²;  AVco = 4.5·ca1² = {f1(sb['AVco'])} mm²;  ψed = {f2(sb['psi_ed'])};  ψc = {sb['psi_c']:g};  ψh = {f2(sb['psi_h'])}",
                                       f"φVcbg = {phi_cbV}·AVc/AVco·ψed·ψc·ψh·Vb{stxt(sC)} = {f2(kN(phiV))} kN"
                                       + ("  (Condition A)" if phi_cbV > 0.7 else "")], ("conc", "anchors")))
-                ball = aci_breakout_tension(G, spts, [1.0] * nA, hef, fc, lam, cracked, headed)
-                kcp = 1.0 if hef < 65 else 2.0
-                capCP = 0.70 * kcp * ball["Ncbg"] * sC
-                tV.append(add("aci_cp", "Neo – bê tông (ACI 318)", "Cạy bê tông (pryout)", "kN", aref("D.6.3"), kN(capCP), kN(Vd), nm,
-                              lambda capCP=capCP, ball=ball, kcp=kcp: [
-                                  f"Ncpg = Ncbg của toàn nhóm {nA} neo = {f2(kN(ball['Ncbg']))} kN;  kcp = {kcp:g}",
-                                  f"φVcpg = 0.70·kcp·Ncpg{stxt(sC)} = {f2(kN(capCP))} kN;  Vu = {f2(kN(Vd))} kN"], ("conc", "anchors")))
-            if tN and tV:
-                rn, rv = max(tN), max(tV)
-                if rv <= 0.2: val, how = rn, "Vua/φVn ≤ 0.2 → chỉ kiểm tra kéo"
-                elif rn <= 0.2: val, how = rv, "Nua/φNn ≤ 0.2 → chỉ kiểm tra cắt"
-                else: val, how = (rn + rv) / 1.2, "Nua/φNn + Vua/φVn ≤ 1.2"
-                add("aci_int", "Neo – bê tông (ACI 318)", "Tương tác kéo – cắt (neo / bê tông)", "", aref("D.7"), 1.0, val, nm,
+            if tN or tV:
+                rn, rv = max(tN or [0.0]), max(tV or [0.0])
+                if rn + rv > int_best[0]: int_best[:] = [rn + rv, nm]
+                both = rn > 0.2 and rv > 0.2
+                val = (rn + rv) if both else 0.0
+                how = "Nua/φNn + Vua/φVn ≤ 1.2" if both else "Nua/φNn ≤ 0.2 hoặc Vua/φVn ≤ 0.2 → không cần kiểm tra tương tác"
+                add("aci_int", "Neo – bê tông (ACI 318)", "Tương tác kéo – cắt (neo / bê tông)", "", aref("D.7"), 1.2, val, nm,
                     lambda rn=rn, rv=rv, how=how, val=val: [f"Nua/φNn (lớn nhất) = {f2(rn)};  Vua/φVn (lớn nhất) = {f2(rv)}", how,
-                                                           f"Tỷ số = {f2(val)}"], ("anchors", "conc"), scale=False)
+                                                           f"Nua/φNn + Vua/φVn = {f2(val)} ≤ 1.2"], ("anchors", "conc"), scale=False)
 
-        # ---------- hàn cột – bản đế (nội lực tại tâm cột) ----------
+        # ---------- hàn cột – bản đế (như RAM): kéo + mô men → hàn cánh; V2 → hàn bụng; V3 → hàn cánh ----------
         Nw = max(Nt, 0.0)
-        fv = Vr / Lt
-        # hai điểm tới hạn: mép ngoài cánh và đầu bụng; như RAM: Weld capacity (hợp lực, tăng theo góc), shear, axial
-        pts_w = [("cánh", Nw / Lt + abs(M33) * (d / 2) / I33 + abs(M22) * (bf / 2) / I22, qfl, wfl)]
-        if not outer:
-            pts_w.append(("bụng", Nw / Lt + abs(M33) * (hw / 2) / I33 + abs(M22) * (tw / 2) / I22, qweb, wweb))
-        wtxt = [f"Chu vi hàn: cánh Lf = {f1(Lf)} mm, bụng Lw = {f1(Lw)} mm, tổng L = {f1(Lt)} mm;  I33 = {f1(I33 / 1e6)}·10⁶ mm³, I22 = {f1(I22 / 1e6)}·10⁶ mm³"
-                + ("  (chỉ hàn mặt ngoài cánh)" if outer else ""),
-                f"Lực dọc kéo đưa vào hàn = {f2(kN(Nw))} kN (lực nén truyền bằng tì ép cột lên bản đế)"]
-        for key, lab, ref in (("w_cap", "Weld capacity", "Sec. J2.4"), ("w_v", "Elastic method weld shear capacity", "Sec. J2.4"),
-                              ("w_n", "Elastic method weld axial capacity", "Sec. J2.4")):
-            worst = None
-            for where, fn, q, wsz in pts_w:
-                if key == "w_v":
-                    cap, dem, how = q, fv, f"fv = Vu/L = {f1(fv)} N/mm ≤ φ·0.6·FEXX·0.707·w = {f1(q)} N/mm"
-                elif key == "w_n":
-                    cap, dem, how = 1.5 * q, fn, f"fn ({where}) = N/L + M33·c/I33 + M22·c/I22 = {f1(fn)} N/mm ≤ 1.5·φ·0.6·FEXX·0.707·w = {f1(1.5 * q)} N/mm (θ = 90°)"
-                else:
-                    th = math.atan2(fn, fv) if fv > 0 or fn > 0 else math.pi / 2
-                    kds = 1 + 0.5 * math.sin(th) ** 1.5
-                    dem = math.hypot(fn, fv); cap = kds * q
-                    how = (f"fr ({where}) = √(fn² + fv²) = √({f1(fn)}² + {f1(fv)}²) = {f1(dem)} N/mm;  θ = {math.degrees(th):.1f}°, "
-                           f"kds = 1 + 0.5·sin^1.5θ = {kds:.3f} → φRn = kds·φ·0.6·FEXX·0.707·w = {f1(cap)} N/mm")
-                rr = dem / cap if cap > 0 else math.inf
-                if worst is None or rr > worst[0]: worst = (rr, cap, dem, how, wsz)
-            _r, cap, dem, how, wsz = worst
-            add(key, "Hàn cột – bản đế", lab, "kN/m", ref, cap, dem, nm,
-                lambda how=how, wsz=wsz: wtxt + [how, f"w = {wsz:g} mm, FEXX = {weldF:g} MPa, φ = 0.75 (Eq. J2-4, J2-5)"], ("wflange", "wweb"))
+        Lweb = Lw if Lw > 0 else Lf
+        wtxt = [f"Hàn cánh Lf = {f1(Lf)} mm" + (f", hàn bụng Lw = 2·hw = {f1(Lw)} mm" if Lw > 0 else " (chỉ hàn mặt ngoài cánh)"),
+                f"Lực kéo đưa vào hàn = {f2(kN(Nw))} kN (lực nén truyền bằng tì ép cột lên bản đế)"]
+        # Weld capacity (DG1 p.35): lực neo phân bố 45° tới thép cột, chiều dài hàn hiệu quả 2·a
+        wc = (0.0, "Không có neo chịu kéo")
+        for i, a_ in enumerate(G["anchors"]):
+            if T[i] <= 0 or a_["zone"] == "clash": continue
+            Le = (G["B"] / sum(1 for b_ in G["anchors"] if abs(b_["x"] - a_["x"]) < 1e-6)) if a_["zone"] == "out" else 2 * max(a_["arm"], 1e-6)
+            if T[i] / Le > wc[0]:
+                wc = (T[i] / Le, f"Neo (x = {f1(a_['x'])}; z = {f1(a_['y'])}): T = {f2(kN(T[i]))} kN, chiều dài hàn hiệu quả = "
+                               + ("B / số neo cùng hàng" if a_["zone"] == "out" else f"2·a = 2·{f1(a_['arm'])}") + f" = {f1(Le)} mm → f = {f1(T[i] / Le)} N/mm")
+        add("w_cap", "Hàn cột – bản đế", "Weld capacity", "kN/m", "DG1 p. 35", 1.5 * qfl, wc[0], nm,
+            lambda wc=wc: wtxt + [wc[1], f"φRn = 1.5·φ·0.6·FEXX·(√2/2)·w = {f1(1.5 * qfl)} N/mm (θ = 90°)"], ("wflange", "wweb"))
+        for sfx, Vc, Lv, lab in (("33", V2, Lweb, "V2 → hàn bụng" if Lw > 0 else "V2 → hàn cánh"), ("22", V3, Lf, "V3 → hàn cánh")):
+            if axis == "major" and sfx == "22" or axis == "minor" and sfx == "33": continue
+            q = qweb if (sfx == "33" and Lw > 0) else qfl
+            add(f"w_v_{sfx}", "Hàn cột – bản đế", "Elastic method weld shear capacity", "kN/m", "Sec. J2.4", q, abs(Vc) / Lv, nm,
+                lambda Vc=Vc, Lv=Lv, lab=lab, q=q: wtxt + [f"{lab}: fv = |V|/L = {f2(kN(abs(Vc)))}·10³/{f1(Lv)} = {f1(abs(Vc) / Lv)} N/mm",
+                                                       f"φRn = φ·0.6·FEXX·(√2/2)·w = {f1(q)} N/mm"], ("wflange", "wweb"))
+        for sfx, Mc, cc, Ic in (("33", M33, d / 2, I33), ("22", M22, bf / 2, I22)):
+            if axis == "major" and sfx == "22" or axis == "minor" and sfx == "33": continue
+            fa, fb_ = Nt / Lf, abs(Mc) * cc / Ic
+            fn = max(fa + fb_, 0.0)
+            add(f"w_n_{sfx}", "Hàn cột – bản đế", "Elastic method weld axial capacity", "kN/m", "Sec. J2.4", 1.5 * qfl, fn, nm,
+                lambda fa=fa, fb_=fb_, fn=fn, Mc=Mc, cc=cc, Ic=Ic: wtxt + [
+                    f"fa = P/L = {f2(kN(Nt))}·10³/{f1(Lf)} = {f1(fa)} N/mm (P > 0 kéo)",
+                    f"fb = M·c/I = {f2(kNm(abs(Mc)))}·10⁶·{f1(cc)}/{Ic:.3g} = {f1(fb_)} N/mm (I của toàn chu vi hàn)",
+                    f"f = max(fb + fa; 0) = {f1(fn)} N/mm;  φRn = 1.5·φ·0.6·FEXX·(√2/2)·w = {f1(1.5 * qfl)} N/mm (θ = 90°)"], ("wflange",))
 
         r33 = dirs.get("33") or dirs.get("bi") or {}
         if r33.get("sol"):
@@ -986,27 +1056,24 @@ def compute(inp: dict) -> dict:
     def gchk(grp, name, val, mn=None, mx=None, ref="", unit="mm"):
         ok = (mn is None or val >= mn - 1e-6) and (mx is None or val <= mx + 1e-6)
         geo.append(dict(grp=grp, name=name, val=val, min=mn, max=mx, ref=ref, unit=unit, ok=ok))
-    projN, projB = G["N"] / 2 - abs(ox) - d / 2, G["B"] / 2 - abs(oz) - bf / 2
-    gchk("Bản đế", "Phần bản nhô theo phương N", projN, 0.0, None, "DG1 2.10")
-    gchk("Bản đế", "Phần bản nhô theo phương B", projB, 0.0, None, "DG1 2.10")
-    if min(projN, projB) < 25:
-        W.append("Bản đế nhô ra ngoài cột < 25 mm: khó hàn và đặt neo (DG1 §2.10).")
-    emin = edge_min(int(da), True)
-    gchk("Bản đế", "Khoảng cách neo tới mép bản", min(float(an["ex"]), float(an["ey"])), emin, None, "Table J3.4")
+    # như RAM — Base plate: khoảng cách từ mép thân neo tới mép bản (min 1/4"), cỡ hàn (Table J2.4)
+    gchk("Bản đế", "Khoảng cách neo tới mép bản", min(float(an["ex"]), float(an["ey"])) - da / 2, 6.35, None, "")
     Dw = float(inp["weld"].get("D", inp["weld"]["fl"]["D"]))
-    gchk("Bản đế", "Cỡ hàn cột", Dw, float(math.ceil(weld_min(min(tf, tw, tp) if not outer else min(tf, tp)) / IN16 - 1e-9)), None, "table J2.4", unit="1/16in")
+    gchk("Bản đế", "Cỡ hàn cột", Dw, float(weld_min16(min(tf, tw, tp) if not outer else min(tf, tp))), None, "table J2.4", unit="1/16in")
+    if any(a["zone"] == "clash" for a in G["anchors"]) or min(a["clear"] for a in G["anchors"]) < anchor_hole(da) / 2:
+        W.append("Neo quá gần / trùng thép cột — kiểm tra lại vị trí neo.")
+    # như RAM — Anchors: bước neo (D.8.1, ≥ 4da), lớp bê tông bảo vệ (7.7.1, ≥ 3"), chiều dài hiệu quả (hef + đầu neo ≤ h − đầu neo)
     sxv = sorted({round(a["x"], 3) for a in G["anchors"]}); syv = sorted({round(a["y"], 3) for a in G["anchors"]})
-    if len(sxv) > 1: gchk("Bu lông neo", "Bước neo phương N", min(b - a for a, b in zip(sxv, sxv[1:])), 4 * da, None, aref("D.8.1"))
-    if len(syv) > 1: gchk("Bu lông neo", "Bước neo phương B", min(b - a for a, b in zip(syv, syv[1:])), 4 * da, None, aref("D.8.1"))
-    clr = min(a["clear"] for a in G["anchors"])
-    wmin = washer_min(da)[0] / 2 + max(wfl, wweb)
-    gchk("Bu lông neo", "Khoảng hở tâm neo – mặt thép cột", clr, wmin, None, "DG1 2.10")
+    sp = [b - a for v in (sxv, syv) for a, b in zip(v, v[1:])]
+    if sp: gchk("Bu lông neo", "Bước neo", min(sp), 4 * da, None, "Sec. D.8.1")
+    camin = min(a["ca"] for a in G["anchors"])
+    gchk("Bu lông neo", "Lớp bê tông bảo vệ", camin - da / 2, 76.2, None, "Sec. 7.7.1")
+    hh = 0.65 * da                                            # chiều cao đầu neo
+    gchk("Bu lông neo", "Chiều dài hiệu quả", hef + hh, None, G["ha"] - hh, "")
     if not headed:
         gchk("Bu lông neo", "Chiều dài móc eh", float(an.get("eh") or 0), 3 * da, 4.5 * da, aref("D.5.3"))
-    camin = min(a["ca"] for a in G["anchors"])
-    gchk("Bê tông", "Khoảng cách neo tới mép gối", camin, 50 + head_sz / 2, None, aref("D.8.2"))
-    gchk("Bê tông", "Chiều sâu chôn hef ≤ h − 50", hef, None, G["ha"] - 50, aref("D.8.5"))
-    gchk("Bê tông", "Gối nhô ra ngoài bản đế", min(G["N2"] / 2 - abs(G["px"]) - G["N"] / 2, G["B2"] / 2 - abs(G["pz"]) - G["B"] / 2), 0.0, None, "AISC J8")
+    if min(G["N2"] / 2 - abs(G["px"]) - G["N"] / 2, G["B2"] / 2 - abs(G["pz"]) - G["B"] / 2) < 0:
+        W.append("Bản đế vượt ra ngoài gối bê tông.")
     if mode == "lug":
         lg = inp["lug"]
         gchk("Bản chắn cắt", "Chiều cao chôn H − vữa", float(lg["H"]) - G["grout"], 50.0, None, "DG1 3.5.3")
@@ -1033,13 +1100,15 @@ def compute(inp: dict) -> dict:
         notes.append("Anchors only designed for LRFD code")
     if any(a["zone"] == "clash" for a in G["anchors"]):
         notes.append("Anchors located on column flanges")
+    if "aci_int" in checks and checks["aci_int"]["dem"] == 0 and int_best[1]:
+        checks["aci_int"]["combo"] = int_best[1]
     lst = [checks[i] for i in order]
     gov = None
     for c in lst:
         if not c["info"] and (gov is None or c["ratio"] > gov["ratio"]):
             gov = c
     return dict(G=G, checks=lst, geo=geo, demands=demands, gov=gov, W=W, notes=notes, geoFail=sum(1 for x in geo if not x["ok"]), weldF=weldF,
-                bolt=dict(db=int(da), grade=am["name"]))
+                bolt=dict(db=da, grade=am["name"]))
 
 
 # ─────────────────────────── Tối ưu (Optimization criteria như RAM) ───────────────────────────
@@ -1064,11 +1133,13 @@ def auto_design(inp: dict, dias=tuple(ANCHOR_DIAS), tps=None, progress: Optional
     d, bf = G0["d"], G0["bf"]
     ox, oz = abs(G0["ox"]), abs(G0["oz"])
     if tps is None:
-        tps = _frange(o.get("tpMin", 10), o.get("tpMax", 80), o.get("tpInc", 2)) if o.get("optTp", True) else [G0["tp"]]
+        tps = _frange(o.get("tpMin", 6.35), o.get("tpMax", 76.2), o.get("tpInc", 3.175)) if o.get("optTp", True) else [G0["tp"]]
     tps = sorted(tps) or [G0["tp"]]
-    projs = _frange(o.get("pMin", 40), o.get("pMax", 380), o.get("dimInc", 25))
-    Ns = sorted({round(d + 2 * (p + ox), 1) for p in projs}) if o.get("optN", True) else [G0["N"]]
-    Bs = sorted({round(bf + 2 * (p + oz), 1) for p in projs}) if o.get("optB", True) else [G0["B"]]
+    inc = o.get("dimInc", 25.4)
+    projN = _frange(o.get("pMinN", 38.1), o.get("pMaxN", 381), inc)
+    projB = _frange(o.get("pMinB", 38.1), o.get("pMaxB", 381), inc)
+    Ns = sorted({round(d + 2 * (p + ox), 1) for p in projN}) if o.get("optN", True) else [G0["N"]]
+    Bs = sorted({round(bf + 2 * (p + oz), 1) for p in projB}) if o.get("optB", True) else [G0["B"]]
     keep = o.get("keepPos", "initial")
     an0 = base["anchor"]
     ax0, ay0 = G0["N"] / 2 - float(an0["ex"]), G0["B"] / 2 - float(an0["ey"])
@@ -1119,7 +1190,7 @@ def auto_design(inp: dict, dias=tuple(ANCHOR_DIAS), tps=None, progress: Optional
 
     hef0 = float(base["anchor"]["hef"])
     hmax = float(base["ped"]["h"]) - 50
-    hefs = ([h for h in _frange(max(float(o.get("hefMin", 300)), 50), hmax, 25)] or [hef0]) if o.get("optD", True) else [hef0]
+    hefs = ([h for h in _frange(max(float(o.get("hefMin", 304.8)), 50), hmax, 25.4)] or [hef0]) if o.get("optD", True) else [hef0]
     dlist = list(dias) if o.get("optD", True) else [int(base["anchor"]["d"])]
     pick = lambda R: max((c["ratio"] for c in R["checks"] if c["id"].startswith(("anc_", "aci_", "bp_ten"))), default=0.0)
     bestA, done = None, False

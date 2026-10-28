@@ -71,9 +71,8 @@ def test_uplift_anchor_forces_and_rod_strength():
     R = BE.compute(st)
     assert all(near(t, 50.0) for t in R["demands"][0]["T"])            # 200 kN / 4 neo
     da = BASE["anchor"]["d"]
-    Ab = math.pi * da ** 2 / 4
-    c = chk(R, "anc_t")
-    assert near(c["cap"], 0.75 * 0.75 * 500 * Ab / 1e3) and near(c["dem"], 50.0)
+    c = chk(R, "aci_sa")                                                    # RAM: Anchor tension φ·Ase·futa (Eq. D-3)
+    assert near(c["cap"], 0.75 * BE.ASE_ISO[da] * 500 / 1e3) and near(c["dem"], 50.0)
     # neo ngoài cánh (DG1): Mpl = Tu·x/B với x = f − d/2 + tf/2, Tu = tổng 2 neo cùng hàng
     G = R["G"]
     x = G["ax"] - G["d"] / 2 + G["tf"] / 2
@@ -104,17 +103,17 @@ def test_aci_single_anchor_breakout_far_from_edges():
     st = st_one({"N": 50}, ped={"N2": 5000, "B2": 5000, "h": 3000}, reinf={"T": False, "V": False})
     R = BE.compute(st)
     br = BE.aci_breakout_tension(R["G"], [(0.0, 0.0)], [50e3], 400.0, 25.0, 1.0, True)
-    Nb = max(10 * math.sqrt(25) * 400 ** 1.5, 3.9 * math.sqrt(25) * 400 ** (5 / 3))
-    assert near(br["Ncbg"], Nb)
+    Nb = BE.KC_N2 * math.sqrt(25) * 400 ** (5 / 3)                       # 11" ≤ hef ≤ 25": Eq. D-8 (như RAM)
+    assert near(br["Ncbg"], Nb) and abs(BE.KC_N - 10.04) < 0.01 and abs(BE.KC_N2 - 3.904) < 0.002
     assert any(c["id"] == "aci_cb" for c in R["checks"]) and not any(c["id"] == "aci_rt" for c in R["checks"])
 
 
 def test_anchor_reinforcement_replaces_breakout():
-    st = st_one({"N": 100, "V2": 50}, reinf={"type": "primary", "T": True, "V": True})
+    st = st_one({"N": 100, "V2": 50}, reinf={"type": "primary", "T": True, "V": True, "barT": "no. 10", "nT": 50, "fyT": 275.79})
     R = BE.compute(st)
     ids = {c["id"] for c in R["checks"]}
-    assert "aci_rt" in ids and "aci_cb" not in ids and "aci_rv_0" in ids and "aci_vcb_0" not in ids
-    assert near(chk(R, "aci_rt")["dem"], 100e3 / (0.75 * BE.FY_REINF)) and chk(R, "aci_rt")["info"]
+    assert "aci_rt" in ids and "aci_cb" not in ids and "aci_rv_33" in ids and "aci_vcb_33" not in ids
+    assert near(chk(R, "aci_rt")["cap"], 8473.86)                          # RAM: 0.75·50·819.353·275.79
     # supplementary: Condition A → φ = 0.75 thay 0.70
     R2 = BE.compute(st_one({"N": 100}, reinf={"type": "supplementary", "T": True, "V": False}))
     R3 = BE.compute(st_one({"N": 100}, reinf={"type": "primary", "T": False, "V": False}))
@@ -125,10 +124,10 @@ def test_weld_pure_tension():
     st = st_one({"N": 300})
     R = BE.compute(st)
     G = R["G"]
-    assert near(chk(R, "w_n")["dem"], 300e3 / G["Lt"])                    # Elastic method weld axial
-    q = 0.75 * 0.6 * 482.6 * 0.707 * float(st["weld"]["fl"]["w"])
-    assert near(chk(R, "w_n")["cap"], 1.5 * q) and near(chk(R, "w_v")["cap"], q)
-    assert near(chk(R, "w_cap")["cap"], 1.5 * q)                           # θ = 90°: kds = 1.5
+    assert near(chk(R, "w_n_33")["dem"], 300e3 / G["Lf"])                 # RAM: fa = P/L (hàn cánh)
+    q = 0.75 * 0.6 * 482.631 * math.sqrt(2) / 2 * float(st["weld"]["fl"]["w"])
+    assert near(chk(R, "w_n_33")["cap"], 1.5 * q) and near(chk(R, "w_v_33")["cap"], q)
+    assert near(chk(R, "w_cap")["cap"], 1.5 * q)                           # θ = 90°: hệ số 1.5
 
 
 def test_shear_modes():
@@ -136,12 +135,12 @@ def test_shear_modes():
     R = BE.compute(st)
     Vf = 0.75 * 0.55 * 400
     assert near(chk(R, "shear_fric")["cap"], Vf)
-    nv = len(R["G"]["anchors"]) // 2                                        # neo không hàn: một nửa số neo chịu cắt
-    assert near(chk(R, "anc_v")["dem"], (200 - Vf) / nv)
+    nv = len(R["G"]["anchors"])                                             # RAM: lực cắt chia cho mọi neo
+    assert near(chk(R, "aci_vsa")["dem"], (200 - Vf) / nv)
     st = st_one({"N": -400, "V2": 80}, lug={"on": True})
     R = BE.compute(st)
     assert {"lug_bear", "lug_flex", "lug_v", "lug_w"} <= {c["id"] for c in R["checks"]}
-    assert not any(c["id"] == "anc_v" for c in R["checks"])
+    assert not any(c["id"] == "aci_vsa" for c in R["checks"])
 
 
 def test_biaxial_warning_and_presets_run():
@@ -152,7 +151,8 @@ def test_biaxial_warning_and_presets_run():
     st["gen"]["axis"] = "major"
     R = BE.compute(st)
     assert not any(c["id"].endswith("_22") for c in R["checks"])
-    for p in PRESETS.values():
+    for nm_, p in PRESETS.items():
+        if nm_.startswith("RAM"): continue                                 # ví dụ đối chiếu RAM (cố ý không đạt)
         R = BE.compute(merge(BASE, p))
         assert R["gov"] is not None and R["geoFail"] == 0
         assert R["gov"]["ratio"] <= 1.0, (p.get("name"), R["gov"]["name"], R["gov"]["ratio"])
@@ -166,6 +166,38 @@ def test_auto_design():
     PJ.apply_auto("base", st, res)
     R = BE.compute(st)
     assert max(c["ratio"] for c in R["checks"] if c["id"].startswith(("bp_comp", "bp_ten", "anc_", "aci_"))) <= 1.0
+
+
+def test_ram_cb1_pinned_bp():
+    """Đối chiếu báo cáo RAM Connection "1 - Pinned BP" (I 300x215x5x10, bản 350×220×16 Q345, C30, 4 M27 Class 4.6, hef 800,
+    AISC 360-10 LRFD + ACI 318-08, Biaxial, cốt thép neo primary). Số RAM lấy từ báo cáo Results (capacity / demand)."""
+    st = merge(BASE, PRESETS["RAM CB 1 — Pinned BP (I 300x215x5x10)"])
+    R = BE.compute(st)
+    ram = {  # id: (capacity, demand, Ctrl EQ) — đơn vị như tool (MPa với ép mặt)
+        "conc_bear_bi": (33.15, 2.779, "Pmax"), "bp_comp_bi": (19.87, 0.80, "Pmax"), "bp_ten": (19.87, 13.75, "Pmin"),
+        "w_cap": (1828.47, 239.13, "Pmin"), "w_v_33": (1218.98, 116.67, "Vmax"), "w_v_22": (1218.98, 11.76, "Vmax"),
+        "w_n_33": (1828.47, 129.41, "Pmin"), "w_n_22": (1828.47, 129.41, "Pmin"),
+        "aci_sa": (137.70, 27.50, "Pmin"), "aci_pn": (191.13, 27.50, "Pmin"), "aci_rt": (8473.86, 110.00, "Pmin"),
+        "aci_vsa": (57.28, 17.68, "Vmax"), "aci_cp1_33": (540.49, 17.50, "Vmax"), "aci_cp_33": (625.98, 70.00, "Vmax"),
+        "aci_rv_33": (5337.87, 70.00, "Vmax"), "aci_cp1_22": (540.49, 2.50, "Vmax"), "aci_cp_22": (625.98, 10.00, "Vmax"),
+        "aci_int": (1.20, 0.00, "Pmin"),
+    }
+    for cid, (cap, dem, combo) in ram.items():
+        c = chk(R, cid)
+        assert abs(c["cap"] - cap) <= 0.006 * max(1.0, cap) + 0.011, (cid, c["cap"], cap)
+        assert abs(abs(c["dem"]) - dem) <= 0.005 * max(1.0, dem) + 0.011, (cid, c["dem"], dem)
+        assert c["combo"] == combo, (cid, c["combo"], combo)
+    g = {x["name"]: x for x in R["geo"]}
+    for name, val, mn, mx in (("Khoảng cách neo tới mép bản", 36.50, 6.35, None), ("Cỡ hàn cột", 5, 2, None), ("Bước neo", 120.0, 108.0, None),
+                              ("Lớp bê tông bảo vệ", 426.5, 76.2, None), ("Chiều dài hiệu quả", 817.55, None, 1982.45)):
+        assert abs(g[name]["val"] - val) < 0.01 and (mn is None or abs(g[name]["min"] - mn) < 0.01) and (mx is None or abs(g[name]["max"] - mx) < 0.01), name
+    assert abs(R["gov"]["ratio"] - 0.69) < 0.005                            # Global critical strength ratio 0.69
+    import base_report as BR
+    rep = BR.build(st, R)
+    assert [round(b["ratio"], 2) for b in rep["blocks"]] == [0.69, 0.69] and round(rep["blocks"][0]["anchors"]["ratio"], 2) == 0.31
+    pm = rep["details"][0]["subs"]
+    assert pm[0]["title"] == "Maximum compression (Pmax)" and pm[1]["title"] == "Maximum tension (Pmin)"
+    assert [r[3] for r in pm[1]["anchors"]] == ["5.75"] * 4 and [r[4] for r in pm[1]["anchors"]] == ["27.50"] * 4
 
 
 def test_model3d_anchor_count():
@@ -200,7 +232,8 @@ def test_triangular_and_strain_compatibility():
 def test_asd_offsets_and_options():
     R1 = BE.compute(st_one({"N": -300, "M33": 100}))
     R2 = BE.compute(st_one({"N": -300, "M33": 100}, gen={"designCode": "AISC 2010 ASD"}))
-    assert near(chk(R2, "anc_t")["cap"], chk(R1, "anc_t")["cap"] / 1.5)
+    assert near(chk(R2, "w_v_33")["cap"], chk(R1, "w_v_33")["cap"] / 1.5)
+    assert not any(c["id"].startswith(("anc_", "aci_")) for c in R2["checks"])  # RAM: neo chỉ thiết kế theo LRFD
     R3 = BE.compute(st_one({"N": -300}, col={"ox": 50}))                  # lệch tâm cột → mô men Pu·ox
     assert R3["demands"][0]["case33"] in ("small", "large")
     R4 = BE.compute(st_one({"N": -300, "M33": 100}, plate={"overA2": True, "A2A1": 1.0}))
@@ -211,7 +244,7 @@ def test_asd_offsets_and_options():
     R7 = BE.compute(st_one({"N": 100}, anchor={"layout": "transversal", "nr": 2, "npr": 3, "sr": 70}))
     assert len(R7["G"]["anchors"]) == 12
     R8 = BE.compute(st_one({"N": 100}, weld={"outerOnly": True}))
-    assert near(R8["G"]["Lt"], R8["G"]["col"]["bfE"] + R8["G"]["col"]["bfI"])
+    assert near(R8["G"]["Lt"], R8["G"]["col"]["bfE"] + R8["G"]["col"]["bfI"]) and not any(c["id"] == "w_v_33" and near(c["cap"], 0) for c in R8["checks"])
     R9 = BE.compute(st_one({"N": 100}, gen={"designCode": "AISC 2010 ASD"}))
     assert not any(c["id"].startswith("aci_") for c in R9["checks"]) and "Anchors only designed for LRFD code" in R9["notes"]
 

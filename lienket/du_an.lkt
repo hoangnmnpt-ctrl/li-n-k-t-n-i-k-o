@@ -263,6 +263,165 @@
     },
     "group": "Joints"
    }
+  },
+  {
+   "id": 2,
+   "kind": "base",
+   "state": {
+    "name": "Pinned BP",
+    "gen": {
+     "designCode": "AISC 2010 LRFD",
+     "concCode": "ACI 318-08",
+     "seismic": false,
+     "bearCalc": "complete",
+     "friction": false,
+     "axis": "biaxial",
+     "pressure": "uniform",
+     "compat": true
+    },
+    "col": {
+     "sec": "I 300x215x5x10",
+     "mat": "Q345",
+     "L": 6.0,
+     "jointEnd": "I",
+     "ox": 0.0,
+     "oz": 0.0
+    },
+    "plate": {
+     "N": 350,
+     "B": 220,
+     "tp": 16,
+     "mat": "Q345",
+     "shape": "rect",
+     "ctype": "unstiffened",
+     "pos": "center",
+     "px": 0.0,
+     "pz": 0.0,
+     "overA2": false,
+     "A2A1": 4.0
+    },
+    "ped": {
+     "isPed": false,
+     "N2": 1000,
+     "B2": 1000,
+     "h": 2000,
+     "mat": "C30",
+     "fc": 25.0,
+     "groutOn": true,
+     "grout": 50
+    },
+    "anchor": {
+     "layout": "longitudinal",
+     "nr": 1,
+     "npr": 2,
+     "sr": 80,
+     "ex": 115,
+     "ey": 50,
+     "type": "headed",
+     "head": "hex",
+     "eh": 100,
+     "lockNut": false,
+     "grade": "Class 4.6",
+     "d": 27,
+     "hef": 800,
+     "cracked": false,
+     "brittle": false,
+     "welded": false
+    },
+    "reinf": {
+     "type": "primary",
+     "T": true,
+     "barT": "no. 10",
+     "fyT": 275.79,
+     "nT": 50,
+     "V": true,
+     "barV": "no. 18",
+     "fyV": 275.79,
+     "nVx": 10,
+     "nVy": 10
+    },
+    "weld": {
+     "electrode": "E70XX",
+     "D": 5,
+     "outerOnly": false,
+     "fl": {
+      "D": 5,
+      "w": 7.9375
+     },
+     "web": {
+      "D": 5,
+      "w": 7.9375
+     }
+    },
+    "lug": {
+     "on": false,
+     "bl": 200,
+     "H": 150,
+     "tl": 20,
+     "mat": "Q345",
+     "D": 6,
+     "w": 9.525
+    },
+    "opt": {
+     "optTp": true,
+     "tpMax": 76.2,
+     "tpMin": 6.35,
+     "tpInc": 3.175,
+     "optN": true,
+     "pMaxN": 381,
+     "pMinN": 38.1,
+     "optB": true,
+     "pMaxB": 381,
+     "pMinB": 50,
+     "dimInc": 25.4,
+     "optD": true,
+     "hefMin": 304.8,
+     "keepPos": "initial"
+    },
+    "loads": [
+     {
+      "name": "Mmax",
+      "N": 0,
+      "V2": 0,
+      "V3": 0,
+      "M22": 0,
+      "M33": 0
+     },
+     {
+      "name": "Pmax",
+      "N": -214,
+      "V2": 60,
+      "V3": 0,
+      "M22": 0,
+      "M33": 0
+     },
+     {
+      "name": "Vmax",
+      "N": -195,
+      "V2": 70,
+      "V3": 10,
+      "M22": 0,
+      "M33": 0
+     },
+     {
+      "name": "Mmin",
+      "N": 0,
+      "V2": 0,
+      "V3": 0,
+      "M22": 0,
+      "M33": 0
+     },
+     {
+      "name": "Pmin",
+      "N": 110,
+      "V2": 23,
+      "V3": 10,
+      "M22": 0,
+      "M33": 0
+     }
+    ],
+    "desc": "COT KHUNG CHINH: 4M27 (4.6), PL.16mm"
+   }
   }
  ]
 }

@@ -808,7 +808,7 @@ class App(ctk.CTk):
         import base_engine as BE
         rows = [(g, f"{fy:g}", f"{fu:g}", f"{0.75 * 0.75 * fu:.1f}", f"{0.75 * 0.40 * fu:.1f}") for g, (fy, fu) in BE.ANCHOR_GRADES.items()]
         return table_dialog(self, "Anchors", ["Grade", "Fy [MPa]", "Fu [MPa]", "φFnt = 0.75·0.75Fu", "φFnv = 0.75·0.40Fu (N)"], rows,
-                            "Bu lông neo (thanh ren) — AISC 360-10 Table J3.2. Đường kính: " + ", ".join(f"M{d}" for d in BE.ANCHOR_DIAS)
+                            "Bu lông neo (thanh ren) — AISC 360-10 Table J3.2. Đường kính: " + ", ".join(BE.anchor_label(d) for d in BE.ANCHOR_DIAS)
                             + " · Lỗ bản đế (DG1 Table 2.3 quy đổi): " + ", ".join(f"M{d}→{h}" for d, h in BE.HOLE_DG1.items()))
 
     def db_connections(self):
@@ -830,7 +830,7 @@ class App(ctk.CTk):
             messagebox.showwarning("Smart connection", "Không tính được phương án nào — kiểm tra lại số liệu."); return
         PJ.apply_auto(j["kind"], st, res)
         self.project.update(j["id"], st); self.refresh(); self.select(j["id"])
-        msg = (f"Bản đế {res['N']:g}×{res['B']:g}×{res['tp']:g}, neo M{res['d']} hef {res['hef']:g} — D/C = {res['ratio']:.2f}" if j["kind"] == "base"
+        msg = (f"Bản đế {res['N']:g}×{res['B']:g}×{res['tp']:g}, neo {PJ.BE.anchor_label(res['d'])} hef {res['hef']:g} — D/C = {res['ratio']:.2f}" if j["kind"] == "base"
                else f"tp = {res['tp']} mm, bu lông M{res['d']} — D/C (bản, bu lông) = {res['ratio']:.2f}")
         if res.get("fail"):
             messagebox.showwarning("Smart connection", "Không có phương án đạt trong dải thử.\nPhương án tốt nhất: " + msg)

@@ -226,7 +226,7 @@ DATA_SPEC = {
         P("anchor.layout", "Anchor position", "sel", [(v, k) for k, v in BE.LAYOUTS.items()]),
         P("anchor.nr", "Rows number per side", "sel", [("1", 1), ("2", 2), ("3", 3)]),
         P("anchor.npr", "Anchors per row", "sel", [(str(i), i) for i in range(1, 6)]),
-        P("anchor.d", "Anchor", "sel", [(f"M{d}", d) for d in BE.ANCHOR_DIAS]),
+        P("anchor.d", "Anchor", "sel", [(BE.anchor_label(d), d) for d in BE.ANCHOR_DIAS]),
         P("anchor.hef", "Effective embedment depth", "num", unit="mm"),
         P("anchor.grade", "Material", "sel", [(g, g) for g in BE.ANCHOR_GRADES]),
         P("anchor.cracked", "Cracked concrete", "sel", YN),
@@ -240,8 +240,8 @@ LOAD_SPEC = {
              ("Vc", "V2", "Column"), ("Nc", "Axial", "Column"), ("Mc", "M33", "Column")],
     "splice": [("name", "Condition", ""), ("V", "V2", "Left beam (at splice)"), ("N", "Axial", "Left beam (at splice)"),
                ("M", "M33", "Left beam (at splice)")],
-    "base": [("name", "Condition", ""), ("N", "Axial", "Column (at base)"), ("V2", "V2", "Column (at base)"), ("V3", "V3", "Column (at base)"),
-             ("M33", "M33", "Column (at base)"), ("M22", "M22", "Column (at base)")],
+    "base": [("name", "Description", "Load"), ("N", "Axial [kN]", "Column"), ("V2", "V2 [kN]", "Column"), ("V3", "V3 [kN]", "Column"),
+             ("M22", "M2 [kN*m]", "Column"), ("M33", "M3 [kN*m]", "Column")],
 }
 LOAD_TITLE = {"knee": "Beam(s) - Column(s)", "splice": "Beam(s)", "base": "Column"}
 LOAD_HELP = {
@@ -261,9 +261,9 @@ LOAD_HELP = {
     "base": [("Column loads", ""),
              ("", "Axial: lực dọc cột tại chân, dương là kéo (nhổ), âm là nén (kN) — như SAP."),
              ("", "V2: lực cắt theo phương N (chiều cao tiết diện, cánh cột) · V3: theo phương B (kN)."),
-             ("", "M33: mô men quanh trục mạnh (kN·m), M33 > 0 → mép +x (phía cánh trên) chịu nén. "
-                  "M22: quanh trục yếu, M22 > 0 → mép +z chịu nén. Hai phương được kiểm tra độc lập (DG1)."),
-             ("Đơn vị", "kN, kN·m. Dán từ Excel theo thứ tự cột: Condition, Axial, V2, V3, M33, M22.")],
+             ("", "M3: mô men quanh trục mạnh (kN·m), M3 > 0 → mép +x (phía cánh trên) chịu nén. "
+                  "M2: quanh trục yếu, M2 > 0 → mép +z chịu nén."),
+             ("Đơn vị", "kN, kN·m. Dán từ Excel theo thứ tự cột như RAM: Description, Axial, V2, V3, M2, M3.")],
 }
 
 # Help: (tiêu đề, mô tả, [(liên kết, V2, V3, Axial, M3, có trong tool?)])
@@ -398,8 +398,8 @@ class LoadGrid(ttk.Frame):
         for t, cmd in (("Add", self.add), ("Delete", self.delete), ("Paste from Excel", self.paste)):
             ttk.Button(bar, text=t, command=cmd).pack(side="left", padx=3)
         self.lbl = ttk.Label(bar, text="nhấp đúp ô để sửa", foreground="#5B6777"); self.lbl.pack(side="left", padx=8)
-        widths = [44] + [120] + [72] * (len(cols) - 1)
-        heads = [("", "Num")] + [(g, h) for _k, h, g in cols]
+        widths = [44] + [120] + [84] * (len(cols) - 1)
+        heads = [("", "ID")] + [(g, h) for _k, h, g in cols]
         band = tk.Canvas(self, height=18, highlightthickness=0, background="#E5E7EB"); band.pack(fill="x")
         x, i = 0, 0
         while i < len(heads):
