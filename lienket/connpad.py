@@ -20,7 +20,6 @@ import engine as K
 import model3d
 import newjoint
 import project as PJ
-import splice_engine as SE
 from ramview import NAVY, RamView
 
 PANEL = "#0E2756"          # nền bảng thuộc tính
@@ -149,6 +148,8 @@ class ConnectionPad(tk.Toplevel):
     def _sections(self):
         if self.kind == "knee":
             import knee_gui as G
+        elif self.kind == "base":
+            import base_gui as G
         else:
             import splice_gui as G
         return G.build_sections(self)
@@ -266,7 +267,7 @@ class ConnectionPad(tk.Toplevel):
         self._visibility(); self._info()
 
     def _normalize(self):
-        (K.normalize if self.kind == "knee" else SE.normalize)(self.S)
+        PJ.KINDS[self.kind]["normalize"](self.S)
 
     def _changed(self, f, structural):
         if self._suspend: return
@@ -279,13 +280,13 @@ class ConnectionPad(tk.Toplevel):
             s = f["var"].get().replace(",", ".").strip()
             try: v = float(s)
             except ValueError: return
-            if v.is_integer() and sp["p"] in ("plate.nE", "plate.nI", "plate.nT", "plate.nB", "bolt.d"): v = int(v)
+            if v.is_integer() and sp["p"] in ("plate.nE", "plate.nI", "plate.nT", "plate.nB", "bolt.d", "anchor.d", "anchor.nx", "anchor.ny"): v = int(v)
         else: v = f["var"].get()
         _setp(self.S, sp["p"], v)
         if self.kind == "knee" and sp["p"] == "plate.alignment":
             K.normalize(self.S); _knee_type_defaults(self.S); self._load()
         elif self.kind != "knee":
-            SE.normalize(self.S)
+            PJ.KINDS[self.kind]["normalize"](self.S)
         if structural: self._visibility()
         if sp["p"].endswith(".sec"): self._info()
         self.schedule()
@@ -313,8 +314,8 @@ class ConnectionPad(tk.Toplevel):
             if sp["k"] != "info" or sp["p"] == "pz._": continue
             m = _getp(self.S, sp["p"].rsplit(".", 1)[0])
             try:
-                if self.kind == "knee":
-                    mm = K.member_at_joint(m, "")
+                if self.kind in ("knee", "base"):
+                    mm = K.member_at_joint(dict(m, topIsOuter=True) if self.kind == "base" else m, "")
                     f["lbl"].configure(text=f"✓ d = {mm['d']:.1f}, bụng {mm['hw']:.1f}×{mm['tw']:g}, cánh {mm['bfE']:g}×{mm['tfE']:g}"
                                             + (f" · vát {mm['beta']:.1f}°" if mm["beta"] > 1e-6 else ""), fg="#7FD69A")
                 else:
@@ -398,15 +399,13 @@ class ConnectionPad(tk.Toplevel):
         self.lbl_msg.configure(text=f"Đã xuất báo cáo: {path}")
 
     def optimize(self):
-        self.lbl_msg.configure(text="Đang thử các phương án tp / bu lông…"); self.update_idletasks()
+        self.lbl_msg.configure(text="Đang thử các phương án tp / " + ("neo…" if self.kind == "base" else "bu lông…")); self.update_idletasks()
         res = PJ.KINDS[self.kind]["auto"](copy.deepcopy(self.S))
         if not res:
             messagebox.showwarning("Optimize", "Không tính được phương án nào — kiểm tra lại số liệu.", parent=self); return
-        if self.kind == "knee": self.S["plate"]["tp"] = res["tp"]
-        else: self.S["plate"]["tp1"] = self.S["plate"]["tp2"] = res["tp"]
-        self.S["bolt"]["d"] = res["d"]
+        PJ.apply_auto(self.kind, self.S, res)
         self._load(); self.run()
-        msg = f"Optimize: tp = {res['tp']} mm, bu lông M{res['d']} — D/C = {res['ratio']:.2f}"
+        msg = f"Optimize: tp = {res['tp']} mm, {'neo' if self.kind == 'base' else 'bu lông'} M{res['d']} — D/C = {res['ratio']:.2f}"
         if res.get("fail"): msg += " (không có phương án đạt trong dải thử)"
         self.lbl_msg.configure(text=msg)
 
@@ -452,7 +451,7 @@ class ConnectionPad(tk.Toplevel):
         """Bảng Data / Loads (như bước 2–3 của New joint) — không chặn vòng lặp sự kiện."""
         if self.loads_win is not None and self.loads_win.winfo_exists():
             self.loads_win.lift(); return
-        key = "knee" if self.kind == "knee" else f"splice:{self.S.get('type', 'straight')}"
+        key = PJ.joint_key(self.kind, self.S)
         d = newjoint.NewJointDialog(self, key, self.S.get("name", ""), dict(copy.deepcopy(self.S), _key=key), start_page=page)
         d._edit_mode = True
         d._show(page)
@@ -476,6 +475,9 @@ class ConnectionPad(tk.Toplevel):
 
     def advanced(self):
         """Mở khung thiết kế đầy đủ (SAP2000, bảng D/C, mặt đứng 2D) với thông số hiện tại."""
+        if self.kind == "base":
+            messagebox.showinfo("Advanced", "Chân cột: mọi thông số nằm ở bảng bên trái; bảng kiểm tra + diễn giải ở Results, "
+                                "mặt đứng / mặt bằng 2D ở cửa sổ chính (ô xem Elevation / End plate).", parent=self); return
         self.apply()
         self.app.advanced_editor(self.app.project.get(self.jid))
 

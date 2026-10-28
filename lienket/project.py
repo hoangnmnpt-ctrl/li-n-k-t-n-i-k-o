@@ -1,5 +1,5 @@
 """
-project.py — Dự án gồm nhiều nút (joint) như RAM Connection: mỗi nút có ID, loại (knee | splice) và toàn bộ thông số.
+project.py — Dự án gồm nhiều nút (joint) như RAM Connection: mỗi nút có ID, loại (knee | splice | base) và toàn bộ thông số.
 Lưu một file JSON (*.lkt). Dùng chung cho cửa sổ chính app.py.
 """
 
@@ -9,6 +9,10 @@ import copy
 import json
 import os
 
+import base_defaults as BD
+import base_drawing as BDR
+import base_engine as BE
+import base_report as BR
 import defaults as KD
 import drawing as KDR
 import engine as K
@@ -28,10 +32,29 @@ SPLICE_TYPE = {"straight": "Beam splice", "apex": "Apex"}
 # loại nút → hàm tính, mặc định, vẽ, báo cáo
 KINDS = {
     "knee": dict(family="BCF", compute=K.compute, base=KD.BASE, merge=KD.merge, presets=KD.PRESETS, auto=K.auto_design,
-                 elevation=KDR.elevation, face=KDR.plate_face, report=KR, prefix="K"),
+                 elevation=KDR.elevation, face=KDR.plate_face, report=KR, prefix="K", normalize=K.normalize),
     "splice": dict(family="BS", compute=SE.compute, base=SD.BASE, merge=SD.merge, presets=SD.PRESETS, auto=SE.auto_design,
-                   elevation=SDR.elevation, face=SDR.plate_face, report=SR, prefix="BS"),
+                   elevation=SDR.elevation, face=SDR.plate_face, report=SR, prefix="BS", normalize=SE.normalize),
+    "base": dict(family="CB", compute=BE.compute, base=BD.BASE, merge=BD.merge, presets=BD.PRESETS, auto=BE.auto_design,
+                 elevation=BDR.elevation, face=BDR.plate_face, report=BR, prefix="CB", normalize=BE.normalize),
 }
+
+
+def joint_key(kind: str, st: dict) -> str:
+    """Khoá kiểu nút của hộp thoại New joint: knee | splice:straight | splice:apex | base."""
+    return f"splice:{st.get('type', 'straight')}" if kind == "splice" else kind
+
+
+def kind_of(key: str) -> str:
+    return "splice" if key.startswith("splice") else key
+
+
+def apply_auto(kind: str, st: dict, res: dict):
+    """Ghi kết quả Smart connection / Optimize (tp, đường kính bu lông / neo) vào state."""
+    if kind == "knee": st["plate"]["tp"] = res["tp"]
+    elif kind == "splice": st["plate"]["tp1"] = st["plate"]["tp2"] = res["tp"]
+    else: st["plate"]["tp"] = res["tp"]
+    (st["anchor"] if kind == "base" else st["bolt"])["d"] = res["d"]
 
 
 def full_state(j: dict) -> dict:
@@ -53,6 +76,8 @@ def type_label(j: dict) -> str:
     if j["kind"] == "knee":
         align = (st.get("plate") or {}).get("alignment", "vertical")
         return {"vertical": "Knee đứng", "perpendicular": "Knee xiên", "horizontal": "Knee ngang", "bisector": "Knee xiên"}.get(align, "Knee")
+    if j["kind"] == "base":
+        return "Column base"
     return SPLICE_TYPE.get(st.get("type", "straight"), "Beam splice")
 
 
@@ -60,6 +85,8 @@ def members_text(j: dict) -> str:
     st = full_state(j)
     if j["kind"] == "knee":
         return f"Kèo {st['beam']['sec']} · Cột {st['col']['sec']}"
+    if j["kind"] == "base":
+        return f"Cột {st['col']['sec']}"
     b1, b2 = st["beam1"]["sec"], st["beam2"]["sec"]
     return b1 if st["beam2"].get("same", True) or b1 == b2 else f"{b1} | {b2}"
 
@@ -67,8 +94,16 @@ def members_text(j: dict) -> str:
 def connection_text(j: dict) -> str:
     st = full_state(j)
     p = st["plate"]
+    if j["kind"] == "base":
+        a = st["anchor"]
+        return f"Bản đế {p['N']:g}×{p['B']:g}×{p['tp']:g} · {neo_count(a)} neo M{a['d']} {a['grade']}"
     tp = p.get("tp") if j["kind"] == "knee" else (f"{p['tp1']:g}" if p["tp1"] == p["tp2"] else f"{p['tp1']:g}/{p['tp2']:g}")
     return f"Bản {tp} · M{st['bolt']['d']} {st['bolt']['grade']}"
+
+
+def neo_count(a: dict) -> int:
+    nx, ny = max(int(a["nx"]), 2), max(int(a["ny"]), 2)
+    return 2 * nx + 2 * ny - 4
 
 
 class Project:

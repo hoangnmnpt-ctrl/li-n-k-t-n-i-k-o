@@ -1,5 +1,5 @@
 """
-model3d.py — Mô hình 3D của nút (knee / nối dầm) dạng lưới tam giác, để vẽ kiểu RAM Connection.
+model3d.py — Mô hình 3D của nút (knee / nối dầm / chân cột) dạng lưới tam giác, để vẽ kiểu RAM Connection.
 
 Nguồn hình học: hình mặt đứng đã kiểm chứng của tool (drawing.elevation / splice_drawing.elevation) — mỗi đa giác có
 khoảng bề dày z ngoài mặt phẳng → khối lăng trụ. Từ đó chỉ giữ CẤU KIỆN, BẢN, SƯỜN; các phần sau dựng mới bằng 3D thật:
@@ -23,6 +23,9 @@ STIFF = "#86A878"
 PLATE_STIFF = "#ADA8EE"
 BOLT = "#D87A28"
 WELD = "#F2B42C"
+CONCRETE = "#A9ADB3"
+GROUT = "#CFC6A8"
+WASHER = "#9AA0A8"
 
 
 @dataclass
@@ -44,6 +47,7 @@ class Model:
     focus: tuple | None = None        # tâm vùng nút (camera nhắm vào đây)
     focus_size: float = 0.0           # kích thước vùng nút để phóng hình (mm)
     frame: tuple | None = None        # hộp (min, max) vùng hiển thị như RAM: nút + một đoạn cấu kiện
+    view: tuple | None = None         # góc nhìn mặc định (yaw, pitch) riêng của kiểu nút; None = mặc định của khung xem
 
     def bbox(self):
         vs = [p for so in self.solids for p in so.verts]
@@ -317,5 +321,48 @@ def splice_model(st: dict, R: dict) -> Model:
     return m
 
 
+# ─────────────────────────── chân cột ───────────────────────────
+def box(m, lo, hi, color, tags=()):
+    add_prism(m, [(lo[0], lo[1], lo[2]), (hi[0], lo[1], lo[2]), (hi[0], lo[1], hi[2]), (lo[0], lo[1], hi[2])],
+              (0.0, hi[1] - lo[1], 0.0), color, tags)
+
+
+def base_model(st: dict, R: dict) -> Model:
+    """Chân cột: x theo phương N (chiều cao tiết diện cột), y hướng lên, z theo phương B. Mặt trên bản đế ở y = tp."""
+    m = Model()
+    G = R["G"]; c = G["col"]; an = st["anchor"]
+    N, B, N2, B2, tp, gr = G["N"], G["B"], G["N2"], G["B2"], G["tp"], G["grout"]
+    d, tw, tfE, tfI = G["d"], c["tw"], c["tfE"], c["tfI"]
+    hshow = min(G["ha"], 0.55 * max(N2, B2))
+    box(m, (-N2 / 2, -gr - hshow, -B2 / 2), (N2 / 2, -gr, B2 / 2), CONCRETE, ("conc",))
+    if gr > 0:
+        box(m, (-N / 2 - 25, -gr, -B / 2 - 25), (N / 2 + 25, 0.0, B / 2 + 25), GROUT, ("conc",))
+    box(m, (-N / 2, 0.0, -B / 2), (N / 2, tp, B / 2), END_PLATE, ("bp",))
+    Hc = max(1.6 * d, 500.0)
+    box(m, (d / 2 - tfE, tp, -c["bfE"] / 2), (d / 2, tp + Hc, c["bfE"] / 2), STEEL, ("col", "wflange"))
+    box(m, (-d / 2, tp, -c["bfI"] / 2), (-d / 2 + tfI, tp + Hc, c["bfI"] / 2), STEEL, ("col", "wflange"))
+    box(m, (-d / 2 + tfI, tp, -tw / 2), (d / 2 - tfE, tp + Hc, tw / 2), STEEL, ("col", "wweb"))
+    wf = max(float(st["weld"]["fl"].get("w", 8)), 5.0)
+    ww = max(float(st["weld"]["web"].get("w", 6)), 5.0)
+    up = (0.0, 1.0, 0.0)
+    weld_bead(m, (d / 2, tp, -c["bfE"] / 2), (1.0, 0.0, 0.0), up, (0.0, 0.0, c["bfE"]), wf, ("wflange",))
+    weld_bead(m, (-d / 2, tp, -c["bfI"] / 2), (-1.0, 0.0, 0.0), up, (0.0, 0.0, c["bfI"]), wf, ("wflange",))
+    for s in (1, -1):
+        weld_bead(m, (-d / 2 + tfI, tp, s * tw / 2), (0.0, 0.0, float(s)), up, (d - tfE - tfI, 0.0, 0.0), ww, ("wweb",))
+    da = float(an["d"]); wB = float(an.get("washer") or 3 * da); wT = float(an.get("washerT") or 8)
+    for a in G["anchors"]:
+        x, z = a["x"], a["y"]
+        box(m, (x - wB / 2, tp, z - wB / 2), (x + wB / 2, tp + wT, z + wB / 2), WASHER, ("anchors",))
+        hex_prism(m, (x, tp + wT, z), up, (1.0, 0.0, 0.0), 0.92 * da, 0.9 * da, BOLT, ("anchors",))
+        hex_prism(m, (x, tp + wT + 0.9 * da, z), up, (1.0, 0.0, 0.0), 0.5 * da, 0.6 * da, BOLT, ("anchors",))
+    m.focus = (0.0, tp + 0.15 * Hc, 0.0)
+    m.focus_size = 1.5 * max(N2, B2, d)
+    m.frame = ((-0.6 * N2, -gr - hshow, -0.6 * B2), (0.6 * N2, tp + 1.1 * Hc, 0.6 * B2))
+    m.view = (32.0, 24.0)
+    return m
+
+
 def build(kind: str, st: dict, R: dict) -> Model:
+    if kind == "base":
+        return base_model(st, R)
     return knee_model(st, R) if kind == "knee" else splice_model(st, R)
