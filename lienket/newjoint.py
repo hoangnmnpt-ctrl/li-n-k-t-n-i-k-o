@@ -4,7 +4,7 @@ tiêu đề "BCF - Beam to Column Flange", dòng "Selected joint: …", nút Joi
 Chỉ các kiểu đã có lõi tính mới chọn được; các kiểu còn lại hiện mờ (chưa hỗ trợ).
 
 Ba bước như RAM:  Joint (chọn kiểu nút)  →  Data (bảng Property / Value + Help)  →  Loads (bảng tải).
-Kết quả: dict(key="knee" | "splice:straight" | "splice:apex", state=...) hoặc None (huỷ).
+Kết quả: dict(key="knee" | "splice:straight" | "splice:apex" | "base", state=...) hoặc None (huỷ).
 """
 
 from __future__ import annotations
@@ -13,6 +13,8 @@ import copy
 import tkinter as tk
 from tkinter import ttk
 
+import base_defaults as BD
+import base_engine as BE
 import defaults as KD
 import engine as K
 import splice_defaults as SD
@@ -55,7 +57,7 @@ GROUPS = [
         ("Column splice", "CS", None, "col"),
     ]),
     ("Column top and base", "col", [
-        ("Column cap", "CC", None, "col"), ("Column base", "CB", None, "col"), ("Column base with one brace", "CB", None, "vbrace"),
+        ("Column cap", "CC", None, "col"), ("Column base", "CB", "base", "base"), ("Column base with one brace", "CB", None, "vbrace"),
         ("Column base with two braces", "CB", None, "vbrace"), ("Column cap - brace", "CCB", None, "vbrace"),
     ]),
     ("Vertical bracing", "vbrace", [
@@ -76,6 +78,10 @@ GROUPS = [
         ("Tubular KT with six branches", "CHB", None, "truss"),
     ]),
 ]
+
+
+CODE = {"knee": "BCF", "splice": "BS", "base": "CB"}
+UNSUPPORTED = "Chưa hỗ trợ — chọn: Tapered beam to tapered column (Knee), Beam splice, Apex hoặc Column base."
 
 
 def _pipe(cv, a, b, c="#2B2F36"):
@@ -113,6 +119,12 @@ def icon(cv: tk.Canvas, kind: str, x: float, y: float, w: float = 60, h: float =
         cv.create_polygon(x + w, y + 26, x + w / 2 + 3, y + 14, x + w / 2 + 3, y + 30, x + w, y + 42, outline=c, fill=W)
         if kind == "apex_h":
             cv.create_line(x + 6, y + 40, x + w / 2 - 3, y + 30, x + w - 6, y + 40, fill=c)
+    elif kind == "base":
+        cv.create_rectangle(x + w / 2 - 9, y, x + w / 2 + 9, y + h - 14, outline=c, fill=W)
+        cv.create_rectangle(x + 6, y + h - 14, x + w - 6, y + h - 9, outline=c, fill="#C9C2E6")
+        cv.create_rectangle(x + 2, y + h - 9, x + w - 2, y + h, outline=c, fill="#D5D8DC")
+        for xa in (x + 12, x + w - 12):
+            cv.create_line(xa, y + h - 18, xa, y + h, fill="#C2410C", width=2)
     elif kind == "col":
         cv.create_rectangle(x + w / 2 - 9, y, x + w / 2 + 9, y + h / 2 - 2, outline=c, fill=W)
         cv.create_rectangle(x + w / 2 - 9, y + h / 2 + 2, x + w / 2 + 9, y + h, outline=c, fill=W)
@@ -195,6 +207,30 @@ DATA_SPEC = {
         P("beam2.L", "L: Length", "num", unit="mm", scale=1000.0, show=lambda S: not S["beam2"].get("same")),
         P("beam2.jointEnd", "Joint end (SAP)", "sel", [("End I", "I"), ("End J", "J")], show=lambda S: not S["beam2"].get("same")),
     ],
+    "base": [
+        P("_joint", "Joint", ro=True, calc=lambda S: "CB"),
+        P("name", "Name"), P("desc", "Description"), P("group", "Display group"),
+        G("Column"),
+        P("_ctype", "Type", ro=True, calc=lambda S: _member_type(S["col"]["sec"])),
+        P("col.sec", "Section"), P("col.mat", "Material", "sel", [(m, m) for m in MATS]),
+        P("col.L", "L: Length", "num", unit="mm", scale=1000.0),
+        P("col.jointEnd", "Joint end (SAP)", "sel", [("End I (bottom)", "I"), ("End J", "J")]),
+        G("Concrete support"),
+        P("ped.N2", "N2: Pedestal length", "num", unit="mm"), P("ped.B2", "B2: Pedestal width", "num", unit="mm"),
+        P("ped.h", "h: Pedestal height", "num", unit="mm"), P("ped.fc", "f'c: Concrete strength", "num", unit="MPa"),
+        P("ped.grout", "Grout thickness", "num", unit="mm"),
+        P("ped.cracked", "Cracked concrete", "sel", YN),
+        G("Base plate"),
+        P("plate.N", "N: Length", "num", unit="mm"), P("plate.B", "B: Width", "num", unit="mm"),
+        P("plate.tp", "tp: Thickness", "num", unit="mm"), P("plate.mat", "Material", "sel", [(m, m) for m in MATS]),
+        G("Anchors"),
+        P("anchor.grade", "Grade", "sel", [(g, g) for g in BE.ANCHOR_GRADES]),
+        P("anchor.d", "Diameter", "sel", [(f"M{d}", d) for d in BE.ANCHOR_DIAS]),
+        P("anchor.nx", "Anchors along N", "sel", [("2", 2), ("3", 3), ("4", 4)]),
+        P("anchor.ny", "Anchors along B", "sel", [("2", 2), ("3", 3), ("4", 4)]),
+        P("anchor.hef", "hef: Embedment depth", "num", unit="mm"),
+        P("shear.mode", "Shear transfer", "sel", [("Friction", "friction"), ("Anchors", "anchors"), ("Shear lug", "lug")]),
+    ],
 }
 
 # Bảng Loads theo từng kiểu nút: (khoá, tiêu đề, nhóm)
@@ -203,8 +239,10 @@ LOAD_SPEC = {
              ("Vc", "V2", "Column"), ("Nc", "Axial", "Column"), ("Mc", "M33", "Column")],
     "splice": [("name", "Condition", ""), ("V", "V2", "Left beam (at splice)"), ("N", "Axial", "Left beam (at splice)"),
                ("M", "M33", "Left beam (at splice)")],
+    "base": [("name", "Condition", ""), ("N", "Axial", "Column (at base)"), ("V2", "V2", "Column (at base)"), ("V3", "V3", "Column (at base)"),
+             ("M33", "M33", "Column (at base)"), ("M22", "M22", "Column (at base)")],
 }
-LOAD_TITLE = {"knee": "Beam(s) - Column(s)", "splice": "Beam(s)"}
+LOAD_TITLE = {"knee": "Beam(s) - Column(s)", "splice": "Beam(s)", "base": "Column"}
 LOAD_HELP = {
     "knee": [("Beam loads", ""),
              ("", "V2: lực cắt tại đầu kèo truyền qua liên kết (kN)."),
@@ -219,6 +257,12 @@ LOAD_HELP = {
                ("", "M33: mô men tại mặt nối (kN·m). M33 > 0 → cánh DƯỚI chịu kéo; M33 < 0 → cánh TRÊN chịu kéo."),
                ("Apex", "Nhập nội lực của một kèo theo trục kèo; tool tự quy đổi về hệ trục bản đầu đứng."),
                ("Đơn vị", "kN, kN·m. Dán từ Excel theo thứ tự cột: Condition, V2, Axial, M33.")],
+    "base": [("Column loads", ""),
+             ("", "Axial: lực dọc cột tại chân, dương là kéo (nhổ), âm là nén (kN) — như SAP."),
+             ("", "V2: lực cắt theo phương N (chiều cao tiết diện, cánh cột) · V3: theo phương B (kN)."),
+             ("", "M33: mô men quanh trục mạnh (kN·m), M33 > 0 → mép +x (phía cánh trên) chịu nén. "
+                  "M22: quanh trục yếu, M22 > 0 → mép +z chịu nén. Hai phương được kiểm tra độc lập (DG1)."),
+             ("Đơn vị", "kN, kN·m. Dán từ Excel theo thứ tự cột: Condition, Axial, V2, V3, M33, M22.")],
 }
 
 # Help: (tiêu đề, mô tả, [(liên kết, V2, V3, Axial, M3, có trong tool?)])
@@ -233,6 +277,12 @@ HELP = {
                "Kiểm tra theo AISC 360-10 + DG4 / DG16 / DG39; mỗi bản có bề dày và vật liệu riêng.",
                [("Moment end plate (MEP)", "X", "", "X", "X", True), ("Flange plate + web plate splice (FP)", "X", "", "X", "X", False),
                 ("Directly welded (DW)", "X", "", "X", "X", False)]),
+    "base": ("Column Base Joint (CB)",
+             "Chân cột chữ I hàn lên bản đế, neo vào bệ bê tông bằng bu lông neo. Nén + mô men theo AISC Design Guide 1 (2006), "
+             "bản đế, neo (AISC 360-10 J3), neo trong bê tông (ACI 318-11 App. D), truyền cắt bằng ma sát / neo / bản chắn cắt, "
+             "hàn cột – bản đế. Bản đế, neo, bệ chi tiết hơn nhập ở cửa sổ Edit.",
+             [("Base plate (BP)", "X", "X", "X", "X", True), ("Base plate with stiffeners", "X", "X", "X", "X", False),
+              ("Embedded column base", "X", "X", "X", "X", False)]),
 }
 
 
@@ -424,6 +474,8 @@ def default_state(key: str, name: str = "") -> dict:
     """Thông số mặc định cho kiểu nút key."""
     if key == "knee":
         st = KD.merge(KD.BASE, {})
+    elif key == "base":
+        st = BD.merge(BD.BASE, {})
     else:
         st = SD.merge(SD.BASE, {"type": key.split(":")[1]})
         if st["type"] == "apex" and not st.get("slope"): st["slope"] = 10.0
@@ -509,12 +561,12 @@ class NewJointDialog(tk.Toplevel):
 
     def _kind(self):
         k = self._key() or ""
-        return "knee" if k == "knee" else "splice"
+        return k if k in ("knee", "base") else "splice"
 
     def _next(self, page):
         key = self._key()
         if not key:
-            self.lbl_note.configure(text="Chưa hỗ trợ — chọn: Tapered beam to tapered column (Knee), Beam splice hoặc Apex."); return
+            self.lbl_note.configure(text=UNSUPPORTED); return
         if self.S is not None and self.S.get("_key") != key:
             self.S = None
         if self.S is None:
@@ -588,7 +640,7 @@ class NewJointDialog(tk.Toplevel):
     # ------------------------------------------------------------------ trang 2: Data
     def _page_data(self):
         kind = self._kind()
-        code = "BCF" if kind == "knee" else "BS"
+        code = CODE[kind]
         self.lbl_title.configure(text=f"{code} - {FAMILY[code]}")
         self.lbl_sel.configure(text="Data")
         self.lbl_note.configure(text="")
@@ -627,7 +679,7 @@ class NewJointDialog(tk.Toplevel):
     # ------------------------------------------------------------------ trang 3: Loads
     def _page_loads(self):
         kind = self._kind()
-        code = "BCF" if kind == "knee" else "BS"
+        code = CODE[kind]
         self.lbl_title.configure(text=f"{code} - {FAMILY[code]}")
         self.lbl_sel.configure(text="Loads")
         self.lbl_note.configure(text="")
@@ -648,11 +700,11 @@ class NewJointDialog(tk.Toplevel):
     def _ok(self):
         if self.page == "joint":
             if not self._key():
-                self.lbl_note.configure(text="Chưa hỗ trợ — chọn: Tapered beam to tapered column (Knee), Beam splice hoặc Apex."); return
+                self.lbl_note.configure(text=UNSUPPORTED); return
             if self.S is None or self.S.get("_key") != self._key():
                 self.S = default_state(self._key(), self.name); self.S["_key"] = self._key()
         st = copy.deepcopy(self.S); key = st.pop("_key", None) or self._key()
-        self.result = dict(key=key, kind="knee" if key == "knee" else "splice", state=st)
+        self.result = dict(key=key, kind=key if key in ("knee", "base") else "splice", state=st)
         self.destroy()
 
     def _help(self):
@@ -669,7 +721,7 @@ def ask(master, current: str | None = None, name: str = ""):
 
 def edit_data(master, kind: str, state: dict, page: str = "data"):
     """Sửa Data / Loads của nút có sẵn. Trả state mới hoặc None."""
-    key = "knee" if kind == "knee" else f"splice:{state.get('type', 'straight')}"
+    key = kind if kind in ("knee", "base") else f"splice:{state.get('type', 'straight')}"
     d = NewJointDialog(master, key, state.get("name", ""), dict(state, _key=key), start_page=page)
     d._edit_mode = True
     d._show(page)

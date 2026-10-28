@@ -1,7 +1,7 @@
 # Liên kết thép — AISC 360-10 (LRFD)
 
 **Chạy:** nhấp đúp `Chay_LienKet.bat` (hoặc `python run.py`). Một tool duy nhất, giao diện theo RAM Connection:
-Knee (BCF), Beam splice và Apex (BS) — xem `lienket\README.md`.
+Knee (BCF), Beam splice và Apex (BS), Column base (CB) — xem `lienket\README.md`.
 
 | Thư mục | Nội dung |
 |---|---|
@@ -10,4 +10,4 @@ Knee (BCF), Beam splice và Apex (BS) — xem `lienket\README.md`.
 | `MD, skill\steelconn_spec\` | Bộ đặc tả phạm vi RAM Connection |
 | `fORMULAS\` | Tài liệu công thức |
 
-Kiểm thử: `python lienket\tests\test_engine.py` · `python lienket\tests\test_splice_engine.py` · `python lienket\tests\test_gui_smoke.py`.
+Kiểm thử: `python lienket\tests\test_engine.py` · `python lienket\tests\test_splice_engine.py` · `python lienket\tests\test_base_engine.py` · `python lienket\tests\test_gui_smoke.py`.

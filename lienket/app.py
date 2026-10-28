@@ -10,7 +10,7 @@ app.py — LIÊN KẾT THÉP · AISC 360-10 LRFD — cửa sổ chính theo bố
   • Khung xem nền xanh đậm: hình nút đang chọn, tô màu D/C theo tổ hợp (Condition) ở thanh trạng thái.
   • Khung dưới: bảng các nút của dự án (ID, tên, họ, kiểu, cấu kiện, liên kết, số tổ hợp, tỷ số, trạng thái).
   • Thanh trạng thái: số nút, SI, Condition, zoom.
-Edit mở cửa sổ thiết kế liên kết (khung KNEE hoặc NỐI DẦM); New mở hộp thoại New joint 3 bước (Joint → Data → Loads).
+Edit mở cửa sổ thiết kế liên kết (Connection Pad: KNEE, NỐI DẦM hoặc CHÂN CỘT); New mở hộp thoại New joint 3 bước (Joint → Data → Loads).
 """
 
 from __future__ import annotations
@@ -358,7 +358,7 @@ class App(ctk.CTk):
         g = Ribbon.group(home, "Databases")
         Ribbon.big(g, "Sections", "sections", self.db_sections); Ribbon.big(g, "Materials", "materials", self.db_materials)
         Ribbon.big(g, "Connections", "connections", self.db_connections); Ribbon.big(g, "Bolts", "bolts", self.db_bolts)
-        Ribbon.big(g, "Welds", "welds", self.db_welds); Ribbon.big(g, "Anchors", "anchors", None, state="disabled")
+        Ribbon.big(g, "Welds", "welds", self.db_welds); Ribbon.big(g, "Anchors", "anchors", self.db_anchors)
 
         des = rb.add_tab("Design")
         g = Ribbon.group(des, "Connection")
@@ -399,7 +399,7 @@ class App(ctk.CTk):
         self.view3 = RamView(self.vhost)
         self.view2 = NavyView(self.vhost)
         for v in (self.view3, self.view2):
-            v.empty_text = "Chưa có nút nào.\nHome → New (Ctrl+N) để tạo nút: Knee, Beam splice, Apex."
+            v.empty_text = "Chưa có nút nào.\nHome → New (Ctrl+N) để tạo nút: Knee, Beam splice, Apex, Column base."
             v.tipfn = self._tip
         self.view = self.view3; self.view3.pack(fill="both", expand=True)
         # ── dải thẻ các nút (dưới) ──
@@ -535,6 +535,14 @@ class App(ctk.CTk):
             t.insert("end", f"Section : {st['col']['sec']}\nMaterial : {st['col']['mat']}\n", "r")
             align = {"vertical": "Vertical", "horizontal": "Horizontal", "perpendicular": "Perpendicular", "bisector": "Bisector"}.get(st["plate"].get("alignment"), "")
             tpl, con = f"MEP Knee BCF - {align}", "Shear and moment connection (Knee moment end plate)"
+        elif j["kind"] == "base":
+            t.insert("end", "COLUMN\n", "h")
+            t.insert("end", f"Section : {st['col']['sec']}\nMaterial : {st['col']['mat']}\n", "r")
+            ped = st["ped"]
+            t.insert("end", "CONCRETE SUPPORT\n", "h")
+            t.insert("end", f"Pedestal : {ped['N2']:g} × {ped['B2']:g} × {ped['h']:g}\nf'c : {float(ped['fc']):g} MPa · vữa {ped['grout']:g} mm\n", "r")
+            import base_engine as BE
+            tpl, con = "BP CB - " + BE.SHEAR_MODE.get(st["shear"]["mode"], ""), "Base plate (AISC DG1 + ACI 318 App. D)"
         else:
             same = st["beam2"].get("same", True)
             t.insert("end", "LEFT BEAM\n", "h")
@@ -545,8 +553,8 @@ class App(ctk.CTk):
                             f"Material : {st['beam1']['mat'] if same else st['beam2']['mat']}\n", "r")
             ext = {"flush": "Flush", "top": "Extended top", "bottom": "Extended bottom", "both": "Extended both"}.get(st["plate"].get("extension"), "")
             tpl, con = f"MEP BS - {PJ.type_label(j)} - {ext}", "Moment connection (Moment end plate splice)"
-        t.insert("end", "SHEAR AND MOMENT CONNECTION\n", "h")
-        t.insert("end", f"Template : {tpl}\nConnection : {con}\nPlate / bolts : {PJ.connection_text(j)}\n", "r")
+        t.insert("end", "BASE PLATE CONNECTION\n" if j["kind"] == "base" else "SHEAR AND MOMENT CONNECTION\n", "h")
+        t.insert("end", f"Template : {tpl}\nConnection : {con}\n{'Plate / anchors' if j['kind'] == 'base' else 'Plate / bolts'} : {PJ.connection_text(j)}\n", "r")
         _s, R, err = self.result(j)
         if err:
             t.insert("end", f"Lỗi : {err}\n", "bad")
@@ -638,11 +646,12 @@ class App(ctk.CTk):
         res = newjoint.ask(self, "knee", f"{'K'}-{self.project.next_id():02d}")
         if not res: return
         st = res["state"]
-        if res["kind"] == "splice" and st.get("name", "").startswith("K-"):
-            st["name"] = f"BS-{self.project.next_id():02d}"
+        if res["kind"] != "knee" and st.get("name", "").startswith("K-"):
+            st["name"] = f"{PJ.KINDS[res['kind']]['prefix']}-{self.project.next_id():02d}"
         j = self.project.add(res["kind"], st)
         self.refresh(); self.select(j["id"])
-        self.set_status(f"Đã tạo nút {j['id']} ({PJ.type_label(j)}). Nhấn Edit để thiết kế bản đầu, bu lông, hàn.")
+        self.set_status(f"Đã tạo nút {j['id']} ({PJ.type_label(j)}). Nhấn Edit để thiết kế "
+                        + ("bản đế, neo, bệ, hàn." if j["kind"] == "base" else "bản đầu, bu lông, hàn."))
 
     def edit_joint(self, tab=None):
         j = self._joint()
@@ -655,6 +664,8 @@ class App(ctk.CTk):
 
     def advanced_editor(self, j, tab=None):
         """Khung thiết kế đầy đủ của tool (SAP2000, quét knee, bảng D/C, mặt đứng 2D)."""
+        if j["kind"] == "base":
+            return None
         key = ("adv", j["id"])
         ed = self.editors.get(key)
         if ed is not None and ed.winfo_exists():
@@ -716,7 +727,8 @@ class App(ctk.CTk):
         j = self._joint()
         if not j: return
         if j["kind"] != "knee":
-            messagebox.showinfo("Generate", "Lấy nội lực từ SAP2000 hiện có cho knee. Nối dầm: nhập hoặc dán từ Excel ở Add/Edit."); return
+            messagebox.showinfo("Generate", "Lấy nội lực từ SAP2000 hiện có cho knee. Nối dầm / chân cột: nhập hoặc dán từ Excel ở Add/Edit "
+                                "(chân cột: Axial, V2, V3, M33, M22 tại đầu I của cột)."); return
         ed = self.advanced_editor(j)
         if ed: ed.after(400, ed.panel._pick_knee)
 
@@ -763,7 +775,8 @@ class App(ctk.CTk):
         used = {}
         for j in self.project.joints:
             st = PJ.full_state(j)
-            secs = [st["beam"]["sec"], st["col"]["sec"]] if j["kind"] == "knee" else [st["beam1"]["sec"], st["beam2"]["sec"]]
+            secs = ([st["beam"]["sec"], st["col"]["sec"]] if j["kind"] == "knee" else [st["col"]["sec"]] if j["kind"] == "base"
+                    else [st["beam1"]["sec"], st["beam2"]["sec"]])
             for s in secs: used.setdefault(s, []).append(str(j["id"]))
         rows = []
         for s, ids in used.items():
@@ -791,6 +804,13 @@ class App(ctk.CTk):
                      [(k, f"{v:.1f}", f"{0.75 * 0.6 * v * 0.707:.1f}") for k, v in K.ELECTRODES.items()],
                      "AISC 360-10 J2.4 — hàn góc. Cỡ hàn nhập theo D (1/16 in) như RAM: D = 5 → w = 7.94 mm.")
 
+    def db_anchors(self):
+        import base_engine as BE
+        rows = [(g, f"{fy:g}", f"{fu:g}", f"{0.75 * 0.75 * fu:.1f}", f"{0.75 * 0.40 * fu:.1f}") for g, (fy, fu) in BE.ANCHOR_GRADES.items()]
+        return table_dialog(self, "Anchors", ["Grade", "Fy [MPa]", "Fu [MPa]", "φFnt = 0.75·0.75Fu", "φFnv = 0.75·0.40Fu (N)"], rows,
+                            "Bu lông neo (thanh ren) — AISC 360-10 Table J3.2. Đường kính: " + ", ".join(f"M{d}" for d in BE.ANCHOR_DIAS)
+                            + " · Lỗ bản đế (DG1 Table 2.3 quy đổi): " + ", ".join(f"M{d}→{h}" for d, h in BE.HOLE_DG1.items()))
+
     def db_connections(self):
         rows = []
         for g in newjoint.GROUPS:
@@ -808,11 +828,10 @@ class App(ctk.CTk):
         res = k["auto"](copy.deepcopy(st))
         if not res:
             messagebox.showwarning("Smart connection", "Không tính được phương án nào — kiểm tra lại số liệu."); return
-        if j["kind"] == "knee": st["plate"]["tp"] = res["tp"]
-        else: st["plate"]["tp1"] = st["plate"]["tp2"] = res["tp"]
-        st["bolt"]["d"] = res["d"]
+        PJ.apply_auto(j["kind"], st, res)
         self.project.update(j["id"], st); self.refresh(); self.select(j["id"])
-        msg = f"tp = {res['tp']} mm, bu lông M{res['d']} — D/C (bản, bu lông) = {res['ratio']:.2f}"
+        msg = (f"tp = {res['tp']} mm, neo M{res['d']} — D/C (bản đế, neo) = {res['ratio']:.2f}" if j["kind"] == "base"
+               else f"tp = {res['tp']} mm, bu lông M{res['d']} — D/C (bản, bu lông) = {res['ratio']:.2f}")
         if res.get("fail"):
             messagebox.showwarning("Smart connection", "Không có phương án đạt trong dải thử.\nPhương án tốt nhất: " + msg)
         self.set_status("Smart connection: " + msg)

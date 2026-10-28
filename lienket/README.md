@@ -11,7 +11,7 @@ Cần Python ≥ 3.12, `customtkinter`; `comtypes` khi lấy nội lực từ SA
 | **Home · Joints** | **New** (Ctrl+N) — hộp thoại New joint 3 bước · **Edit** (nhấp đúp dòng) — cửa sổ thiết kế liên kết · Delete · Delete all · Copy · Go to (gõ ID + Enter) |
 | **Home · Load conditions** | **Add/Edit** — bảng tải của nút · Delete — xoá mọi tổ hợp · Generate — lấy nội lực từ SAP2000 (knee) |
 | **Home · View** | Template — áp mẫu · Information log — mọi cảnh báo / N.G. của dự án · Critical load condition — hiện tổ hợp khống chế |
-| **Home · Databases** | Sections (quy cách + tiết diện đang dùng) · Materials · Connections (kiểu nút có / chưa có) · Bolts · Welds · Anchors (chưa hỗ trợ) |
+| **Home · Databases** | Sections (quy cách + tiết diện đang dùng) · Materials · Connections (kiểu nút có / chưa có) · Bolts · Welds · Anchors (cấp bu lông neo, lỗ DG1) |
 | **Design** | Edit connection · Smart connection (tự chọn tp / bu lông) · Design all · Joint data · Loads |
 | **Output** | Report (.docx nút đang chọn) · All reports (cả dự án) · RAM .rcnx (mọi knee) · Results table (.csv mở bằng Excel) · Information log |
 | Khung xem xanh đậm | Hình 3D phối cảnh kiểu RAM dựng từ khối thật (`model3d.py`): cấu kiện xám, bản đầu tím, bản gối xanh lá, sườn xanh rêu, bu lông lục giác cam, đường hàn vàng. Kéo trái xoay, kéo phải di chuyển, lăn zoom, nhấp đúp về góc mặc định. Ô xem: **3D** · **3D D/C** (tô màu theo D/C của Condition) · Elevation · End plate |
@@ -19,9 +19,9 @@ Cần Python ≥ 3.12, `customtkinter`; `comtypes` khi lấy nội lực từ SA
 | Dải thẻ (dưới) | Mỗi nút một thẻ như RAM: số nút, họ, hình thu nhỏ, `tỷ số - tổ hợp khống chế` (xanh = đạt, đỏ = không đạt). Bấm để chọn, nhấp đúp để Edit, lăn chuột để cuộn |
 
 ## New joint (3 bước như RAM)
-1. **Joint** — chọn nhóm và kiểu nút. Có trong tool: *Tapered beam to tapered column (Knee)* (BCF), *Beam splice*, *Apex* (BS). Các kiểu khác hiện mờ.
-2. **Data** — bảng Property / Value riêng cho từng loại: Knee (Beam = kèo, Column), Beam splice / Apex (Left beam, Right beam, góc dốc). Nhấp ô Value để sửa. Help bên phải.
-3. **Loads** — bảng Num · Condition · V2 · Axial · M33 theo từng cấu kiện (knee: kèo + cột; nối dầm: lực tại mặt nối), dán từ Excel.
+1. **Joint** — chọn nhóm và kiểu nút. Có trong tool: *Tapered beam to tapered column (Knee)* (BCF), *Beam splice*, *Apex* (BS), *Column base* (CB). Các kiểu khác hiện mờ.
+2. **Data** — bảng Property / Value riêng cho từng loại: Knee (Beam = kèo, Column), Beam splice / Apex (Left beam, Right beam, góc dốc), Column base (cột, bệ, bản đế, neo, cách truyền cắt). Nhấp ô Value để sửa. Help bên phải.
+3. **Loads** — bảng Num · Condition · V2 · Axial · M33 theo từng cấu kiện (knee: kèo + cột; nối dầm: lực tại mặt nối; chân cột: Axial · V2 · V3 · M33 · M22), dán từ Excel.
 
 Bản đầu, bu lông, hàn, sườn: nhập ở cửa sổ **Edit** (form theo RAM, hình, bảng kiểm tra, báo cáo), bấm **OK** để lưu vào dự án.
 Dự án lưu một file `*.lkt` (mặc định `lienket\du_an.lkt`).
@@ -113,7 +113,39 @@ DG39 (2023) Table 5-2 bỏ số hạng −1/2 của 2FU, nên Y(DG39) cao hơn Y
 - Không có bản đầu có sườn kiểu 8ES / 8E, bích bằng 6 bu lông, bản đầu mỏng theo EN; cấu hình MRE chưa kèm sườn.
 - Công cụ hỗ trợ tính toán; kết quả cần được kỹ sư có chứng chỉ kiểm tra.
 
+## CHÂN CỘT (CB — Column base, bản đế + bu lông neo)
+
+Tương đương RAM Connection *Base plate*. Tạo: Home → New → *Column top and base* → **Column base**. Nhấp đúp thẻ để mở Connection Pad
+(form theo thứ tự RAM: General information → Members → Base plate → Anchors → Concrete support → Shear transfer).
+
+### Quy ước
+N > 0 kéo (nhổ), N < 0 nén (như SAP) · V2 theo phương N (chiều cao tiết diện cột, x) · V3 theo phương B (bề rộng cánh, z) ·
+M33 > 0 → mép +x (phía cánh trên +2) chịu nén · M22 > 0 → mép +z chịu nén. Nhập kN, kN·m, mm. Neo đặt theo lưới nx × ny (chỉ chu vi), cách mép bản ex / ey.
+
+### Các kiểm tra (theo từng tổ hợp, lấy bất lợi nhất)
+- **Bê tông**: ép mặt fp ≤ φc·0.85f'c·√(A2/A1) (J8, DG1 §3.1/3.3); mô men lớn: điều kiện có nghiệm DG1 Eq. 3.4.4 (q,req ≤ qmax).
+- **Bản đế**: uốn phía ép (DG1 3.3.14/3.3.15; nén đúng tâm theo §3.1 có λn'), uốn phía kéo (neo ngoài cánh: Tu·x/B; neo giữa hai cánh / cạnh mép cánh: phân bố 45°, b = 2a).
+- **Neo (AISC J3)**: kéo φ0.75Fu·Ab·0.75, cắt (0.40Fu / 0.50Fu; AISC 2016: 0.45Fu / 0.563Fu), kéo + cắt J3-3a.
+- **Neo trong bê tông (ACI 318-11 App. D)**: thép kéo / cắt (Ase), phá vỡ hình nón khi kéo (nhóm neo, ψec, ψed, ψc, h'ef khi ≥ 3 mép gần), nhổ tuột (Abrg đai ốc nặng / bản đầu neo),
+  nổ mặt bên, phá vỡ khi cắt về phía mép (hàng neo trước, ψh, cấu kiện hẹp), cạy (pryout), tương tác D.7.
+  Tuỳ chọn **Anchor reinforcement**: thay phá vỡ bê tông bằng kiểm tra cốt thép neo φ0.75·As·fy (D.5.2.9, D.6.2.9).
+- **Truyền cắt**: ma sát 0.75·μ·Pu (DG1 §3.5.1) · neo · bản chắn cắt (ép mặt 0.65·1.3f'c·A_brg theo ACI 349-06, uốn, cắt, hàn).
+- **Hàn cột – bản đế**: phương pháp đàn hồi trên chu vi hàn (cánh, bụng); *Column finished to bear* → lực nén truyền bằng tì ép.
+- **Cấu tạo**: bản nhô, mép bản (J3.4), bước neo ≥ 4d (D.8.1), khoảng hở neo – thép cột, long đen tấm (DG1 Table 2.3), khoảng cách neo tới mép bệ (D.8.2), hef ≤ h − 50, hàn tối thiểu (J2.4).
+- **Smart connection / Optimize**: tp nhỏ nhất đạt bản đế, rồi đường kính neo nhỏ nhất đạt các kiểm tra neo.
+
+### Kiểm chứng
+`python lienket\tests\test_base_engine.py` — cân bằng lực DG1 (mô men nhỏ / lớn), nén đúng tâm (λ, DG1 Eq. 3.1.7), nhổ, lực kéo neo, phá vỡ ACI một neo,
+cốt thép neo, hàn, ba cách truyền cắt, hai phương, các mẫu đều đạt, tự chọn, mô hình 3D.
+
+### Giới hạn hiện tại
+- **Chưa** đối chiếu số với file RAM Connection Base plate — cần anh/chị gửi một ví dụ RAM (file .rcnx hoặc báo cáo) để so từng dòng.
+- Mô men hai phương: kiểm tra độc lập từng phương (DG1), lực neo góc cộng tuyến tính — gần đúng. Chưa có sườn bản đế, cột hộp / ống, neo chôn sau (post-installed).
+- Chưa xét uốn neo qua lớp vữa dày > 50 mm, phá vỡ bê tông do bản chắn cắt, chiều dài neo của cốt thép neo (có cảnh báo).
+- Chưa xuất `.rcnx` cho chân cột, chưa lấy nội lực chân cột trực tiếp từ SAP2000 (dán từ Excel ở bảng Loads).
+
 ## Tệp
 `app.py` cửa sổ chính · `newjoint.py` New joint · `project.py` dự án · `knee_gui.py` / `splice_gui.py` cửa sổ thiết kế ·
 `engine.py` / `splice_engine.py` lõi tính · `model3d.py` mô hình 3D + `ramview.py` khung xem 3D kiểu RAM · `drawing.py` / `splice_drawing.py` / `view3d.py` hình · `report.py` / `splice_report.py` báo cáo ·
+`base_engine.py` / `base_defaults.py` / `base_drawing.py` / `base_report.py` / `base_gui.py` chân cột ·
 `defaults.py` / `splice_defaults.py` mẫu · `knee_section.py` tiết diện · `scanner.py` quét SAP · `ram_export.py` + `ram_proto.rcnx` xuất RAM · `tests\` kiểm thử.

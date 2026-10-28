@@ -9,6 +9,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import engine as K  # noqa: E402
 import model3d as M  # noqa: E402
 import splice_engine as SE  # noqa: E402
+import base_engine as BE  # noqa: E402
+from base_defaults import BASE as BB, PRESETS as BP, merge as bmerge  # noqa: E402
 from defaults import BASE, PRESETS, merge  # noqa: E402
 from splice_defaults import BASE as SB, PRESETS as SP, merge as smerge  # noqa: E402
 from model3d import v_dot, v_sub  # noqa: E402
@@ -19,6 +21,8 @@ def cases():
         st = merge(BASE, p); yield "knee", st, K.compute(st)
     for p in SP.values():
         st = smerge(SB, p); yield "splice", st, SE.compute(st)
+    for p in BP.values():
+        st = bmerge(BB, p); yield "base", st, BE.compute(st)
 
 
 def test_models_build_and_normals_point_out():
@@ -36,6 +40,7 @@ def test_models_build_and_normals_point_out():
 
 def test_bolt_count_matches_rows():
     for kind, st, R in cases():
+        if kind == "base": continue                            # chân cột: tests/test_base_engine.py
         m = M.build(kind, st, R)
         G = R["G"]
         rows = len(G["rowsE"]) + len(G["rowsI"]) if kind == "knee" else len(G["rowsT"]) + len(G["rowsB"])

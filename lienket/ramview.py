@@ -115,6 +115,10 @@ class RamView(D._BaseView):
     def show_model(self, model: Model | None, hl_tags=(), heat=None):
         if model is not self._model:
             self._planes = {}
+            want = (model.view if model and model.view else (YAW0, PITCH0))
+            if getattr(self, "_view0", None) != want:          # đổi kiểu nút → về góc nhìn mặc định của kiểu đó
+                self.yaw, self.pitch = want
+            self._view0 = want
         self._model = model
         self._hl = set(hl_tags or ())
         self._heat = heat
@@ -143,7 +147,7 @@ class RamView(D._BaseView):
         self._hl = set(tags or ()); self.redraw()
 
     def reset_view(self):
-        self.yaw, self.pitch = YAW0, PITCH0
+        self.yaw, self.pitch = getattr(self, "_view0", None) or (YAW0, PITCH0)
         self.zoom = 1.0; self.pan = [0.0, 0.0]; self.redraw()
 
     # ---------- chuột ----------
