@@ -70,7 +70,8 @@ def test_uplift_anchor_forces_and_rod_strength():
     st = st_one({"N": 200})
     R = BE.compute(st)
     assert all(near(t, 50.0) for t in R["demands"][0]["T"])            # 200 kN / 4 neo
-    Ab = math.pi * 24 ** 2 / 4
+    da = BASE["anchor"]["d"]
+    Ab = math.pi * da ** 2 / 4
     c = chk(R, "anc_t")
     assert near(c["cap"], 0.75 * 0.75 * 500 * Ab / 1e3) and near(c["dem"], 50.0)
     # neo ngoài cánh (DG1): Mpl = Tu·x/B với x = f − d/2 + tf/2, Tu = tổng 2 neo cùng hàng
@@ -100,20 +101,24 @@ def test_large_moment_anchor_tension_matches_dg1():
 
 
 def test_aci_single_anchor_breakout_far_from_edges():
-    st = st_one({"N": 50}, anchor={"nx": 2, "ny": 2}, ped={"N2": 5000, "B2": 5000, "h": 3000, "reinf": False, "cracked": True})
+    st = st_one({"N": 50}, ped={"N2": 5000, "B2": 5000, "h": 3000}, reinf={"T": False, "V": False})
     R = BE.compute(st)
     br = BE.aci_breakout_tension(R["G"], [(0.0, 0.0)], [50e3], 400.0, 25.0, 1.0, True)
     Nb = max(10 * math.sqrt(25) * 400 ** 1.5, 3.9 * math.sqrt(25) * 400 ** (5 / 3))
-    assert near(br["Ncbg"], Nb) and near(br["phiN"], 0.70 * Nb)
+    assert near(br["Ncbg"], Nb)
     assert any(c["id"] == "aci_cb" for c in R["checks"]) and not any(c["id"] == "aci_rt" for c in R["checks"])
 
 
 def test_anchor_reinforcement_replaces_breakout():
-    st = st_one({"N": 100, "V2": 50}, ped={"reinf": True, "AsN": 1000, "AsV": 500, "fyr": 400})
+    st = st_one({"N": 100, "V2": 50}, reinf={"type": "primary", "T": True, "V": True})
     R = BE.compute(st)
     ids = {c["id"] for c in R["checks"]}
     assert "aci_rt" in ids and "aci_cb" not in ids and "aci_rv_0" in ids and "aci_vcb_0" not in ids
-    assert near(chk(R, "aci_rt")["cap"], 0.75 * 400 * 1000 / 1e3)
+    assert near(chk(R, "aci_rt")["dem"], 100e3 / (0.75 * BE.FY_REINF)) and chk(R, "aci_rt")["info"]
+    # supplementary: Condition A → φ = 0.75 thay 0.70
+    R2 = BE.compute(st_one({"N": 100}, reinf={"type": "supplementary", "T": True, "V": False}))
+    R3 = BE.compute(st_one({"N": 100}, reinf={"type": "primary", "T": False, "V": False}))
+    assert near(chk(R2, "aci_cb")["cap"] / chk(R3, "aci_cb")["cap"], 0.75 / 0.70)
 
 
 def test_weld_pure_tension():
@@ -124,10 +129,13 @@ def test_weld_pure_tension():
 
 
 def test_shear_modes():
-    st = st_one({"N": -400, "V2": 80}, shear={"mode": "friction", "mu": 0.55})
+    st = st_one({"N": -400, "V2": 200}, gen={"friction": True})
     R = BE.compute(st)
-    assert near(chk(R, "shear_fric")["cap"], 0.75 * 0.55 * 400)
-    st = st_one({"N": -400, "V2": 80}, shear={"mode": "lug"})
+    Vf = 0.75 * 0.55 * 400
+    assert near(chk(R, "shear_fric")["cap"], Vf)
+    nv = len(R["G"]["anchors"]) // 2                                        # neo không hàn: một nửa số neo chịu cắt
+    assert near(chk(R, "anc_v")["dem"], (200 - Vf) / nv)
+    st = st_one({"N": -400, "V2": 80}, lug={"on": True})
     R = BE.compute(st)
     assert {"lug_bear", "lug_flex", "lug_v", "lug_w"} <= {c["id"] for c in R["checks"]}
     assert not any(c["id"] == "anc_v" for c in R["checks"])
@@ -138,6 +146,9 @@ def test_biaxial_warning_and_presets_run():
     R = BE.compute(st)
     assert any("hai phương" in w for w in R["W"])
     assert {"conc_bear_22", "bp_comp_22"} & {c["id"] for c in R["checks"]} or "bp_size_22" in {c["id"] for c in R["checks"]}
+    st["gen"]["axis"] = "major"
+    R = BE.compute(st)
+    assert not any(c["id"].endswith("_22") for c in R["checks"])
     for p in PRESETS.values():
         R = BE.compute(merge(BASE, p))
         assert R["gov"] is not None and R["geoFail"] == 0
@@ -148,7 +159,8 @@ def test_auto_design():
     st = merge(BASE, {"plate": {"tp": 12}, "anchor": {"d": 16}})
     res = BE.auto_design(st)
     assert res and not res.get("fail") and res["tp"] > 12
-    st["plate"]["tp"], st["anchor"]["d"] = res["tp"], res["d"]
+    import project as PJ
+    PJ.apply_auto("base", st, res)
     R = BE.compute(st)
     assert max(c["ratio"] for c in R["checks"] if c["id"].startswith(("bp_comp", "bp_ten", "anc_", "aci_"))) <= 1.0
 
@@ -161,6 +173,42 @@ def test_model3d_anchor_count():
         m = M.build("base", st, R)
         assert sum(1 for so in m.solids if so.color == M.BOLT) == 2 * len(R["G"]["anchors"])
         assert any(so.color == M.WELD for so in m.solids) and any(so.color == M.END_PLATE for so in m.solids)
+
+
+def test_triangular_and_strain_compatibility():
+    Pc, M, L, W, f, fp = 300e3, 250e6, 650.0, 350.0, 265.0, 13.8
+    r = BE.tri_direction(Pc, M, L, W, f, fp)
+    assert r["case"] == "large"
+    assert near(r["q"] * r["Y"] / 2, Pc + r["Tu"])                    # ΣFy = 0 (tam giác)
+    assert near(r["q"] * r["Y"] / 2 * (L / 2 - r["Y"] / 3) + r["Tu"] * f, M)
+    r = BE.tri_direction(800e3, 40e6, 600.0, 400.0, 240.0, 13.8)       # e ≤ L/6: hình thang
+    assert r["case"] == "small" and near(r["q"], 800e3 / 600 + 6 * 40e6 / 600 ** 2)
+    # tương thích biến dạng: cân bằng lực / mô men của lời giải số (uniaxial và biaxial)
+    st = st_one({"N": -300, "M33": 150, "M22": 40}, gen={"axis": "biaxial"})
+    R = BE.compute(st)
+    G = R["G"]
+    sol = BE.solve_elastic(G, [(a["x"], a["y"]) for a in G["anchors"]], G["Ab"], G["Ec"], 300e3, 150e6, 40e6)
+    assert sol["ok"] and sol["fp"] > 0 and sum(sol["T"]) > 0
+    st = st_one({"N": -300, "M33": 150}, gen={"pressure": "triangular", "compat": True})
+    R = BE.compute(st)
+    assert R["demands"][0]["case33"] == "compat" and R["demands"][0]["Tsum"] > 0
+
+
+def test_asd_offsets_and_options():
+    R1 = BE.compute(st_one({"N": -300, "M33": 100}))
+    R2 = BE.compute(st_one({"N": -300, "M33": 100}, gen={"designCode": "AISC 2010 ASD"}))
+    assert near(chk(R2, "anc_t")["cap"], chk(R1, "anc_t")["cap"] / 1.5)
+    R3 = BE.compute(st_one({"N": -300}, col={"ox": 50}))                  # lệch tâm cột → mô men Pu·ox
+    assert R3["demands"][0]["case33"] in ("small", "large")
+    R4 = BE.compute(st_one({"N": -300, "M33": 100}, plate={"overA2": True, "A2A1": 1.0}))
+    assert near(R4["G"]["sqA"], 1.0)
+    R5 = BE.compute(st_one({"N": 100}, gen={"seismic": True}, reinf={"T": False, "V": False}))
+    R6 = BE.compute(st_one({"N": 100}, reinf={"T": False, "V": False}))
+    assert near(chk(R5, "aci_cb")["cap"], 0.75 * chk(R6, "aci_cb")["cap"])
+    R7 = BE.compute(st_one({"N": 100}, anchor={"layout": "transversal", "nr": 2, "npr": 3, "sr": 70}))
+    assert len(R7["G"]["anchors"]) == 12
+    R8 = BE.compute(st_one({"N": 100}, weld={"outerOnly": True}))
+    assert not any(c["id"] == "w_web" for c in R8["checks"])
 
 
 if __name__ == "__main__":

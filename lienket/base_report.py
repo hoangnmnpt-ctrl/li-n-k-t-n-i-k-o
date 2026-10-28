@@ -30,57 +30,58 @@ GEO_EN = [
     ("Bước neo phương N", "Anchor spacing (N direction)"),
     ("Bước neo phương B", "Anchor spacing (B direction)"),
     ("Khoảng hở tâm neo", "Anchor clearance to column steel"),
-    ("Cạnh long đen", "Plate washer size"),
-    ("Bề dày long đen", "Plate washer thickness"),
-    ("Khoảng cách neo tới mép bệ", "Anchor edge distance to pedestal"),
+    ("Khoảng cách neo tới mép gối", "Anchor edge distance to support"),
+    ("Chiều dài móc", "Hook length"),
     ("Chiều sâu chôn", "Embedment depth hef"),
-    ("Bệ nhô ra ngoài bản đế", "Pedestal projection beyond base plate"),
+    ("Gối nhô ra ngoài bản đế", "Support projection beyond base plate"),
     ("Hàn góc cánh cột", "Weld size (column flanges)"),
     ("Hàn góc bụng cột", "Weld size (column web)"),
     ("Chiều cao chôn H", "Shear lug embedment"),
     ("Hàn bản chắn", "Weld size (shear lug)"),
 ]
-DIR_EN = {"33": "major axis", "22": "minor axis"}
+DIR_EN = {"33": "major axis", "22": "minor axis", "bi": "biaxial"}
 
 
 def check_en(cid: str, c: dict) -> tuple[str, str, int]:
     """id kiểm tra → (nhóm RAM, tên RAM, thứ tự nhóm)."""
-    m = re.fullmatch(r"(conc_bear|bp_size|bp_comp)_(\d\d)", cid)
+    m = re.fullmatch(r"(conc_bear|conc_eff|bp_size|bp_comp)_(\d\d|bi)", cid)
     if m:
         k, ax = m[1], DIR_EN[m[2]]
         if k == "conc_bear": return "Concrete support", f"Concrete bearing ({ax})", 20
+        if k == "conc_eff": return "Concrete support", f"Concrete bearing on effective area ({ax})", 20
         if k == "bp_size": return "Concrete support", f"Base plate size for large moment ({ax})", 20
         return "Base plate", f"Flexural yielding - bearing interface ({ax})", 10
     simple = {
         "bp_ten": ("Base plate", "Flexural yielding - tension interface", 10),
         "anc_t": ("Anchors (AISC 360)", "Tensile strength", 30), "anc_v": ("Anchors (AISC 360)", "Shear strength", 30),
         "anc_tv": ("Anchors (AISC 360)", "Tensile strength with shear (interaction)", 30),
-        "aci_sa": ("Anchors (ACI 318-11 App. D)", "Steel strength in tension", 40),
-        "aci_cb": ("Anchors (ACI 318-11 App. D)", "Concrete breakout strength in tension", 40),
-        "aci_rt": ("Anchors (ACI 318-11 App. D)", "Anchor reinforcement in tension", 40),
-        "aci_pn": ("Anchors (ACI 318-11 App. D)", "Pullout strength", 40),
-        "aci_vsa": ("Anchors (ACI 318-11 App. D)", "Steel strength in shear", 41),
-        "aci_cp": ("Anchors (ACI 318-11 App. D)", "Concrete pryout strength", 41),
-        "aci_int": ("Anchors (ACI 318-11 App. D)", "Tension and shear interaction", 42),
-        "shear_fric": ("Shear transfer", "Friction", 50),
+        "aci_sa": ("Anchors (ACI 318)", "Steel strength in tension", 40),
+        "aci_cb": ("Anchors (ACI 318)", "Concrete breakout strength in tension", 40),
+        "aci_rt": ("Anchors (ACI 318)", "Tension reinforcement - required area", 40),
+        "aci_pn": ("Anchors (ACI 318)", "Pullout strength", 40),
+        "aci_vsa": ("Anchors (ACI 318)", "Steel strength in shear", 41),
+        "aci_cp": ("Anchors (ACI 318)", "Concrete pryout strength", 41),
+        "aci_int": ("Anchors (ACI 318)", "Tension and shear interaction", 42),
+        "shear_fric": ("Shear transfer", "Friction between base plate and support", 50),
         "lug_bear": ("Shear lug", "Concrete bearing on shear lug", 55), "lug_flex": ("Shear lug", "Flexural yielding", 55),
         "lug_v": ("Shear lug", "Shear yielding", 55), "lug_w": ("Shear lug", "Weld capacity", 55),
         "w_fl": ("Column", "Weld capacity (flanges)", 60), "w_web": ("Column", "Weld capacity (web)", 60),
     }
     if cid in simple: return simple[cid]
     m = re.fullmatch(r"aci_sb([+-][xz])", cid)
-    if m: return "Anchors (ACI 318-11 App. D)", f"Side-face blowout ({m[1]} edge)", 40
+    if m: return "Anchors (ACI 318)", f"Side-face blowout ({m[1]} edge)", 40
     m = re.fullmatch(r"aci_(vcb|rv)_(\d)", cid)
     if m:
         lab = "V2" if m[2] == "0" else "V3"
-        return ("Anchors (ACI 318-11 App. D)", f"Concrete breakout strength in shear ({lab})" if m[1] == "vcb"
-                else f"Anchor reinforcement in shear ({lab})", 41)
+        return ("Anchors (ACI 318)", f"Concrete breakout strength in shear ({lab})" if m[1] == "vcb"
+                else f"Shear reinforcement - required area ({lab})", 41)
     return c["grp"], c["name"], 99
 
 
 def build(S: dict, R: dict, file_name: str = "") -> dict:
     G = R["G"]; c = G["col"]; an = S["anchor"]; ped = S["ped"]
-    code = S.get("gen", {}).get("designCode", "AISC 2010 LRFD").replace("AISC 2010", "AISC 360-10").replace("AISC 2016", "AISC 360-16")
+    code = (S.get("gen", {}).get("designCode", "AISC 2010 LRFD").replace("AISC 2010", "AISC 360-10").replace("AISC 2016", "AISC 360-16")
+            + " · " + S.get("gen", {}).get("concCode", "ACI 318-11"))
     demands = [[d["name"], _num(-d["N"]), _num(d["V2"]), _num(d["V3"]), _num(d["M33"]), _num(d["M22"]), _num(d["Tmax"]),
                 CASE_EN.get(d["case33"], d["case33"]), "Design"] for d in R["demands"]]
     geo = {}
@@ -92,11 +93,12 @@ def build(S: dict, R: dict, file_name: str = "") -> dict:
     for ch in R["checks"]:
         grp, name, rk = check_en(ch["id"], ch)
         checks.setdefault(grp, []).append([name, f"[{UNIT_EN.get(ch['unit'], ch['unit'])}]", _num(ch["cap"]), _num(abs(ch["dem"])),
-                                           ch["combo"], _num(ch["ratio"]), ch["ref"], ch["ratio"], ch["info"]])
+                                           ch["combo"], "--" if ch["info"] else _num(ch["ratio"]), ch["ref"], ch["ratio"], ch["info"], ch["id"]])
         rank[grp] = min(rank.get(grp, 999), rk)
     order = sorted(checks, key=lambda g: (rank[g], g))
     gov = R["gov"]
-    shear = {"friction": "Friction (base plate on grout)", "anchors": "Anchor rods", "lug": "Shear lug"}.get(S["shear"]["mode"], S["shear"]["mode"])
+    gen = S.get("gen", {})
+    shear = ("Shear lug" if S["lug"].get("on") else "Anchors") + (" + friction" if gen.get("friction") else "")
     return dict(
         date=datetime.datetime.now().strftime("%m/%d/%Y %I:%M %p").lstrip("0"), file=file_name,
         name=S.get("name", ""), family="Column base (CB)", type="Base plate", code=code,
@@ -104,11 +106,15 @@ def build(S: dict, R: dict, file_name: str = "") -> dict:
         members=[
             ("Column", f"{c['text']}  ({S['col']['mat']})"),
             ("Base plate", f"{G['N']:g} x {G['B']:g} x {G['tp']:g} mm  ({S['plate']['mat']})"),
-            ("Anchors", f"{len(G['anchors'])} x M{an['d']} grade {G['am']['name']} (Fu = {G['am']['Fu']:g} MPa), hef = {float(an['hef']):g} mm, "
-                        f"layout {G['nx']} x {G['ny']} (perimeter), ex = {float(an['ex']):g}, ey = {float(an['ey']):g} mm"),
-            ("Concrete support", f"Pedestal {G['N2']:g} x {G['B2']:g} x {G['ha']:g} mm, f'c = {float(ped['fc']):g} MPa, "
-                                 f"{'cracked' if ped.get('cracked', True) else 'uncracked'}, grout {G['grout']:g} mm"
-                                 + (", anchor reinforcement" if ped.get("reinf") else "")),
+            ("Anchors", f"{len(G['anchors'])} x M{an['d']} {G['am']['name']} ({'Headed' if an.get('type') != 'hooked' else 'Hooked'}), "
+                        f"hef = {float(an['hef']):g} mm, {an.get('layout', 'longitudinal').capitalize()} position, "
+                        f"{an.get('nr', 1)} row(s) per side x {an.get('npr', 2)}, edge {float(an['ex']):g} / {float(an['ey']):g} mm"
+                        + (", cracked concrete" if an.get("cracked", True) else "")),
+            ("Support", f"{'Pedestal' if ped.get('isPed', True) else 'Footing'} {G['N2']:g} x {G['B2']:g} x {G['ha']:g} mm, {ped.get('mat', '')} "
+                        f"(f'c = {float(ped['fc']):g} MPa)" + (f", grout {G['grout']:g} mm" if G["grout"] > 0 else "")),
+            ("Analysis", {"major": "Major axis", "minor": "Minor axis", "both": "Both axes", "biaxial": "Biaxial"}.get(gen.get("axis", "both"), "")
+                         + f", {gen.get('pressure', 'uniform').capitalize()} pressure distribution"
+                         + (", strain compatibility" if gen.get("compat") else "")),
             ("Shear transfer", shear),
         ],
     )

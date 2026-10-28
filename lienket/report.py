@@ -138,7 +138,7 @@ def build(S: dict, R: dict, file_name: str = "") -> dict:
         grp, name, ref = CHECK_EN.get(c["id"], (c["grp"], c["name"], c["ref"]))
         if isN and grp == "Beam": grp = "Column (end plate member)"
         checks.setdefault(grp, []).append([name + (" (stiffened)" if c["info"] else ""), f"[{UNIT_EN.get(c['unit'], c['unit'])}]",
-                                           _num(c["cap"]), _num(abs(c["dem"])), c["combo"], _num(c["ratio"]), ref, c["ratio"], c["info"]])
+                                           _num(c["cap"]), _num(abs(c["dem"])), c["combo"], _num(c["ratio"]), ref, c["ratio"], c["info"], c["id"]])
     keys = list(CHECK_EN)
     idx = {(CHECK_EN[k][0], CHECK_EN[k][1]): i for i, k in enumerate(keys)}
     for gname, rows in checks.items():

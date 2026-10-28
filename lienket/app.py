@@ -542,7 +542,7 @@ class App(ctk.CTk):
             t.insert("end", "CONCRETE SUPPORT\n", "h")
             t.insert("end", f"Pedestal : {ped['N2']:g} × {ped['B2']:g} × {ped['h']:g}\nf'c : {float(ped['fc']):g} MPa · vữa {ped['grout']:g} mm\n", "r")
             import base_engine as BE
-            tpl, con = "BP CB - " + BE.SHEAR_MODE.get(st["shear"]["mode"], ""), "Base plate (AISC DG1 + ACI 318 App. D)"
+            tpl, con = "BP CB - " + BE.AXES.get(st["gen"].get("axis"), ""), "Base plate (AISC DG1 + " + st["gen"].get("concCode", "ACI 318-11") + ")"
         else:
             same = st["beam2"].get("same", True)
             t.insert("end", "LEFT BEAM\n", "h")
@@ -830,7 +830,7 @@ class App(ctk.CTk):
             messagebox.showwarning("Smart connection", "Không tính được phương án nào — kiểm tra lại số liệu."); return
         PJ.apply_auto(j["kind"], st, res)
         self.project.update(j["id"], st); self.refresh(); self.select(j["id"])
-        msg = (f"tp = {res['tp']} mm, neo M{res['d']} — D/C (bản đế, neo) = {res['ratio']:.2f}" if j["kind"] == "base"
+        msg = (f"Bản đế {res['N']:g}×{res['B']:g}×{res['tp']:g}, neo M{res['d']} hef {res['hef']:g} — D/C = {res['ratio']:.2f}" if j["kind"] == "base"
                else f"tp = {res['tp']} mm, bu lông M{res['d']} — D/C (bản, bu lông) = {res['ratio']:.2f}")
         if res.get("fail"):
             messagebox.showwarning("Smart connection", "Không có phương án đạt trong dải thử.\nPhương án tốt nhất: " + msg)

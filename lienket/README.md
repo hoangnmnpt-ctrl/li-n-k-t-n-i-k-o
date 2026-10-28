@@ -115,37 +115,51 @@ DG39 (2023) Table 5-2 bỏ số hạng −1/2 của 2FU, nên Y(DG39) cao hơn Y
 
 ## CHÂN CỘT (CB — Column base, bản đế + bu lông neo)
 
-Tương đương RAM Connection *Base plate*. Tạo: Home → New → *Column top and base* → **Column base**. Nhấp đúp thẻ để mở Connection Pad
-(form theo thứ tự RAM: General information → Members → Base plate → Anchors → Concrete support → Shear transfer).
+Tương đương RAM Connection *Base plate*. Tạo: Home → New → *Column top and base* → **Column base**. Nhấp đúp thẻ để mở Connection Pad.
+Form giữ đúng các mục và tên trường của RAM (tiếng Anh), rê chuột lên nhãn để xem chú thích tiếng Việt:
+
+| Mục RAM | Trường |
+|---|---|
+| General information · Analysis | Loads · Analysis axis (Major / Minor / Both axes / Biaxial) · Pressure distribution (Uniform / Triangular) · Consider strain compatibility |
+| General information · Design criteria | Steel design code (AISC 2010/2016 LRFD/ASD) · Concrete design code (ACI 318-08/11/14) · Seismic provisions · Bearing stress calculation (Complete / Effective area) · Include friction between base plate and support |
+| General information · Optimization criteria | Optimize thickness (max, min, increment) · longitudinal / transversal dimension (max / min distance to plate edge, increment) · anchor diameter · minimum hef · Keep anchor position |
+| Members · Column | Column type · Section · Material · Longitudinal / Transversal offset |
+| Base plate · Base plate | Plate shape · Connection type · Position on the support · N · B · Thickness · Material · Column weld · Outer welds flanges only · D · Override A2/A1 · Include shear lug |
+| Base plate · Support | With pedestal · Longitudinal / Transversal dimension · Thickness · Material · Include grouting |
+| Base plate · Anchor | Anchor position (Longitudinal / Transversal) · Rows number per side · Anchors per row · edge distances · Anchor type (Headed / Hooked) · Head type · Include lock nut · Anchor · hef · Material · Cracked concrete · Brittle steel · Anchors welded to base plate |
+| Base plate · Anchor reinforcement | Type (Primary / Supplementary) · Tension reinforcement · Shear reinforcement |
+
+**Results**: cửa sổ theo form báo cáo RAM (tiếng Anh) — Demands, Geometric considerations, Design check (Verification · Unit · Capacity ·
+Demand · Ctrl EQ · Ratio · References), Global critical strength ratio. Nhấp một dòng Design check → diễn giải công thức tiếng Việt ở khung dưới,
+bộ phận liên quan sáng trên hình 3D. Dùng chung cho knee và nối dầm.
 
 ### Quy ước
-N > 0 kéo (nhổ), N < 0 nén (như SAP) · V2 theo phương N (chiều cao tiết diện cột, x) · V3 theo phương B (bề rộng cánh, z) ·
-M33 > 0 → mép +x (phía cánh trên +2) chịu nén · M22 > 0 → mép +z chịu nén. Nhập kN, kN·m, mm. Neo đặt theo lưới nx × ny (chỉ chu vi), cách mép bản ex / ey.
+N > 0 kéo (nhổ), N < 0 nén (như SAP) · V2 theo phương N (x) · V3 theo phương B (z) · M33 > 0 → mép +x (phía cánh trên +2) chịu nén ·
+M22 > 0 → mép +z chịu nén. Nội lực tại tâm cột (lệch tâm cột cộng Pu·offset vào mô men quanh tâm bản). Nhập kN, kN·m, mm.
 
-### Các kiểm tra (theo từng tổ hợp, lấy bất lợi nhất)
-- **Bê tông**: ép mặt fp ≤ φc·0.85f'c·√(A2/A1) (J8, DG1 §3.1/3.3); mô men lớn: điều kiện có nghiệm DG1 Eq. 3.4.4 (q,req ≤ qmax).
-- **Bản đế**: uốn phía ép (DG1 3.3.14/3.3.15; nén đúng tâm theo §3.1 có λn'), uốn phía kéo (neo ngoài cánh: Tu·x/B; neo giữa hai cánh / cạnh mép cánh: phân bố 45°, b = 2a).
-- **Neo (AISC J3)**: kéo φ0.75Fu·Ab·0.75, cắt (0.40Fu / 0.50Fu; AISC 2016: 0.45Fu / 0.563Fu), kéo + cắt J3-3a.
-- **Neo trong bê tông (ACI 318-11 App. D)**: thép kéo / cắt (Ase), phá vỡ hình nón khi kéo (nhóm neo, ψec, ψed, ψc, h'ef khi ≥ 3 mép gần), nhổ tuột (Abrg đai ốc nặng / bản đầu neo),
-  nổ mặt bên, phá vỡ khi cắt về phía mép (hàng neo trước, ψh, cấu kiện hẹp), cạy (pryout), tương tác D.7.
-  Tuỳ chọn **Anchor reinforcement**: thay phá vỡ bê tông bằng kiểm tra cốt thép neo φ0.75·As·fy (D.5.2.9, D.6.2.9).
-- **Truyền cắt**: ma sát 0.75·μ·Pu (DG1 §3.5.1) · neo · bản chắn cắt (ép mặt 0.65·1.3f'c·A_brg theo ACI 349-06, uốn, cắt, hàn).
-- **Hàn cột – bản đế**: phương pháp đàn hồi trên chu vi hàn (cánh, bụng); *Column finished to bear* → lực nén truyền bằng tì ép.
-- **Cấu tạo**: bản nhô, mép bản (J3.4), bước neo ≥ 4d (D.8.1), khoảng hở neo – thép cột, long đen tấm (DG1 Table 2.3), khoảng cách neo tới mép bệ (D.8.2), hef ≤ h − 50, hàn tối thiểu (J2.4).
-- **Smart connection / Optimize**: tp nhỏ nhất đạt bản đế, rồi đường kính neo nhỏ nhất đạt các kiểm tra neo.
+### Phương pháp
+- **Uniform**: DG1 §3.3 (mô men nhỏ / lớn, điều kiện có nghiệm Eq. 3.4.4). **Triangular**: hình thang (e ≤ L/6) → tam giác không kéo neo → tam giác fp,max + neo kéo.
+  **Strain compatibility / Biaxial**: bản cứng, mặt phẳng biến dạng, bê tông Ec = 4700√f'c chỉ nén, neo Es chỉ kéo — giải số (Newton).
+- **Both axes**: kiểm tra độc lập từng phương, lực neo góc cộng tuyến tính. **Major / Minor**: bỏ M22, V3 / M33, V2.
+- **Effective area**: vùng cách thép cột ≤ c = tp·√(φFy/(2fp,max)) — cách tiếp cận của tool, cần đối chiếu RAM.
+- Bản đế: uốn phía ép (DG1 3.3.14/15, tuyến tính khi Triangular), phía kéo (neo ngoài cánh Tu·x/B; neo giữa cánh 45°).
+- Neo AISC J3 (Fnt = 0.75Fu, Fnv = 0.40Fu / 0.45Fu 2016), J3.7. ACI: thép, phá vỡ kéo / cắt, nhổ tuột (headed / hooked), nổ mặt bên, pryout, D.7;
+  Brittle steel φ 0.65/0.60; Seismic ×0.75 (318-08: mọi chế độ; 318-11/14: chế độ bê tông);
+  Primary reinforcement: thay phá vỡ bê tông, báo As yêu cầu (fy = 420 MPa); Supplementary: Condition A φ = 0.75.
+- Cắt: neo (hàn vào bản đế: mọi neo; không hàn: một nửa) hoặc bản chắn cắt; Include friction giảm lực cắt 0.75·0.55·Pu. ASD: φRn/1.5.
+- Hàn cột – bản đế: đàn hồi trên chu vi hàn (Outer welds flanges only: chỉ mặt ngoài cánh), lực nén truyền bằng tì ép.
 
 ### Kiểm chứng
-`python lienket\tests\test_base_engine.py` — cân bằng lực DG1 (mô men nhỏ / lớn), nén đúng tâm (λ, DG1 Eq. 3.1.7), nhổ, lực kéo neo, phá vỡ ACI một neo,
-cốt thép neo, hàn, ba cách truyền cắt, hai phương, các mẫu đều đạt, tự chọn, mô hình 3D.
+`python lienket\tests\test_base_engine.py` — cân bằng DG1 uniform / triangular, nén đúng tâm (λ), nhổ, tương thích biến dạng & biaxial, ACI một neo,
+cốt thép neo primary / supplementary, seismic, ASD, lệch tâm, layout ngang, hàn, ma sát, tối ưu, mô hình 3D.
 
 ### Giới hạn hiện tại
-- **Chưa** đối chiếu số với file RAM Connection Base plate — cần anh/chị gửi một ví dụ RAM (file .rcnx hoặc báo cáo) để so từng dòng.
-- Mô men hai phương: kiểm tra độc lập từng phương (DG1), lực neo góc cộng tuyến tính — gần đúng. Chưa có sườn bản đế, cột hộp / ống, neo chôn sau (post-installed).
-- Chưa xét uốn neo qua lớp vữa dày > 50 mm, phá vỡ bê tông do bản chắn cắt, chiều dài neo của cốt thép neo (có cảnh báo).
+- **Chưa** đối chiếu số với file RAM Base plate — cần một ví dụ RAM (.rcnx hoặc báo cáo) để so từng dòng.
+- Chưa có: bản đế có sườn (Stiffened), hình dạng bản khác chữ nhật, cột hộp / ống, neo chôn sau; uốn neo qua vữa > 50 mm, phá vỡ bê tông do bản chắn cắt (có cảnh báo).
 - Chưa xuất `.rcnx` cho chân cột, chưa lấy nội lực chân cột trực tiếp từ SAP2000 (dán từ Excel ở bảng Loads).
 
 ## Tệp
 `app.py` cửa sổ chính · `newjoint.py` New joint · `project.py` dự án · `knee_gui.py` / `splice_gui.py` cửa sổ thiết kế ·
 `engine.py` / `splice_engine.py` lõi tính · `model3d.py` mô hình 3D + `ramview.py` khung xem 3D kiểu RAM · `drawing.py` / `splice_drawing.py` / `view3d.py` hình · `report.py` / `splice_report.py` báo cáo ·
-`base_engine.py` / `base_defaults.py` / `base_drawing.py` / `base_report.py` / `base_gui.py` chân cột ·
+`base_engine.py` / `base_defaults.py` / `base_drawing.py` / `base_report.py` / `base_gui.py` chân cột · `results_view.py` cửa sổ Results ·
 `defaults.py` / `splice_defaults.py` mẫu · `knee_section.py` tiết diện · `scanner.py` quét SAP · `ram_export.py` + `ram_proto.rcnx` xuất RAM · `tests\` kiểm thử.

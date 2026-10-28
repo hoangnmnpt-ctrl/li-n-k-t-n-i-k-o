@@ -6,24 +6,31 @@ import copy
 
 BASE = {
     "name": "CB-01",
-    "gen": {"designCode": "AISC 2010 LRFD"},
-    # cột tại chân (đầu I của phần tử SAP); tiết diện I tổ hợp theo quy cách của tool
-    "col": {"sec": "400.8-200.12", "mat": "Q345", "L": 6.0, "jointEnd": "I"},
+    # Analysis + Design criteria (như RAM)
+    "gen": {"designCode": "AISC 2010 LRFD", "concCode": "ACI 318-11", "seismic": False, "bearCalc": "complete", "friction": False,
+            "axis": "both", "pressure": "uniform", "compat": False},
+    # cột tại chân (đầu I của phần tử SAP); ox / oz: lệch tâm cột so với tâm bản đế (Longitudinal / Transversal offset)
+    "col": {"sec": "400.8-200.12", "mat": "Q345", "L": 6.0, "jointEnd": "I", "ox": 0.0, "oz": 0.0},
     # bản đế: N dọc chiều cao tiết diện cột (phương x, uốn M33), B theo bề rộng cánh (phương z, uốn M22)
-    "plate": {"N": 650, "B": 350, "tp": 40, "mat": "Q345"},
-    # bệ bê tông (đồng tâm với bản đế) + lớp vữa
-    "ped": {"N2": 850, "B2": 550, "h": 800, "fc": 25.0, "grout": 50, "cracked": True, "lw": 1.0,
-            "reinf": True, "fyr": 400, "AsN": 1608, "AsV": 804},       # cốt thép neo: As kéo (8Ø16), As cắt (4Ø16)
-    # neo: lưới nx × ny (chỉ các neo trên chu vi lưới), khoảng cách từ tâm neo tới mép bản ex (phương N) / ey (phương B)
-    "anchor": {"grade": "5.6", "d": 24, "nx": 2, "ny": 2, "ex": 60, "ey": 60, "hef": 400, "head": "hex", "plateB": 60,
-               "washer": 76, "washerT": 10, "thread": "N", "shearAll": True, "torqued": False},
-    # cỡ hàn nhập theo RAM: D (1/16 in); engine dùng w (mm) = D × 1.5875
-    "weld": {"electrode": "E70XX", "fl": {"D": 5, "w": 7.9375}, "web": {"D": 4, "w": 6.35}},
-    # truyền lực cắt: friction (ma sát) · anchors (neo) · lug (bản chắn cắt)
-    "shear": {"mode": "anchors", "mu": 0.55},
-    "lug": {"bl": 200, "H": 150, "tl": 20, "mat": "Q345", "D": 6, "w": 9.525},
-    "opt": {"aci": True, "bear": True, "sheared": True},
-    # N > 0 kéo (nhổ) · V2 dọc phương N (cánh cột) · V3 dọc phương B · M33 > 0: mép +x (phải) chịu nén · M22 > 0: mép +z chịu nén
+    # pos: vị trí bản trên gối (center | custom: px, pz = lệch tâm bản so với tâm gối); A2A1: tỷ số A2/A1 tự nhập
+    "plate": {"N": 650, "B": 350, "tp": 40, "mat": "Q345", "shape": "rect", "ctype": "unstiffened",
+              "pos": "center", "px": 0.0, "pz": 0.0, "overA2": False, "A2A1": 4.0},
+    # gối bê tông: bệ (pedestal) hoặc móng; mat → f'c (Custom: nhập f'c); lớp vữa
+    "ped": {"isPed": True, "N2": 850, "B2": 550, "h": 800, "mat": "C25/30", "fc": 25.0, "groutOn": True, "grout": 50},
+    # neo (Anchor position): longitudinal (hàng neo ở hai đầu theo phương N) | transversal (hai đầu theo phương B)
+    "anchor": {"layout": "longitudinal", "nr": 1, "npr": 2, "sr": 80, "ex": 60, "ey": 60,
+               "type": "headed", "head": "hex", "eh": 100, "lockNut": False,
+               "grade": "5.6", "d": 30, "hef": 400, "cracked": True, "brittle": False, "welded": False},
+    # cốt thép neo: primary (anchor reinforcement — thay phá vỡ bê tông, báo As yêu cầu) | supplementary (Condition A, φ = 0.75)
+    "reinf": {"type": "primary", "T": True, "V": True},
+    # một cỡ hàn D (1/16 in) như RAM; outerOnly: chỉ hàn mặt ngoài hai cánh
+    "weld": {"electrode": "E70XX", "D": 5, "outerOnly": False, "fl": {"D": 5, "w": 7.9375}, "web": {"D": 5, "w": 7.9375}},
+    "lug": {"on": False, "bl": 200, "H": 150, "tl": 20, "mat": "Q345", "D": 6, "w": 9.525},
+    # Optimization criteria (như RAM)
+    "opt": {"optTp": True, "tpMin": 10, "tpMax": 80, "tpInc": 2,
+            "optN": True, "optB": True, "pMin": 40, "pMax": 380, "dimInc": 25,
+            "optD": True, "hefMin": 300, "keepPos": "initial"},
+    # N > 0 kéo (nhổ) · V2 dọc phương N · V3 dọc phương B · M33 > 0: mép +x chịu nén · M22 > 0: mép +z chịu nén
     "loads": [
         {"name": "N_max (nén)", "N": -650, "V2": 40, "V3": 0, "M33": 30, "M22": 0},
         {"name": "M_max", "N": -250, "V2": 70, "V3": 0, "M33": 160, "M22": 0},
@@ -44,15 +51,14 @@ def merge(base: dict, over: dict) -> dict:
 
 
 PRESETS = {
-    "Mẫu chân cột ngàm — 4 neo góc": {},
+    "Mẫu chân cột ngàm — 4 neo hai đầu": {},
     "Mẫu chân cột ngàm — 6 neo + bản chắn cắt": {
         "name": "CB-02",
         "col": {"sec": "500.8-250.14"},
         "plate": {"N": 760, "B": 400, "tp": 45},
         "ped": {"N2": 1000, "B2": 650, "h": 900},
-        "anchor": {"d": 30, "nx": 2, "ny": 3, "ex": 65, "ey": 60, "hef": 450, "washer": 76, "washerT": 13},
-        "shear": {"mode": "lug"},
-        "lug": {"bl": 250, "H": 180, "tl": 28, "D": 8},
+        "anchor": {"d": 30, "npr": 3, "ex": 65, "ey": 60, "hef": 450},
+        "lug": {"on": True, "bl": 250, "H": 180, "tl": 28, "D": 8},
         "loads": [
             {"name": "N_max (nén)", "N": -900, "V2": 60, "V3": 0, "M33": 60, "M22": 0},
             {"name": "M_max", "N": -320, "V2": 120, "V3": 0, "M33": 280, "M22": 0},
@@ -64,10 +70,23 @@ PRESETS = {
         "col": {"sec": "350.6-180.10"},
         "plate": {"N": 470, "B": 230, "tp": 20},
         "ped": {"N2": 600, "B2": 400, "h": 700},
-        "anchor": {"d": 22, "nx": 2, "ny": 2, "ex": 160, "ey": 65, "hef": 450, "washer": 64, "washerT": 8},
+        "anchor": {"d": 22, "ex": 160, "ey": 65, "hef": 450, "welded": True},
         "loads": [
             {"name": "N_max (nén)", "N": -420, "V2": 35, "V3": 0, "M33": 0, "M22": 0},
             {"name": "Uplift", "N": 90, "V2": 20, "V3": 8, "M33": 0, "M22": 0},
+        ],
+    },
+    "Mẫu chân cột hai phương — biaxial, phân bố tam giác": {
+        "name": "CB-04",
+        "gen": {"axis": "biaxial", "pressure": "triangular", "compat": True},
+        "col": {"sec": "400.8-250.14"},
+        "plate": {"N": 650, "B": 450, "tp": 40},
+        "ped": {"N2": 900, "B2": 700, "h": 900},
+        "anchor": {"npr": 3, "ex": 60, "ey": 60, "d": 27, "hef": 450, "welded": True},
+        "weld": {"D": 8},
+        "loads": [
+            {"name": "Biaxial 1", "N": -400, "V2": 60, "V3": 30, "M33": 150, "M22": 40},
+            {"name": "Biaxial 2", "N": 80, "V2": 40, "V3": 25, "M33": 60, "M22": 25},
         ],
     },
 }
