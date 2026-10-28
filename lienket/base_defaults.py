@@ -28,7 +28,7 @@ BASE = {
     "weld": {"electrode": "E70XX", "D": 5, "outerOnly": False, "fl": {"D": 5, "w": 7.9375}, "web": {"D": 5, "w": 7.9375}},
     "lug": {"on": False, "bl": 200, "H": 150, "tl": 20, "mat": "Q345", "D": 6, "w": 9.525},
     # Optimization criteria (như RAM)
-    "opt": {"optTp": True, "tpMax": 76.2, "tpMin": 6.35, "tpInc": 3.175,
+    "opt": {"optTp": True, "tpMax": 45, "tpMin": 6, "colRole": "main",
             "optN": True, "pMaxN": 381, "pMinN": 38.1, "optB": True, "pMaxB": 381, "pMinB": 38.1, "dimInc": 25.4,
             "optD": True, "hefMin": 304.8, "keepPos": "initial", "vsaMax": 0.4},
     # N > 0 kéo (nhổ) · V2 dọc phương N · V3 dọc phương B · M33 > 0: mép +x chịu nén · M22 > 0: mép +z chịu nén

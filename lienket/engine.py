@@ -851,7 +851,7 @@ def compute(inp: dict) -> dict:
 
 
 # ─────────────────────────── Tự chọn tp / bu lông ───────────────────────────
-TP_LIST = [10, 12, 14, 16, 18, 20, 22, 25, 28, 30, 32, 36, 40]
+TP_LIST = [6, 8, 10, 12, 14, 16, 18, 20, 22, 25, 30, 35, 40, 45]      # bề dày bản mã khi optimize (mm)
 
 
 def auto_design(inp: dict, dias=(16, 20, 22, 24, 27, 30), tps=TP_LIST, progress: Optional[Callable] = None):

@@ -351,6 +351,10 @@ def base_model(st: dict, R: dict) -> Model:
     if not st["weld"].get("outerOnly"):
         for s in (1, -1):
             weld_bead(m, (ox - d / 2 + tfI, tp, oz + s * tw / 2), (0.0, 0.0, float(s)), up, (d - tfE - tfI, 0.0, 0.0), ww, ("wweb",))
+        # mặt trong hai cánh: từ mép cánh tới mặt bụng, hai bên bụng (chu vi hàn đầy đủ như RAM)
+        for xf, dx, bf in ((ox + d / 2 - tfE, -1.0, c["bfE"]), (ox - d / 2 + tfI, 1.0, c["bfI"])):
+            for z0, z1 in ((oz - bf / 2, oz - tw / 2), (oz + tw / 2, oz + bf / 2)):
+                weld_bead(m, (xf, tp, z0), (dx, 0.0, 0.0), up, (0.0, 0.0, z1 - z0), wf, ("wflange",))
     da = float(an["d"]); wB, wT = G["washer"]
     nuts = 2 if an.get("lockNut") else 1
     for a in G["anchors"]:

@@ -1120,6 +1120,19 @@ def _frange(a, b, s):
     return out
 
 
+COL_ROLES = {"main": "Main column (cột chính)", "gable": "Gable column (cột đầu hồi)"}
+TP_ROLE_MIN = {"main": 14.0, "gable": 12.0}      # bản đế tối thiểu theo loại cột (mm)
+
+
+def tp_candidates(o: dict, hw: float) -> list:
+    """Bề dày bản đế khi optimize: danh sách bản mã (engine.TP_LIST) trong [tpMin, tpMax],
+    ≥ 12 mm (cột đầu hồi) / 14 mm (cột chính) và > hw/50 (hw = chiều cao bụng cột)."""
+    from engine import TP_LIST
+    lo = max(float(o.get("tpMin", 0) or 0), TP_ROLE_MIN.get(o.get("colRole", "main"), 14.0))
+    hi = float(o.get("tpMax", 1e9) or 1e9)
+    return [float(t) for t in TP_LIST if lo - 1e-9 <= t <= hi + 1e-9 and t > hw / 50.0 + 1e-9]
+
+
 def auto_design(inp: dict, dias=tuple(ANCHOR_DIAS), tps=None, progress: Optional[Callable] = None):
     """Theo Optimization criteria của RAM: tìm (N, B, tp) nhẹ nhất đạt các kiểm tra bê tông / bản đế, rồi đường kính neo nhỏ nhất
     (hef tăng dần từ hef,min nếu cần) đạt các kiểm tra neo — riêng Anchor shear phải ≤ opt.vsaMax (mặc định 0.4). Trả về dict(tp, d, N, B, ex, ey, hef, ratio[, fail]) hoặc None."""
@@ -1133,7 +1146,7 @@ def auto_design(inp: dict, dias=tuple(ANCHOR_DIAS), tps=None, progress: Optional
     d, bf = G0["d"], G0["bf"]
     ox, oz = abs(G0["ox"]), abs(G0["oz"])
     if tps is None:
-        tps = _frange(o.get("tpMin", 6.35), o.get("tpMax", 76.2), o.get("tpInc", 3.175)) if o.get("optTp", True) else [G0["tp"]]
+        tps = tp_candidates(o, G0["col"]["hw"]) if o.get("optTp", True) else [G0["tp"]]
     tps = sorted(tps) or [G0["tp"]]
     inc = o.get("dimInc", 25.4)
     projN = _frange(o.get("pMinN", 38.1), o.get("pMaxN", 381), inc)
